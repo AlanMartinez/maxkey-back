@@ -32,7 +32,13 @@ phases:
     workload_forecast: chained=yes, budget_risk=medium, decision_needed=no
     chain_strategy: stacked-to-main
   apply:
-    status: pending
+    status: in-progress
+    engram_topic: sdd/mvp-marketplace/apply-progress
+    completed_prs: [PR0]
+    next_pr: PR1 (feat/mvp-01-domain-foundation, base main)
+repositories:
+  backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
+  frontend: https://github.com/AlanMartinez/maxkey-front.git (separate repo, PR13-PR17; layout amendment pending)
   verify:
     status: pending
   archive:

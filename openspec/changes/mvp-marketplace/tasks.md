@@ -58,10 +58,12 @@ Two independent stacks after PR0, joined by PR18.
 
 **PR0** — `chore/mvp-00-repo-bootstrap` — base: none (first commit) — depends on: — — ~40 lines
 
-- [ ] 0.1 Run `git init`, set default branch to `main`.
-- [ ] 0.2 Create `.gitignore` (`bin/`, `obj/`, `node_modules/`, `.env`, `appsettings.*.local.json`, `.vs/`, `dist/`, `.nuxt/`, `.output/`).
-- [ ] 0.3 Commit `openspec/` and `mock ui/` as the initial commit on `main` (`chore: initial commit (openspec artifacts + UI mock)`).
-- [ ] 0.4 **User action (not sdd-apply)**: configure the git remote (`git remote add origin <url>`) and push `main`.
+- [x] 0.1 Run `git init`, set default branch to `main`.
+- [x] 0.2 Create `.gitignore` (`bin/`, `obj/`, `node_modules/`, `.env`, `appsettings.*.local.json`, `.vs/`, `dist/`, `.nuxt/`, `.output/`).
+- [x] 0.3 Commit `openspec/` and `mock ui/` as the initial commit on `main` (`chore: initial commit (openspec artifacts + UI mock)`). Commit `282668c` on `main`.
+- [ ] 0.4 **User action (not sdd-apply)**: configure the git remote (`git remote add origin <url>`) and push `main`. — user action pending
+
+Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `main` since there is nothing to branch from yet. `chore/mvp-00-repo-bootstrap` is a nominal PR-chain label only; no branch was created for it.
 
 ## Phase 1: Domain
 
