@@ -22,7 +22,7 @@
 
 ```
              ┌──────────────────────────┐   HTTPS (Bearer = Supabase access token)
-             │  frontend/ (Nuxt 3)      │──────────────────────────────┐
+             │  maxkeys-front (Nuxt 3)  │──────────────────────────────┐
              │  @nuxtjs/supabase, Tailwind│                              │
              └──────────┬───────────────┘                              ▼
                         │ OAuth (Google)                  ┌───────────────────────────┐
@@ -61,10 +61,18 @@
 
 ## 3. Solution layout
 
-The proposal's tree is confirmed with four adjustments (rationale inline).
+Two repositories (ADR-18, user decision 2026-09-12). The proposal's backend tree is confirmed with four adjustments (rationale inline); the frontend tree is the proposal's `frontend/` subtree promoted to the root of its own repository.
+
+| Repository | GitHub | Local folder | Owns |
+|---|---|---|---|
+| `maxkeys-back` | `https://github.com/AlanMartinez/maxkey-back.git` | `C:\Personal\Projects\maxkeys-back` | `openspec/` (all SDD artifacts), `Maxkeys.sln`, `src/`, `tests/`, `seed/`, `Dockerfile`, `deploy/` (`fly.toml`, `railway.json`). `main` exists (3 commits) |
+| `maxkeys-front` | `https://github.com/AlanMartinez/maxkey-front.git` | `C:\Personal\Projects\maxkeys-front` | Nuxt 3 app at the repo root. No `openspec/` copy; its README links to `maxkeys-back/openspec/changes/mvp-marketplace/` (specs + this design) as the contract source. `git init -b main` + initial commit happen in the first frontend slice (PR13) |
+
+### Backend repository (`maxkeys-back`)
 
 ```
-maxkeys/
+maxkeys-back/
+├── openspec/                             # SDD artifacts (proposal, specs, design, tasks) — single source of truth for both repos
 ├── Maxkeys.sln
 ├── Directory.Build.props                 # net8.0, nullable, implicit usings, TreatWarningsAsErrors
 ├── src/
@@ -104,9 +112,34 @@ maxkeys/
 │   ├── Maxkeys.Domain.Tests/
 │   ├── Maxkeys.Application.Tests/       # Testcontainers Postgres fixture lives here
 │   └── Maxkeys.Api.Tests/               # WebApplicationFactory + same fixture
-├── frontend/                            # see section 9
 ├── deploy/                              # fly.toml, railway.json (skeletons)
 └── seed/catalog.json                    # operator-maintained catalog seed (ADR-12)
+```
+
+### Frontend repository (`maxkeys-front`)
+
+```
+maxkeys-front/                # Nuxt 3 app at the repo ROOT — no frontend/ prefix
+├── README.md                 # links to maxkeys-back/openspec/changes/mvp-marketplace/ (specs, design section 7) as the API contract source
+├── nuxt.config.ts            # modules: @nuxtjs/supabase (redirect: false), @nuxtjs/tailwindcss; runtimeConfig.public.apiBaseUrl, siteUrl
+├── tailwind.config.ts        # tokens from the mock (section 9)
+├── assets/css/main.css       # font imports (Space Grotesk, Inter), base glass utilities
+├── app.vue                   # AppHeader + <NuxtPage> + CartDrawer + LoginDialog
+├── components/
+│   ├── layout/    AppHeader.vue, AppFooter.vue, LoginDialog.vue
+│   ├── catalog/   HeroCarousel.vue, PlatformFilter.vue, ProductCard.vue, ProductGrid.vue
+│   ├── product/   VariantSelector.vue, TrustBadges.vue
+│   ├── cart/      CartDrawer.vue, CartLine.vue
+│   ├── checkout/  ContactForm.vue, OrderSummary.vue, PayWithMercadoPago.vue
+│   ├── orders/    OrderCard.vue, OrderStatusBadge.vue, KeyReveal.vue
+│   └── ui/        AppButton.vue, AppBadge.vue, Skeleton.vue, EmptyState.vue, ErrorState.vue
+├── composables/   useApi.ts, useAuth.ts, useCart.ts, useCheckout.ts
+├── middleware/    auth.ts                # applied per page via definePageMeta({ middleware: 'auth' })
+├── pages/         index.vue, product/[slug].vue, checkout/index.vue, checkout/result.vue,
+│                  account/orders/index.vue, account/orders/[id].vue, auth/callback.vue
+├── types/api.ts   # DTOs mirrored by hand from design section 7 — the cross-repo contract (ADR-18)
+├── tests/         # Vitest: useCart.spec.ts, useCheckout.spec.ts, VariantSelector.spec.ts
+└── .env.example   # NUXT_PUBLIC_API_BASE_URL, NUXT_PUBLIC_SITE_URL, SUPABASE_URL, SUPABASE_KEY
 ```
 
 ## 4. Domain model
@@ -410,27 +443,11 @@ Base path `/`. All error bodies are RFC 7807 Problem Details (`application/probl
 
 ## 9. Frontend architecture (Nuxt 3)
 
-```
-frontend/
-├── nuxt.config.ts        # modules: @nuxtjs/supabase (redirect: false), @nuxtjs/tailwindcss; runtimeConfig.public.apiBase, siteUrl
-├── tailwind.config.ts    # tokens from the mock (below)
-├── assets/css/main.css   # font imports (Space Grotesk, Inter), base glass utilities
-├── app.vue               # AppHeader + <NuxtPage> + CartDrawer + LoginDialog
-├── components/
-│   ├── layout/    AppHeader.vue, AppFooter.vue, LoginDialog.vue
-│   ├── catalog/   HeroCarousel.vue, PlatformFilter.vue, ProductCard.vue, ProductGrid.vue
-│   ├── product/   VariantSelector.vue, TrustBadges.vue
-│   ├── cart/      CartDrawer.vue, CartLine.vue
-│   ├── checkout/  ContactForm.vue, OrderSummary.vue, PayWithMercadoPago.vue
-│   ├── orders/    OrderCard.vue, OrderStatusBadge.vue, KeyReveal.vue
-│   └── ui/        AppButton.vue, AppBadge.vue, Skeleton.vue, EmptyState.vue, ErrorState.vue
-├── composables/   useApi.ts, useAuth.ts, useCart.ts, useCheckout.ts
-├── middleware/    auth.ts            # applied per page via definePageMeta({ middleware: 'auth' })
-├── pages/         index.vue, product/[slug].vue, checkout/index.vue, checkout/result.vue,
-│                  account/orders/index.vue, account/orders/[id].vue, auth/callback.vue
-├── types/api.ts   # DTOs mirrored from section 7
-└── tests/         # Vitest: useCart.spec.ts, useCheckout.spec.ts, VariantSelector.spec.ts
-```
+**Repository layout.** The Nuxt app lives at the root of `maxkeys-front` (tree in section 3): `nuxt.config.ts`, `app.vue`, `components/`, `composables/`, `pages/`, `middleware/`, `types/`, `tests/` are top-level. Vercel builds from the repo root with no root-directory override.
+
+**Contract source.** The frontend repo carries no `openspec/`. Its README links to `maxkeys-back/openspec/changes/mvp-marketplace/` and `types/api.ts` mirrors the DTOs of design section 7 by hand. Section 7 is the single source of truth; every frontend PR that touches `types/api.ts` cites the section 7 row it mirrors, and every backend PR that changes a DTO lists the affected `types/api.ts` type in its description so the follow-up frontend PR is explicit (ADR-18).
+
+**Backend URL.** `runtimeConfig.public.apiBaseUrl` is fed by `NUXT_PUBLIC_API_BASE_URL` and points at the backend deploy URL (Fly/Railway) in production, `http://localhost:8080` in development.
 
 | Piece | Design |
 |---|---|
@@ -439,7 +456,7 @@ frontend/
 | **`useCheckout`** | `status: idle \| submitting \| redirecting \| error`; `submit(email)` → `POST /checkout/orders` with `lines.map(({variantId, quantity}))` → `sessionStorage['nexo.lastOrderId']` → `window.location.href = initPoint`. `result.vue` polls `GET /checkout/orders/{id}/status` (3s, 20 tries) and clears the cart only when `status !== 'Pending'` or MP query `status=approved` |
 | **`useAuth`** | Wraps `useSupabaseClient()` / `useSupabaseUser()`: `user`, `isLoggedIn`, `signInWithGoogle()` (`redirectTo = ${siteUrl}/auth/callback`), `signOut()`. Email prefill on checkout from `user.email`, editable; `UserId` still linked server-side from the bearer |
 | **`middleware/auth.ts`** | If no `useSupabaseUser()`, save target path in cookie `nexo.redirect` and `navigateTo('/?login=1')` (opens `LoginDialog`). `auth/callback.vue` waits for the user, reads the cookie, navigates. Module `redirect: false` because most pages are public |
-| **`useApi`** | `$fetch.create({ baseURL: apiBase, onRequest: attach Bearer from useSupabaseSession().access_token when present, onResponseError: throw ApiError(problemDetails) })`. Data fetching via `useAsyncData` for SSR-friendly catalog pages |
+| **`useApi`** | `$fetch.create({ baseURL: runtimeConfig.public.apiBaseUrl, onRequest: attach Bearer from useSupabaseSession().access_token when present, onResponseError: throw ApiError(problemDetails) })`. Data fetching via `useAsyncData` for SSR-friendly catalog pages |
 | **States** | Every page renders one of `Skeleton` (pending), `ErrorState` (ApiError with retry), `EmptyState` (no data), content. `OrderStatusBadge` maps the five statuses to token colors; `KeyReveal` renders masked keys with reveal/copy, only when `Delivered` |
 | **Mis compras** | `account/orders/*` pages use `middleware: 'auth'`; detail page shows items and, for `Delivered`, a `KeyReveal` per item |
 
@@ -461,7 +478,8 @@ Secrets marked (S). Local development uses `dotnet user-secrets` for (S) values;
 | `Payments:WebhookEnabled` | `true` | `true`; set `false` to pause (503) | kill switch |
 | `Payments:NotificationUrl` | tunnel URL `/webhooks/mercadopago` | `https://api.<domain>/webhooks/mercadopago` | |
 | `Payments:PublicKey` | — | — | not required for redirect-based Checkout Pro; reserved, unused |
-| `Frontend:BaseUrl` | `http://localhost:3000` | Vercel URL | back_urls + CORS origin |
+| `Frontend:BaseUrl` | `http://localhost:3000` | Vercel production URL | MP `back_urls` target (`/checkout/result`) |
+| `Cors:AllowedOrigins` (array) | `["http://localhost:3000"]` | Vercel production origin + preview origins as needed | Backend CORS allowlist; the frontend is a separate origin because it deploys from `maxkeys-front` (ADR-18). No credentials mode (bearer header) |
 | `Keys:EncryptionKey` (S) | random 32 bytes base64 | separate key | validated at startup |
 | `Keys:CurrentVersion` | `1` | `1` | |
 | `Storage:R2PublicBaseUrl` | `https://<bucket>.r2.dev` or custom domain | custom domain | URL builder only (ADR-12) |
@@ -470,9 +488,11 @@ Secrets marked (S). Local development uses `dotnet user-secrets` for (S) values;
 | `Email:Smtp:Host/Port/UseStartTls/User/Password(S)` | — | provider values | generic SMTP (ADR-08) |
 | `Outbox:PollIntervalSeconds/BatchSize/LeaseSeconds/MaxAttempts` | `5/10/300/8` | same | |
 | `Serilog:MinimumLevel` | `Debug` | `Information` | |
-| Frontend `NUXT_PUBLIC_API_BASE` | `http://localhost:8080` | API URL | |
-| Frontend `SUPABASE_URL`, `SUPABASE_KEY` | dev project anon key | prod anon key | consumed by `@nuxtjs/supabase` |
-| Frontend `NUXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Vercel URL | OAuth `redirectTo` |
+| **`maxkeys-front`** `NUXT_PUBLIC_API_BASE_URL` | `http://localhost:8080` | backend deploy URL (Fly/Railway) | Vercel project env; feeds `runtimeConfig.public.apiBaseUrl` |
+| **`maxkeys-front`** `SUPABASE_URL`, `SUPABASE_KEY` | dev project anon key | prod anon key | Vercel project env; consumed by `@nuxtjs/supabase` |
+| **`maxkeys-front`** `NUXT_PUBLIC_SITE_URL` | `http://localhost:3000` | Vercel production URL | OAuth `redirectTo` |
+
+All rows above the bold `maxkeys-front` rows belong to the backend repository (`appsettings*.json`, user-secrets, Fly/Railway env). The frontend rows live only in `maxkeys-front/.env.example` and the Vercel project settings.
 
 ## 11. Testing strategy
 
@@ -481,7 +501,7 @@ Secrets marked (S). Local development uses `dotnet user-secrets` for (S) values;
 | `Maxkeys.Domain.Tests` | every transition in 4.2 (valid + invalid), `Order.Create` pricing/snapshots, `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`; 3rd flips `Delivered` once), variant mismatch, `Key.AssignTo`, `OutboxEvent` backoff math (`30s * 2^n`, `Failed` at 8) | pure xUnit, `FakeTimeProvider`, no I/O |
 | `Maxkeys.Application.Tests` | `ProcessPaymentNotification`: same request id x3 → one `Paid`, one outbox row; different request ids for same payment → state guard no-op; amount mismatch → ignored; `rejected` on `Pending` → `LastPaymentAttempt*` recorded, still `Pending`, zero outbox rows, then a later `approved` still transitions; `refunded` → log-only, no fields written; `CreateOrder` recompute vs tampered prices, missing email → 422; `AttachKeyToOrderItem`: over-quantity attach → 409, concurrency (two parallel attaches → one 409 then success on retry); outbox claim (two concurrent claimers never claim the same row; expired lease is reclaimable); `KeyCipher` round-trip + column is not plaintext; `OrderDeliveredHandler` email contains all keys once | xUnit + **Testcontainers Postgres** (ADR-09); real `AppDbContext`; `FakePaymentGateway`, `RecordingEmailSender` |
 | `Maxkeys.Api.Tests` | signature validator vectors (valid, tampered `v1`, missing header → 401); `WebhookEnabled=false` → 503; JWT: `Hs256` mode with a locally signed token → 200; JWKS mode with a test key pair served from an in-process endpoint → 200, wrong `aud` → 401; `/admin/*` non-allowlisted → 403, empty allowlist → 403; `/me/orders/{id}` other owner → 404; Problem Details shape for each status | `WebApplicationFactory<Program>` + the same Postgres fixture |
-| `frontend/tests` (Vitest) | `useCart` add/merge/setQuantity clamps/persistence; `useCheckout` request body shape and state machine; `VariantSelector` emits the selected variant | Vitest + `@nuxt/test-utils`, `$fetch` mocked |
+| `maxkeys-front/tests` (Vitest) | `useCart` add/merge/setQuantity clamps/persistence; `useCheckout` request body shape and state machine; `VariantSelector` emits the selected variant | Vitest + `@nuxt/test-utils`, `$fetch` mocked |
 
 Not automated in MVP: MP sandbox end-to-end (manual runbook in the deploy slice), SMTP delivery (LoggingEmailSender in tests).
 
@@ -497,41 +517,43 @@ Not automated in MVP: MP sandbox end-to-end (manual runbook in the deploy slice)
 | Masking | `SensitiveDataPolicy` (section 8); `Auth:Hs256Secret`, tokens, `Payments:*Secret` never logged; MP request/response bodies logged at `Debug` only, with `access_token` redacted |
 | Health | `/health` = Npgsql check; `/health/live` = process only. Fly/Railway health checks use `/health/live` |
 
-**Deployment**
+**Deployment — two repositories, two independent pipelines (ADR-18)**
 
-| Concern | Decision |
-|---|---|
-| Dockerfile | Multi-stage: `mcr.microsoft.com/dotnet/sdk:8.0` restore/publish (`-c Release`) → `mcr.microsoft.com/dotnet/aspnet:8.0`, non-root user, `ASPNETCORE_URLS=http://+:8080`, `EXPOSE 8080` |
-| Migrations | `Maxkeys.Api --migrate` runs `Database.Migrate()` and exits. Fly: `release_command`; Railway: pre-deploy command. Web instances never migrate on start (multi-instance race) |
-| Backend env | Fly `fly.toml` / Railway service with the section-10 keys; secrets via `fly secrets set` / Railway variables |
-| Frontend | Vercel, Nuxt Nitro preset (SSR). Env: `NUXT_PUBLIC_API_BASE`, `SUPABASE_URL`, `SUPABASE_KEY`, `NUXT_PUBLIC_SITE_URL` |
-| CORS | `Frontend:BaseUrl` only; credentials not needed (bearer header) |
+| Concern | Repository | Decision |
+|---|---|---|
+| Backend build | `maxkeys-back` | Fly.io/Railway build from the repo root `Dockerfile`. Multi-stage: `mcr.microsoft.com/dotnet/sdk:8.0` restore/publish (`-c Release`) → `mcr.microsoft.com/dotnet/aspnet:8.0`, non-root user, `ASPNETCORE_URLS=http://+:8080`, `EXPOSE 8080` |
+| Migrations | `maxkeys-back` only | `Maxkeys.Api --migrate` runs `Database.Migrate()` and exits. Fly: `release_command`; Railway: pre-deploy command. Web instances never migrate on start (multi-instance race). The frontend pipeline never touches the database |
+| Backend env | `maxkeys-back` | `deploy/fly.toml` / `deploy/railway.json` with the section-10 backend keys; secrets via `fly secrets set` / Railway variables |
+| Frontend build | `maxkeys-front` | Vercel Git integration on the repo root (no root-directory override), Nuxt Nitro preset (SSR). Env: `NUXT_PUBLIC_API_BASE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`, `NUXT_PUBLIC_SITE_URL`. Preview deployments get their own origin; add them to `Cors:AllowedOrigins` only when needed |
+| CORS | `maxkeys-back` | `Cors:AllowedOrigins` (Vercel production origin, optional preview origins, `http://localhost:3000` in dev); no credentials mode (bearer header) |
+| Release coordination | both | Backend deploys first when a DTO changes (additive fields are backward compatible); the frontend PR mirroring the change follows. No cross-repo PR exists |
 | Rollback | previous image redeploy, `dotnet ef database update <prev>` (additive schema), Vercel instant rollback, `Payments:WebhookEnabled=false` (503 → MP retries), `Auth:Mode` switch; sandbox and production use separate `Payments:AccessToken` / `Payments:WebhookSecret` values so a rollback never mixes environments |
 
 ## 13. Natural PR slice boundaries (input for sdd-tasks)
 
-Estimates are authored lines (additions + deletions); generated EF migration code is excluded from the risk count. Each slice builds and tests green on its own.
+Estimates are authored lines (additions + deletions); generated EF migration code is excluded from the risk count. Each slice builds and tests green on its own. **Two chains, one per repository (ADR-18):** PR1–PR12 and PR18a stack inside `maxkeys-back`; PR13–PR17 and PR18b stack inside `maxkeys-front` (PR13's base is that repo's own initial commit on `main`, created in the same slice). No PR spans both repositories; cross-repo dependencies (e.g. PR16 needs the PR9 endpoints deployed or run locally) are stated in the PR description, not enforced by Git.
 
-| # | Slice | Depends on | Est. lines |
-|---|---|---|---|
-| 1 | Solution skeleton, `Directory.Build.props`, Domain: `Common`, `Catalog`, `Outbox`, `Payments` entities | — | ~250 |
-| 2 | Domain: `Order`, `OrderItem`, `Key`, transitions, `AttachKey`; Domain.Tests | 1 | ~380 |
-| 3 | Infrastructure persistence: `AppDbContext`, configurations, initial migration; Testcontainers fixture | 2 | ~350 (+ generated migration) |
-| 4 | `KeyCipher` + options + tests | 1 | ~150 |
-| 5 | Application: catalog queries, `CreateOrder`, `GetOrderStatus`, `IPaymentGateway` + `FakePaymentGateway` (test), tests | 3 | ~350 |
-| 6 | Application: `ProcessPaymentNotification` (approved / attempt-recorded / ignored branches) + idempotency/replay tests | 5 | ~320 |
-| 7 | Outbox (Application + Infrastructure): `IOutboxHandler`, `OrderApprovedHandler`, **`IEmailSender` + `EmailMessage` + `LoggingEmailSender` (Infrastructure) + `RecordingEmailSender` (test fake)**, operator email template, `OutboxProcessor`, claim query, tests | 3 | ~380 |
-| 8 | Application: `AttachKeyToOrderItem`, `ListOrdersAwaitingFulfillment`, `OrderDeliveredHandler` + buyer email template, `GetMyOrders/GetMyOrder`, tests | 4, 7 | ~380 |
-| 9 | Api skeleton: `Program`, Problem Details handler, Serilog + correlation, health, catalog + checkout endpoints, Dockerfile. **Builds and runs green without MP credentials**: `NotConfiguredPaymentGateway` (Infrastructure) is registered as `IPaymentGateway` when `Payments:AccessToken` is empty and turns `POST /checkout/orders` into a 503 Problem Details; `Email:Sender=Logging` is the default. Slice 11 adds the real gateway and keeps the stub for credential-less dev | 5, 7 | ~360 |
-| 10 | Api auth: `JwtSetup` (JWKS/HS256), `JwksKeyCache`, Admin policy, `OptionalBearerFilter`, `/me` + `/admin` endpoints, Api.Tests | 8, 9 | ~380 |
-| 11 | MP integration: `MercadoPagoGateway`, `SignatureValidator`, webhook endpoint, kill switch, gateway selection by config, tests | 6, 9 | ~350 |
-| 12 | Email + seed: `SmtpEmailSender` (MailKit), `EmailOptions`, sender selection by `Email:Sender`, `CatalogSeeder` + `seed/catalog.json` + `--seed-catalog` flag | 7, 9 | ~260 |
-| 13 | Frontend scaffold: Nuxt config, Tailwind tokens, `useApi`, layout, ui primitives | — | ~350 |
-| 14 | Frontend catalog + product + `VariantSelector` + tests | 13 | ~350 |
-| 15 | Frontend cart: `useCart`, `CartDrawer`, `CartLine`, tests | 13 | ~300 |
-| 16 | Frontend checkout + result page, `useCheckout`, tests | 15 | ~300 |
-| 17 | Frontend auth: `useAuth`, `LoginDialog`, middleware, callback, Mis compras + `KeyReveal` | 14 | ~380 |
-| 18 | Deploy config (`fly.toml`, `railway.json`, Vercel notes), `--migrate` flag, sandbox runbook | 11, 12, 17 | ~200 |
+| # | Repo | Slice | Depends on | Est. lines |
+|---|---|---|---|---|
+| 1 | maxkeys-back | Solution skeleton, `Directory.Build.props`, Domain: `Common`, `Catalog`, `Outbox`, `Payments` entities | — | ~250 |
+| 2 | maxkeys-back | Domain: `Order`, `OrderItem`, `Key`, transitions, `AttachKey`; Domain.Tests | 1 | ~380 |
+| 3 | maxkeys-back | Infrastructure persistence: `AppDbContext`, configurations, initial migration; Testcontainers fixture | 2 | ~350 (+ generated migration) |
+| 4 | maxkeys-back | `KeyCipher` + options + tests | 1 | ~150 |
+| 5 | maxkeys-back | Application: catalog queries, `CreateOrder`, `GetOrderStatus`, `IPaymentGateway` + `FakePaymentGateway` (test), tests | 3 | ~350 |
+| 6 | maxkeys-back | Application: `ProcessPaymentNotification` (approved / attempt-recorded / ignored branches) + idempotency/replay tests | 5 | ~320 |
+| 7 | maxkeys-back | Outbox (Application + Infrastructure): `IOutboxHandler`, `OrderApprovedHandler`, **`IEmailSender` + `EmailMessage` + `LoggingEmailSender` (Infrastructure) + `RecordingEmailSender` (test fake)**, operator email template, `OutboxProcessor`, claim query, tests | 3 | ~380 |
+| 8 | maxkeys-back | Application: `AttachKeyToOrderItem`, `ListOrdersAwaitingFulfillment`, `OrderDeliveredHandler` + buyer email template, `GetMyOrders/GetMyOrder`, tests | 4, 7 | ~380 |
+| 9 | maxkeys-back | Api skeleton: `Program`, Problem Details handler, Serilog + correlation, health, CORS (`Cors:AllowedOrigins`), catalog + checkout endpoints, Dockerfile. **Builds and runs green without MP credentials**: `NotConfiguredPaymentGateway` (Infrastructure) is registered as `IPaymentGateway` when `Payments:AccessToken` is empty and turns `POST /checkout/orders` into a 503 Problem Details; `Email:Sender=Logging` is the default. Slice 11 adds the real gateway and keeps the stub for credential-less dev | 5, 7 | ~370 |
+| 10 | maxkeys-back | Api auth: `JwtSetup` (JWKS/HS256), `JwksKeyCache`, Admin policy, `OptionalBearerFilter`, `/me` + `/admin` endpoints, Api.Tests | 8, 9 | ~380 |
+| 11 | maxkeys-back | MP integration: `MercadoPagoGateway`, `SignatureValidator`, webhook endpoint, kill switch, gateway selection by config, tests | 6, 9 | ~350 |
+| 12 | maxkeys-back | Email + seed: `SmtpEmailSender` (MailKit), `EmailOptions`, sender selection by `Email:Sender`, `CatalogSeeder` + `seed/catalog.json` + `--seed-catalog` flag | 7, 9 | ~260 |
+| 13 | maxkeys-front | Repo bootstrap (`git init -b main`, initial commit with README linking the backend `openspec/` contract, `.env.example`) + Nuxt scaffold: `nuxt.config.ts`, Tailwind tokens, `useApi`, `types/api.ts` (catalog + checkout DTOs from section 7), layout, ui primitives | — (backend PR9 for a live API; mocks otherwise) | ~380 |
+| 14 | maxkeys-front | Catalog + product pages + `VariantSelector` + tests | 13 | ~350 |
+| 15 | maxkeys-front | Cart: `useCart`, `CartDrawer`, `CartLine`, tests | 13 | ~300 |
+| 16 | maxkeys-front | Checkout + result page, `useCheckout`, tests | 15 (backend PR9/PR11 for end-to-end) | ~300 |
+| 17 | maxkeys-front | Auth: `useAuth`, `LoginDialog`, middleware, callback, Mis compras + `KeyReveal`, `types/api.ts` order DTOs | 14 (backend PR10 for end-to-end) | ~380 |
+| 18a | maxkeys-back | Deploy config: `deploy/fly.toml`, `deploy/railway.json`, `--migrate` flag wiring, `Cors:AllowedOrigins` prod values, sandbox runbook (`docs/runbook-sandbox.md`) | 11, 12 | ~180 |
+| 18b | maxkeys-front | Vercel config (`vercel.json` if needed, Nitro preset), `.env.example` finalization, README env docs pointing `NUXT_PUBLIC_API_BASE_URL` at the backend deploy URL | 17 | ~80 |
 
 ## 14. Architecture Decision Records
 
@@ -554,6 +576,7 @@ Estimates are authored lines (additions + deletions); generated EF migration cod
 | **ADR-15** Non-approved MP statuses never change `Status`; `rejected`/`pending`/`in_process` are recorded as the last payment attempt | Only `approved` transitions. `rejected`, `pending`, `in_process` on a `Pending` order call `Order.RecordPaymentAttempt` (writes `LastPaymentAttemptId/Status/At`, no outbox row). All other statuses (`refunded`, `charged_back`, `cancelled`, `authorized`, unknown) hit the generic log-only branch | `rejected → Cancelled`; treating every non-approved status as a silent ignore | Checkout Pro lets the buyer retry the same preference after a rejection, so cancelling would strand a payable order. Recording the attempt keeps the order observable (operator support, result page) without inventing a state. Refunds/chargebacks stay fully out of scope, hence log-only |
 | **ADR-16** Snake_case naming convention | `EFCore.NamingConventions` | EF defaults (PascalCase quoted identifiers) | Raw claim SQL and psql operations read naturally |
 | **ADR-17** `TimeProvider` for time | Inject BCL `TimeProvider`; `FakeTimeProvider` in tests | Custom `IClock` | BCL type, no new interface |
+| **ADR-18** Two repositories: `maxkeys-back` (`AlanMartinez/maxkey-back`) and `maxkeys-front` (`AlanMartinez/maxkey-front`) | Backend repo owns `openspec/`, solution, tests, seed, Dockerfile, deploy config; frontend repo is the Nuxt app at its root with README linking the backend `openspec/` as contract source; `types/api.ts` mirrors section 7 by hand | Monorepo with `frontend/` subfolder (as originally designed in this document and the proposal) | User decision 2026-09-12. Independent deploy pipelines: Fly/Railway and Vercel each build from a repo root with zero path configuration; frontend PRs never trigger backend CI and vice versa; the two PR chains stay small and reviewable in isolation. **Consequences accepted:** (1) DTO drift risk between section 7 and `types/api.ts` — mitigated by keeping section 7 the single source, citing it in frontend PRs, and listing affected types in backend PRs; (2) CORS is now mandatory (`Cors:AllowedOrigins`), not a same-origin convenience; (3) SDD artifacts (specs, design, tasks) live only in the backend repo, so frontend work references them by link; (4) no atomic cross-repo change — backend deploys first with additive DTO changes |
 
 ## 15. Threat Matrix
 
@@ -561,7 +584,7 @@ N/A — this change adds no routing, shell command, subprocess, VCS/PR automatio
 
 ## 16. Migration / Rollout
 
-No data migration (greenfield). Rollout follows the slice order in section 13 under auto-chain; the auth slice (10) is blocked on the Supabase signing-mode confirmation; the MP slice (11) requires sandbox credentials and a public tunnel for the manual end-to-end run in slice 18.
+No data migration (greenfield). Rollout follows the slice order in section 13 under auto-chain, as two independent chains (backend in `maxkeys-back`, frontend in `maxkeys-front`); the auth slice (10) is blocked on the Supabase signing-mode confirmation; the MP slice (11) requires sandbox credentials and a public tunnel for the manual end-to-end run in slice 18a. The frontend chain can start in parallel with the backend chain and run against mocked responses until PR9 is deployable.
 
 ## 17. Risks and open items
 
@@ -573,6 +596,8 @@ No data migration (greenfield). Rollout follows the slice order in section 13 un
 | Duplicate operator/buyer email on retry after send-but-mark-failed | Low | Accepted at-least-once; noted in ADR-04. **sdd-tasks: carry the `One-Time Delivery Email` spec-wording clarification** |
 | Caps `Order <= 20 items` and `OrderItem.Quantity 1..10` are design-introduced constraints not present in any spec | **Open — spec drift** | Kept (they bound the MP preference size and the admin attach loop). **sdd-tasks must add both caps to the cart-checkout spec** as 422 scenarios |
 | `LastPaymentAttempt*` fields and `lastPaymentAttemptStatus` in the status response are additive to the proposal's data model | Low | Required by the payments-webhook `Rejected Payment Handling` requirement; three nullable columns in the initial migration |
+| **Frontend/backend contract drift** (`maxkeys-front/types/api.ts` vs backend DTOs) now that the repos are separate | Medium | Section 7 is the single source of truth; frontend PRs cite the section 7 row they mirror; backend PRs that change a DTO list the affected `types/api.ts` types; DTO changes are additive (new optional fields) so the older frontend keeps working; backend deploys first. Rollback: revert the frontend PR independently (Vercel instant rollback) — the backend never depends on frontend types (ADR-18) |
+| CORS misconfiguration blocks the frontend after a Vercel origin change (new custom domain, preview URL) | Low | `Cors:AllowedOrigins` is config, not code; startup log lists the allowed origins; `/health` stays reachable for diagnosis |
 | `Failed` outbox events need manual attention | Low | `Error` log with event id; SQL query; resurrection endpoint is a later change |
 | `Pending` orders accumulate | Accepted | Later cleanup change (`Cancel()` exists) |
 | Email provider account not yet chosen | Low | Generic SMTP (ADR-08); `LoggingEmailSender` until then |
