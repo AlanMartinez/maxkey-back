@@ -22,3 +22,6 @@ appsettings.*.local.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Gentle AI skill registry cache
+.atl/.skill-registry.cache.json
