@@ -1,0 +1,52 @@
+change: mvp-marketplace
+project: maxkeys
+artifact_store: hybrid
+execution_mode: interactive
+delivery_strategy: auto-chain
+review_budget_lines: 400
+created: 2026-09-12
+updated: 2026-09-12
+phases:
+  explore:
+    status: done
+    artifact: exploration.md
+    engram_topic: sdd/mvp-marketplace/explore
+  proposal:
+    status: done
+    artifact: proposal.md
+    engram_topic: sdd/mvp-marketplace/proposal
+  spec:
+    status: done
+    artifact: specs/{catalog,cart-checkout,payments-webhook,outbox-processing,fulfillment,auth,orders-history}/spec.md
+    engram_topic: sdd/mvp-marketplace/spec/{domain}
+  design:
+    status: done
+    artifact: design.md
+    engram_topic: sdd/mvp-marketplace/design
+    gate: fail-then-pass (1 corrective pass; fresh-context validator)
+  tasks:
+    status: done
+    artifact: tasks.md
+    engram_topic: sdd/mvp-marketplace/tasks
+    prs: 19 (PR0 bootstrap + 18 design slices)
+    workload_forecast: chained=yes, budget_risk=medium, decision_needed=no
+    chain_strategy: stacked-to-main
+  apply:
+    status: pending
+  verify:
+    status: pending
+  archive:
+    status: pending
+next_recommended: apply (start PR0 repo bootstrap)
+tasks_carryovers:
+  - add caps (<=20 items, quantity 1..10) to cart-checkout spec as 422 scenarios
+  - clarify fulfillment 'One-Time Delivery Email' wording: one send per Delivered transition, at-least-once via OrderDelivered outbox event
+  - design defines 18 PR slices (design.md section 13), all estimated under 400 lines; auto-chain applies
+decisions:
+  - cart: multi-item with OrderItem (Engram sdd/mvp-marketplace/decision-cart)
+  - delivery: all-or-nothing (Engram sdd/mvp-marketplace/decision-delivery)
+  - auth: JWKS primary, HS256 fallback by config (Engram sdd/mvp-marketplace/decision-auth-jwt)
+open_items:
+  - confirm Supabase JWT signing mode before applying the auth slice
+  - email provider: generic SMTP via MailKit (design ADR-08), concrete provider chosen at deploy
+  - proposal question round confirmed 2026-09-12 (refunds fully out of scope)

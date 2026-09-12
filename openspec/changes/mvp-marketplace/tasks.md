@@ -1,0 +1,248 @@
+# Tasks: MVP Marketplace (Nexo)
+
+Source of truth for scope/design: `proposal.md`, `specs/{domain}/spec.md`, `design.md` (section 13 = PR slices, section 14 = ADRs). Greenfield repo — no source code exists yet.
+
+## Review Workload Forecast
+
+| Field | Value |
+|---|---|
+| Estimated changed lines | ~5,830 authored lines across 19 PRs (generated EF migration code excluded per design section 13) |
+| 400-line budget risk | Medium — no PR exceeds 400, but PR2, PR7, PR8, PR10, PR17 sit at ~380 (20-line margin) |
+| Chained PRs recommended | Yes |
+| Suggested split | PR0 (bootstrap) → PR1‑PR12 (backend, one linear stack) ‖ PR13‑PR17 (frontend, independent parallel stack) → PR18 (deploy, joins both stacks) |
+| Delivery strategy | auto-chain |
+| Chain strategy | stacked-to-main |
+
+```text
+Decision needed before apply: No
+Chained PRs recommended: Yes
+Chain strategy: stacked-to-main
+400-line budget risk: Medium
+```
+
+`auto-chain` + cached `stacked-to-main` ⇒ orchestrator proceeds directly to PR0 with `sdd-apply`; no user decision blocks the start.
+
+### PR Chain Order (authoritative — use this table for branch/base wiring)
+
+Two independent stacks after PR0, joined by PR18.
+
+| PR | Title | Branch | Base branch | Depends on | Est. lines | Phase | Focused test | Runtime harness | Rollback boundary |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | Repo bootstrap | `chore/mvp-00-repo-bootstrap` | — (first commit) | — | ~40 | 0 | none (scaffolding only) | N/A — no runtime yet | delete `.git`, redo `git init` |
+| 1 | Domain foundation | `feat/mvp-01-domain-foundation` | `main` | 0 | ~250 | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "Product|OutboxEvent"` | N/A — no host yet | delete `Maxkeys.Domain/{Common,Catalog,Outbox,Payments}` + `Domain.Tests` |
+| 2 | Order domain | `feat/mvp-02-order-domain` | `feat/mvp-01-domain-foundation` → `main` after PR1 | 1 | ~380 | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter Order` | N/A | delete `Orders/`, `Keys/`; revert cart-checkout spec edit |
+| 3 | EF Core persistence + Testcontainers fixture | `feat/mvp-03-ef-persistence` | `feat/mvp-02-order-domain` → `main` after PR2 | 2 | ~350 (+generated migration) | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter AppDbContext` | `dotnet ef database update` against Testcontainers/`TEST_POSTGRES_CONNECTION` | `dotnet ef database update 0`; delete `Infrastructure/Persistence` |
+| 4 | KeyCipher | `feat/mvp-04-key-cipher` | `feat/mvp-03-ef-persistence` → `main` after PR3 | 1 | ~150 | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` | N/A — pure crypto | delete `Security/KeyCipher*` |
+| 5 | Checkout application | `feat/mvp-05-checkout-application` | `feat/mvp-04-key-cipher` → `main` after PR4 | 3 | ~350 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` | N/A (`FakePaymentGateway`) | delete `Checkout/*`, `Catalog/*` (Application) |
+| 6 | Payment webhook application | `feat/mvp-06-payment-webhook-application` | `feat/mvp-05-checkout-application` → `main` after PR5 | 5 | ~320 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Payments` | N/A (`FakePaymentGateway`) | delete `Payments/ProcessPaymentNotification.cs` |
+| 7 | Outbox processor + email seam | `feat/mvp-07-outbox-processor` | `feat/mvp-06-payment-webhook-application` → `main` after PR6 | 3 | ~380 | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` | run `OutboxProcessor` one poll cycle against Testcontainers | delete `Outbox/*` (Application+Infrastructure), email seam files |
+| 8 | Fulfillment application + orders history | `feat/mvp-08-fulfillment-application` | `feat/mvp-07-outbox-processor` → `main` after PR7 | 4, 7 | ~380 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter "Fulfillment\|Orders"` | N/A (`RecordingEmailSender` fake) | delete `Fulfillment/*`, `OrderDeliveredHandler`, `GetMyOrder(s)`; revert fulfillment spec edit |
+| 9 | API skeleton | `feat/mvp-09-api-skeleton` | `feat/mvp-08-fulfillment-application` → `main` after PR8 | 5, 7 | ~360 | 4 | `dotnet build && dotnet test tests/Maxkeys.Api.Tests --filter Catalog` | `dotnet run --project src/Maxkeys.Api` with empty `Payments:AccessToken`, hit `/health` | delete `src/Maxkeys.Api` (revert to PR8 state) |
+| 10 | API auth | `feat/mvp-10-api-auth` | `feat/mvp-09-api-skeleton` → `main` after PR9 | 8, 9 | ~380 | 4 | `dotnet test tests/Maxkeys.Api.Tests --filter Auth` | `dotnet run` + call `/me/orders` with a real Supabase token | delete `Auth/*`, `Me/Admin` endpoints |
+| 11 | Mercado Pago integration | `feat/mvp-11-mercadopago-integration` | `feat/mvp-10-api-auth` → `main` after PR10 | 6, 9 | ~350 | 5 | `dotnet test tests/Maxkeys.Api.Tests --filter Webhooks` | MP sandbox notification via public tunnel (task 11.6) | revert DI to `NotConfiguredPaymentGateway`; delete `MercadoPago*`, `WebhookEndpoints` |
+| 12 | Email + catalog seed | `feat/mvp-12-email-seed` | `feat/mvp-11-mercadopago-integration` → `main` after PR11 | 7, 9 | ~260 | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Catalog` | `dotnet run -- --seed-catalog seed/catalog.json` against a dev DB | set `Email:Sender=Logging`; delete `SmtpEmailSender`, `CatalogSeeder` |
+| 13 | Frontend scaffold | `feat/mvp-13-frontend-scaffold` | `main` (after PR0; independent of backend stack) | — | ~350 | 6 | `npm run test && nuxi typecheck` | `npm run dev`, load `/` shell | delete `frontend/` |
+| 14 | Frontend catalog + product | `feat/mvp-14-frontend-catalog` | `feat/mvp-13-frontend-scaffold` → `main` after PR13 | 13 | ~350 | 6 | `npm run test -- VariantSelector` | `npm run dev`, browse catalog against a running/mocked API | delete catalog/product pages+components |
+| 15 | Frontend cart | `feat/mvp-15-frontend-cart` | `feat/mvp-14-frontend-catalog` → `main` after PR14 | 13 | ~300 | 6 | `npm run test -- useCart` | `npm run dev`, add/remove items, refresh (persistence) | delete `useCart.ts`, cart components |
+| 16 | Frontend checkout + result | `feat/mvp-16-frontend-checkout` | `feat/mvp-15-frontend-cart` → `main` after PR15 | 15 | ~300 | 6 | `npm run test -- useCheckout` | `npm run dev`, submit checkout against a running API, land on result page | delete `useCheckout.ts`, checkout pages/components |
+| 17 | Frontend auth + orders history | `feat/mvp-17-frontend-auth-orders` | `feat/mvp-16-frontend-checkout` → `main` after PR16 | 14 | ~380 | 6 | `npm run test` (full suite) | `npm run dev`, Google login round-trip against dev Supabase project | delete `useAuth.ts`, `LoginDialog`, auth middleware/callback, orders pages |
+| 18 | Deploy + runbook | `feat/mvp-18-deploy-runbook` | `main` (after PR12 AND PR17 merged) | 11, 12, 17 | ~200 | 7 | `dotnet test && npm run test` | manual sandbox runbook (task 18.5) — real MP sandbox + Supabase user, no automated harness | revert deploy configs; redeploy previous image / Vercel rollback |
+
+**Frontend independence**: PR13‑PR17 have zero dependency on backend PR1‑PR12 — they build/test against mocked `$fetch` and the DTO contract in design section 7, and can be developed/merged in parallel on their own `main`-based stack.
+
+**PR9 credential-less green build**: `NotConfiguredPaymentGateway` (task 9.7) makes PR9 build and run green with no Mercado Pago credentials configured; PR11 swaps in the real gateway without breaking that path.
+
+---
+
+## Phase 0: Repo Bootstrap
+
+**PR0** — `chore/mvp-00-repo-bootstrap` — base: none (first commit) — depends on: — — ~40 lines
+
+- [ ] 0.1 Run `git init`, set default branch to `main`.
+- [ ] 0.2 Create `.gitignore` (`bin/`, `obj/`, `node_modules/`, `.env`, `appsettings.*.local.json`, `.vs/`, `dist/`, `.nuxt/`, `.output/`).
+- [ ] 0.3 Commit `openspec/` and `mock ui/` as the initial commit on `main` (`chore: initial commit (openspec artifacts + UI mock)`).
+- [ ] 0.4 **User action (not sdd-apply)**: configure the git remote (`git remote add origin <url>`) and push `main`.
+
+## Phase 1: Domain
+
+**PR1** — `feat/mvp-01-domain-foundation` — base: `main` — depends on: PR0 — ~250 lines
+
+- [ ] 1.1 Create `Maxkeys.sln`, `Directory.Build.props` (`net8.0`, nullable, implicit usings, `TreatWarningsAsErrors`), `src/Maxkeys.Domain/Maxkeys.Domain.csproj` (BCL only).
+- [ ] 1.2 Add `src/Maxkeys.Domain/Common/Entity.cs` (client-generated `Guid Id`), `DomainException.cs`, `DomainConflictException.cs : DomainException` (422 vs 409 split, design §7).
+- [ ] 1.3 Add `src/Maxkeys.Domain/Catalog/Product.cs` (`Slug` non-empty/lowercase/unique invariant, `Name`/`Platform` non-empty), `ProductVariant.cs` (`Price > 0`, `OldPrice` null or `> Price`, `Currency == "ARS"`).
+- [ ] 1.4 Add `src/Maxkeys.Domain/Outbox/OutboxEvent.cs` (`Claim(leaseUntil)`, `MarkProcessed(now)`, `MarkFailedAttempt(error, now, maxAttempts)`), `OutboxEventStatus.cs`, `OutboxEventTypes.cs` (`OrderApproved`, `OrderDelivered`).
+- [ ] 1.5 Add `src/Maxkeys.Domain/Payments/ProcessedWebhookNotification.cs` (`RequestId` non-empty, insert-only).
+- [ ] 1.6 Create `tests/Maxkeys.Domain.Tests` (xUnit): `ProductTests`, `ProductVariantTests`, `OutboxEventTests` — backoff math `30s * 2^n` and `Failed` at the 8th attempt (outbox-processing spec: `Exponential Backoff on Failure`, `Dead-Letter After Max Attempts`), using `FakeTimeProvider`.
+- Test: `dotnet test tests/Maxkeys.Domain.Tests` green.
+
+**PR2** — `feat/mvp-02-order-domain` — base: PR1 → `main` after merge — depends on: PR1 — ~380 lines
+
+- [ ] 2.1 Add `src/Maxkeys.Domain/Orders/OrderStatus.cs` (`Pending, Paid, AwaitingFulfillment, Delivered, Cancelled`).
+- [ ] 2.2 Add `src/Maxkeys.Domain/Orders/OrderItem.cs`: `Quantity` invariant **1..10**; `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`).
+- [ ] 2.3 Add `src/Maxkeys.Domain/Keys/Key.cs` (`EncryptedCode` non-empty, `KeyVersion >= 1`, `LoadedBy` non-empty), `KeyStatus.cs` (`Available, Assigned`), `AssignTo(orderItemId, now)`.
+- [ ] 2.4 Add `src/Maxkeys.Domain/Orders/Order.cs`: factory `Create(userId?, email, lines[], now)` enforcing **1..20 items**, email format, computed `TotalAmount`; transitions `AttachPreference`, `RecordPaymentAttempt`, `MarkPaid`, `MarkAwaitingFulfillment`, `AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05), `Cancel`.
+- [ ] 2.5 **Spec carry-over** — update `specs/cart-checkout/spec.md`: add scenario "Order exceeds 20 items rejected" (422) under `Order Creation From Cart`, and scenario "Quantity outside 1..10 rejected" (422) matching the `Order.Create`/`OrderItem` invariants above.
+- [ ] 2.6 `tests/Maxkeys.Domain.Tests/OrderTests.cs`: every transition in design §4.2 (valid + invalid); pricing/snapshots; 21-item order → `DomainException`; quantity 0 and 11 → `DomainException`; `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
+- [ ] 2.7 `tests/Maxkeys.Domain.Tests/KeyTests.cs`: `Key.AssignTo` transition.
+- Test: `dotnet test tests/Maxkeys.Domain.Tests` green.
+
+## Phase 2: Infrastructure (EF + migrations, KeyCipher)
+
+**PR3** — `feat/mvp-03-ef-persistence` — base: PR2 → `main` after merge — depends on: PR2 — ~350 lines (+ generated migration, excluded from budget)
+
+- [ ] 3.1 Create `src/Maxkeys.Infrastructure/Maxkeys.Infrastructure.csproj` (Npgsql, `EFCore.NamingConventions`) and `src/Maxkeys.Application/Persistence/IAppDbContext.cs` (`DbSet<Product/ProductVariant/Order/OrderItem/Key/OutboxEvent/ProcessedWebhookNotification>`, `SaveChangesAsync`).
+- [ ] 3.2 Create `src/Maxkeys.Infrastructure/Persistence/AppDbContext.cs : DbContext, IAppDbContext` with snake_case naming (ADR-16).
+- [ ] 3.3 Create `Configurations/*.cs` (Product, ProductVariant, Order [`xmin` via `UseXminAsConcurrencyToken()`], OrderItem, Key [`bytea EncryptedCode`], OutboxEvent [`jsonb Payload`], ProcessedWebhookNotification [PK=`request_id`]) with indexes per design §5 (`products.slug` UNIQUE, `orders.user_id`/`status`, `UNIQUE(mp_payment_id) WHERE NOT NULL`, `outbox_events(status, next_attempt_at)`).
+- [ ] 3.4 Generate `dotnet ef migrations add InitialCreate` into `Infrastructure/Persistence/Migrations/`.
+- [ ] 3.5 Create `tests/Maxkeys.Application.Tests/Fixtures/PostgresFixture.cs` — Testcontainers Postgres. **Requires Docker locally/CI**; honor `TEST_POSTGRES_CONNECTION` env override when Docker is unavailable (ADR-09); document the override in the fixture's XML doc comment.
+- [ ] 3.6 `tests/Maxkeys.Application.Tests/Persistence/AppDbContextTests.cs`: migration applies cleanly; `slug` and `mp_payment_id` unique constraints enforced at the DB level.
+- Test: `dotnet test tests/Maxkeys.Application.Tests` green against a real container (or `TEST_POSTGRES_CONNECTION`).
+
+**PR4** — `feat/mvp-04-key-cipher` — base: PR3 → `main` after merge — depends on: PR1 — ~150 lines
+
+- [ ] 4.1 Add `src/Maxkeys.Application/Security/KeyCipherOptions.cs` (`Keys:EncryptionKey` base64/32 bytes, `Keys:CurrentVersion`), validated at startup (fail fast).
+- [ ] 4.2 Add `src/Maxkeys.Application/Security/KeyCipher.cs`: `Encrypt(string) -> (byte[] blob, short version)` / `Decrypt(byte[], short) -> string` via `AesGcm`, random 12-byte nonce, 16-byte tag, layout `nonce|tag|ciphertext` (fulfillment spec `Key Encryption at Rest`).
+- [ ] 4.3 `tests/Maxkeys.Application.Tests/Security/KeyCipherTests.cs`: round-trip; ciphertext ≠ plaintext; tampered tag/wrong version fails.
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` green.
+
+## Phase 3: Application
+
+**PR5** — `feat/mvp-05-checkout-application` — base: PR4 → `main` after merge — depends on: PR3 — ~350 lines
+
+- [ ] 5.1 Add `src/Maxkeys.Application/Catalog/CatalogDtos.cs`, `GetCatalog.cs` (platform filter + text search — catalog spec `Product Listing`), `GetProductBySlug.cs` (404 unknown/inactive — catalog spec `Product Detail Lookup`).
+- [ ] 5.2 Add `src/Maxkeys.Application/Payments/IPaymentGateway.cs`, `PaymentGatewayException.cs`.
+- [ ] 5.3 Add `tests/Maxkeys.Application.Tests/Fakes/FakePaymentGateway.cs`.
+- [ ] 5.4 Add `src/Maxkeys.Application/Checkout/CreateOrder.cs`: load active variants, recompute price/snapshots (cart-checkout spec `Server-Side Price Recomputation`), `Order.Create`, commit #1, `IPaymentGateway.CreatePreference`, commit #2 (design §6a); optional-bearer `UserId` linkage (cart-checkout spec `Guest and Authenticated Checkout`, auth spec `User Identity Linking`).
+- [ ] 5.5 Add `src/Maxkeys.Application/Checkout/GetOrderStatus.cs` (masked email, `lastPaymentAttemptStatus`).
+- [ ] 5.6 `tests/Maxkeys.Application.Tests/Checkout/CreateOrderTests.cs`: multi-item checkout (2 variants, one qty 2) → 1 order/2 items; price tampering ignored; inactive/unknown variant → 422; missing email guest checkout → 422; authenticated checkout with edited email → `UserId` set, email as submitted; preference item count == order item count.
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` green.
+
+**PR6** — `feat/mvp-06-payment-webhook-application` — base: PR5 → `main` after merge — depends on: PR5 — ~320 lines
+
+- [ ] 6.1 Add `src/Maxkeys.Application/Payments/ProcessPaymentNotification.cs`: dedupe by `request_id` (spec `Notification Deduplication`), authoritative fetch via `IPaymentGateway.GetPayment` (spec `Authoritative Payment Fetch`), state guard (spec `Idempotent State Transition`); branches — approved+match → `MarkPaid` + `OrderApproved` outbox row same tx (spec `Transactional Outbox Insert on Approval`); approved+mismatch → dedupe row + Error log, no transition; rejected/pending/in_process → `RecordPaymentAttempt` only (spec `Rejected Payment Handling`); other statuses → generic ignored-status log (spec `Non-Actionable Status Handling`).
+- [ ] 6.2 `tests/Maxkeys.Application.Tests/Payments/ProcessPaymentNotificationTests.cs`: same request id ×3 → one `Paid`, one outbox row; different request ids, order already `Paid` → no second transition/outbox row (spec `Re-notification after Paid`); concurrent duplicate approval (two request ids, same instant) → exactly one transition/one outbox row (spec `Concurrent duplicate delivery of the same approval`); amount/currency mismatch → ignored, no transition; `rejected` on `Pending` → `LastPaymentAttempt*` recorded, stays `Pending`, zero outbox rows, later `approved` still transitions once (spec `Rejection followed by a later approval`); `refunded` → log-only, no fields written (spec `Refunded status ignored`).
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter Payments` green.
+
+**PR8** — `feat/mvp-08-fulfillment-application` — base: PR7 → `main` after merge — depends on: PR4, PR7 — ~380 lines
+
+- [ ] 8.1 Add `src/Maxkeys.Application/Fulfillment/AttachKeyToOrderItem.cs`: load order+items+keys (`xmin`), `KeyCipher.Encrypt`, `Key.Create` + `Order.AttachKey`, insert `OutboxEvent(OrderDelivered)` in the same tx as the last-key `Delivered` transition (fulfillment spec `Key Attachment`, `All-or-Nothing Delivery Derivation`); catch `DbUpdateConcurrencyException`, reload, retry once, else 409 (spec `Concurrent double-attach on the same item`).
+- [ ] 8.2 Add `src/Maxkeys.Application/Fulfillment/ListOrdersAwaitingFulfillment.cs` (per-item assigned/required counts — spec `Admin Order Listing`).
+- [ ] 8.3 Add `src/Maxkeys.Application/Outbox/OrderDeliveredHandler.cs : IOutboxHandler` — load order+items+keys, assert `Delivered`, `KeyCipher.Decrypt` each key in memory only, send one buyer email with all keys grouped by item.
+- [ ] 8.4 Add buyer delivery email template to `EmailTemplates.cs`.
+- [ ] 8.5 Add `src/Maxkeys.Application/Orders/GetMyOrders.cs` (owner-only — orders-history spec `My Orders Listing`), `GetMyOrder.cs` (keys only when `Delivered` — spec `Order Detail With Conditional Key Reveal`; 404 on non-owner — spec `Ownership Enforcement`, ADR-14).
+- [ ] 8.6 **Spec carry-over** — reword `One-Time Delivery Email` in `specs/fulfillment/spec.md` to: "The system MUST send the delivery email containing all keys exactly once per `AwaitingFulfillment → Delivered` transition, emitted via the `OrderDelivered` outbox event inserted in the same transaction as that transition. Handler retries MAY duplicate the email if the send succeeds but marking the event `Processed` fails (at-least-once)." Keep the existing "Email sent once even under retry/re-evaluation" scenario unchanged.
+- [ ] 8.7 `tests/Maxkeys.Application.Tests/Fulfillment/AttachKeyToOrderItemTests.cs`: over-quantity attach → 409; concurrent parallel attaches → one 409 then success on retry; last key → `Delivered` + one `OrderDelivered` row. `tests/Maxkeys.Application.Tests/Outbox/OrderDeliveredHandlerTests.cs`: email contains all keys once; re-evaluating an already-sent transition sends no second email (ADR-04). `tests/Maxkeys.Application.Tests/Orders/GetMyOrdersTests.cs`: owner scoping, cross-user 404.
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter "Fulfillment|Orders"` green.
+
+## Phase 4: API
+
+**PR9** — `feat/mvp-09-api-skeleton` — base: PR8 → `main` after merge — depends on: PR5, PR7 — ~360 lines
+
+- [ ] 9.1 Add `src/Maxkeys.Api/Maxkeys.Api.csproj`, `Program.cs` (minimal API bootstrap, DI via `Infrastructure/DependencyInjection.cs`), `appsettings.json`, `appsettings.Development.json`.
+- [ ] 9.2 Add `src/Maxkeys.Api/Errors/ProblemDetailsExceptionHandler.cs`: `DomainException`→422, `DomainConflictException`→409, `NotFoundException`→404, `PaymentGatewayException`→503, unhandled→500 (design §7 error table).
+- [ ] 9.3 Add `src/Maxkeys.Api/Logging/SerilogSetup.cs`, `CorrelationIdMiddleware.cs`, `SensitiveDataPolicy.cs` (masks `Key`, `AttachKeyRequest`, `OrderDetail` — design §8/§12).
+- [ ] 9.4 Add `src/Maxkeys.Api/Endpoints/HealthEndpoints.cs` (`/health` DB check, `/health/live` process only).
+- [ ] 9.5 Add `src/Maxkeys.Api/Endpoints/CatalogEndpoints.cs` (`GET /catalog/products`, `GET /catalog/products/{slug}`).
+- [ ] 9.6 Add `src/Maxkeys.Api/Endpoints/CheckoutEndpoints.cs` (`POST /checkout/orders`, `GET /checkout/orders/{id}/status`).
+- [ ] 9.7 Add `src/Maxkeys.Infrastructure/Payments/NotConfiguredPaymentGateway.cs` — registered as `IPaymentGateway` when `Payments:AccessToken` is empty; throws `PaymentGatewayException` → 503, so `POST /checkout/orders` builds and runs green without MP credentials.
+- [ ] 9.8 Add `Dockerfile` (multi-stage `sdk:8.0` → `aspnet:8.0`, non-root, port 8080).
+- [ ] 9.9 `tests/Maxkeys.Api.Tests/`: catalog endpoint scenarios (active-only, platform filter, search); Problem Details shape per status.
+- Test: `dotnet build && dotnet test tests/Maxkeys.Api.Tests --filter Catalog` green with no MP credentials configured.
+
+**PR10** — `feat/mvp-10-api-auth` — base: PR9 → `main` after merge — depends on: PR8, PR9 — ~380 lines
+
+- [ ] 10.0 **BLOCKING — Confirm Supabase project JWT signing mode (asymmetric JWKS vs legacy HS256) in the Supabase dashboard (Auth → JWT keys) and set `Auth:Mode` accordingly before implementing the rest of this PR.**
+- [ ] 10.1 Add `src/Maxkeys.Api/Auth/AuthOptions.cs` (`Auth:Mode`, `Issuer`, `Audience`, `JwksUrl`, `Hs256Secret`, `AdminSubs`).
+- [ ] 10.2 Add `src/Maxkeys.Api/Auth/JwksKeyCache.cs` (cache 10 min, refetch on unknown `kid` once), `JwtSetup.cs` (JWKS or HS256 branch by `Auth:Mode`, `MapInboundClaims=false` — auth spec `Configurable JWT Validation Mode`).
+- [ ] 10.3 Add `src/Maxkeys.Api/Auth/AdminPolicy.cs` (`sub` in `Auth:AdminSubs`; empty allowlist → always deny — auth spec `Admin Authorization Policy`, fulfillment spec `Admin Authorization`).
+- [ ] 10.4 Add `src/Maxkeys.Api/Auth/OptionalBearerFilter.cs` (present-but-invalid bearer on `POST /checkout/orders` → 401, not a silent guest order — design §6e).
+- [ ] 10.5 Add `src/Maxkeys.Api/Endpoints/MeEndpoints.cs` (`GET /me/orders`, `GET /me/orders/{id}`), `AdminEndpoints.cs` (`GET /admin/orders?status=AwaitingFulfillment`, `POST /admin/orders/{id}/items/{itemId}/keys`).
+- [ ] 10.6 `tests/Maxkeys.Api.Tests/Auth/`: HS256 mode with a locally signed token → 200; JWKS mode with a test key pair served from an in-process endpoint → 200; wrong `aud` → 401; expired/malformed/unknown-kid → 401 (auth spec `Invalid or expired token rejected`); `/admin/*` non-allowlisted → 403, empty allowlist → 403; `/me/orders/{id}` other owner → 404 (orders-history spec `Cross-user access denied`); anonymous `/me/orders` → 401; anonymous checkout allowed. **Requires Docker/Testcontainers per PR3; honor `TEST_POSTGRES_CONNECTION`.**
+- Test: `dotnet test tests/Maxkeys.Api.Tests --filter Auth` green.
+
+## Phase 5: Mercado Pago integration + outbox hosted service + email
+
+**PR7** — `feat/mvp-07-outbox-processor` — base: PR6 → `main` after merge — depends on: PR3 — ~380 lines
+*(chain position 7 — precedes PR8/PR9, which both depend on it; filed under this phase heading per topic, not build order — see PR Chain Order table above for the authoritative sequence)*
+
+- [ ] 7.1 Add `src/Maxkeys.Application/Outbox/IOutboxHandler.cs` (`string EventType`, `HandleAsync`), `OrderApprovedHandler.cs` (`Paid` → `AwaitingFulfillment` + operator notification — outbox-processing spec `OrderApproved Handler`).
+- [ ] 7.2 Add `src/Maxkeys.Application/Notifications/IEmailSender.cs`, `EmailMessage.cs`, `EmailTemplates.cs` (operator "Order X awaiting fulfillment" template).
+- [ ] 7.3 Add `src/Maxkeys.Infrastructure/Email/LoggingEmailSender.cs` (dev default), `tests/Maxkeys.Application.Tests/Fakes/RecordingEmailSender.cs`.
+- [ ] 7.4 Add `src/Maxkeys.Infrastructure/Outbox/OutboxClaimQuery.cs` (`SELECT ... FOR UPDATE SKIP LOCKED`, marks `Processing` same tx — spec `Batch Claim With Row Locking`), `OutboxOptions.cs` (`PollIntervalSeconds/BatchSize/LeaseSeconds/MaxAttempts`).
+- [ ] 7.5 Add `src/Maxkeys.Infrastructure/Outbox/OutboxProcessor.cs : IHostedService` — poll loop, claim, dispatch by `EventType`, backoff `now + 30s * 2^Attempts`, `Failed` at the 8th attempt (spec `Exponential Backoff on Failure`, `Dead-Letter After Max Attempts`).
+- [ ] 7.6 `tests/Maxkeys.Application.Tests/Outbox/OutboxClaimQueryTests.cs`: two concurrent claimers never claim the same row (spec `Multi-Instance Claim Safety`); expired `Processing` lease reclaimable. `tests/Maxkeys.Application.Tests/Outbox/OrderApprovedHandlerTests.cs`: `Paid` → `AwaitingFulfillment`, operator notification recorded via `RecordingEmailSender`, event `Processed`. **Requires Docker/Testcontainers per PR3; honor `TEST_POSTGRES_CONNECTION`.**
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` green.
+
+**PR11** — `feat/mvp-11-mercadopago-integration` — base: PR10 → `main` after merge — depends on: PR6, PR9 — ~350 lines
+
+- [ ] 11.1 Add `src/Maxkeys.Infrastructure/Payments/MercadoPagoOptions.cs` (`Payments:AccessToken`, `WebhookSecret`, `WebhookEnabled`, `NotificationUrl`).
+- [ ] 11.2 Add `src/Maxkeys.Infrastructure/Payments/MercadoPagoSignatureValidator.cs`: HMAC-SHA256 over `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, hex-compare via `CryptographicOperations.FixedTimeEquals` (payments-webhook spec `Signature Validation Before Any I/O`).
+- [ ] 11.3 Add `src/Maxkeys.Infrastructure/Payments/MercadoPagoGateway.cs : IPaymentGateway` — typed `HttpClient`, `POST /checkout/preferences`, `GET /v1/payments/{id}` (ADR-10); DI selects this over `NotConfiguredPaymentGateway` when `Payments:AccessToken` is non-empty.
+- [ ] 11.4 Add `src/Maxkeys.Api/Endpoints/WebhookEndpoints.cs` (`POST /webhooks/mercadopago`): `WebhookEnabled=false` → 503 before any other check (spec `Kill Switch`); else validate signature → 401 with zero I/O on failure; else `ProcessPaymentNotification.Execute`.
+- [ ] 11.5 `tests/Maxkeys.Api.Tests/Webhooks/`: signature validator vectors — valid, tampered `v1`, missing header → 401 (spec `Invalid signature rejected`); `WebhookEnabled=false` → 503 with no state change; exact replay of the same `x-request-id` → 2xx, no state change (spec `Exact replay is a no-op`).
+- [ ] 11.6 **Verify the `x-signature` manifest (segment order, lowercase `data.id`) against a real Mercado Pago sandbox notification** before merging; adjust `MercadoPagoSignatureValidator` if the sandbox payload differs from the documented manifest.
+- Test: `dotnet test tests/Maxkeys.Api.Tests --filter Webhooks` green.
+
+**PR12** — `feat/mvp-12-email-seed` — base: PR11 → `main` after merge — depends on: PR7, PR9 — ~260 lines
+
+- [ ] 12.1 Add `src/Maxkeys.Infrastructure/Email/EmailOptions.cs` (`Email:Sender`, `From`, `OperatorAddress`, `Smtp:Host/Port/UseStartTls/User/Password`).
+- [ ] 12.2 Add `src/Maxkeys.Infrastructure/Email/SmtpEmailSender.cs : IEmailSender` (MailKit, ADR-08); DI selects `Smtp` or `Logging` by `Email:Sender`.
+- [ ] 12.3 Add `src/Maxkeys.Infrastructure/Persistence/CatalogSeeder.cs`, `seed/catalog.json`; wire `Maxkeys.Api --seed-catalog <path>` in `Program.cs` (ADR-12, upsert by slug).
+- [ ] 12.4 Add `src/Maxkeys.Infrastructure/Storage/StorageOptions.cs` (`Storage:R2PublicBaseUrl`), `R2ImageUrlResolver.cs` (catalog spec `Image URL Resolution`).
+- [ ] 12.5 `tests/Maxkeys.Application.Tests/Catalog/CatalogQueriesTests.cs`: image URL resolved to absolute, not raw key; seeder upsert idempotent on re-run.
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter Catalog` green.
+
+## Phase 6: Frontend (independent of backend PR1‑PR12)
+
+**PR13** — `feat/mvp-13-frontend-scaffold` — base: `main` (after PR0) — depends on: — — ~350 lines
+
+- [ ] 13.1 `frontend/nuxt.config.ts` (modules `@nuxtjs/supabase` [`redirect:false`], `@nuxtjs/tailwindcss`; `runtimeConfig.public.apiBase`, `siteUrl`).
+- [ ] 13.2 `frontend/tailwind.config.ts` (tokens: `colors.bg #0A0A0E`, `colors.surface #12121A`, `colors.accent {DEFAULT:#7C5CFC, hover:#8F6FFF}`, `colors.success #22D3A8`, `fontFamily.display=['Space Grotesk']`, `fontFamily.sans=['Inter']`, `backdropBlur.glass=12px`).
+- [ ] 13.3 `frontend/assets/css/main.css`, `frontend/app.vue` (`AppHeader` + `<NuxtPage>` + `CartDrawer` + `LoginDialog`).
+- [ ] 13.4 `frontend/composables/useApi.ts` (`$fetch.create`, bearer attach on request, `ApiError` on response error).
+- [ ] 13.5 `frontend/types/api.ts` (DTOs mirrored from design §7).
+- [ ] 13.6 `frontend/components/layout/AppHeader.vue`, `AppFooter.vue`; `frontend/components/ui/AppButton.vue`, `AppBadge.vue`, `Skeleton.vue`, `EmptyState.vue`, `ErrorState.vue`.
+- Test: `npm run test && nuxi typecheck` green.
+
+**PR14** — `feat/mvp-14-frontend-catalog` — base: PR13 → `main` after merge — depends on: PR13 — ~350 lines
+
+- [ ] 14.1 `frontend/components/catalog/HeroCarousel.vue`, `PlatformFilter.vue`, `ProductCard.vue`, `ProductGrid.vue`.
+- [ ] 14.2 `frontend/components/product/VariantSelector.vue` (emits selected variant), `TrustBadges.vue`.
+- [ ] 14.3 `frontend/pages/index.vue` (catalog via `useAsyncData` + `useApi`, `GET /catalog/products` — catalog spec `Product Listing`, `Filter by platform`, `Search by name`), `frontend/pages/product/[slug].vue` (`GET /catalog/products/{slug}` — catalog spec `Product Detail Lookup`).
+- [ ] 14.4 `frontend/tests/VariantSelector.spec.ts`: emits the selected variant on click.
+- Test: `npm run test -- VariantSelector` green.
+
+**PR15** — `feat/mvp-15-frontend-cart` — base: PR14 → `main` after merge — depends on: PR13 — ~300 lines
+
+- [ ] 15.1 `frontend/composables/useCart.ts`: `useState<CartState>`, `CartLine` shape, computed `count`/`subtotal`, actions `add`/`remove`/`setQuantity` (clamp 1..10), `clear`; persisted to `localStorage['nexo.cart.v1']`, hydrated `onMounted`.
+- [ ] 15.2 `frontend/components/cart/CartDrawer.vue`, `CartLine.vue`.
+- [ ] 15.3 `frontend/tests/useCart.spec.ts`: add/merge same variant, `setQuantity` clamps to 1..10, persistence round-trip, `clear`.
+- Test: `npm run test -- useCart` green.
+
+**PR16** — `feat/mvp-16-frontend-checkout` — base: PR15 → `main` after merge — depends on: PR15 — ~300 lines
+
+- [ ] 16.1 `frontend/composables/useCheckout.ts`: `status: idle|submitting|redirecting|error`; `submit(email)` → `POST /checkout/orders`, `sessionStorage['nexo.lastOrderId']`, redirect to `initPoint`.
+- [ ] 16.2 `frontend/components/checkout/ContactForm.vue`, `OrderSummary.vue`, `PayWithMercadoPago.vue`.
+- [ ] 16.3 `frontend/pages/checkout/index.vue`, `frontend/pages/checkout/result.vue` (polls `GET /checkout/orders/{id}/status` every 3s up to 20 tries; clears cart only when `status !== 'Pending'` or MP query `status=approved`).
+- [ ] 16.4 `frontend/tests/useCheckout.spec.ts`: request body shape (`variantId`, `quantity` pairs + email); state machine transitions.
+- Test: `npm run test -- useCheckout` green.
+
+**PR17** — `feat/mvp-17-frontend-auth-orders` — base: PR16 → `main` after merge — depends on: PR14 — ~380 lines
+
+- [ ] 17.1 `frontend/composables/useAuth.ts`: wraps `useSupabaseClient()`/`useSupabaseUser()`, `signInWithGoogle()` (`redirectTo=${siteUrl}/auth/callback`), `signOut()`.
+- [ ] 17.2 `frontend/components/layout/LoginDialog.vue`, `frontend/middleware/auth.ts` (redirect cookie `nexo.redirect` + `navigateTo('/?login=1')` when unauthenticated), `frontend/pages/auth/callback.vue`.
+- [ ] 17.3 `frontend/components/orders/OrderCard.vue`, `OrderStatusBadge.vue`, `KeyReveal.vue` (reveal/copy, rendered only when order `Delivered`).
+- [ ] 17.4 `frontend/pages/account/orders/index.vue` (`middleware:'auth'`, `GET /me/orders`), `frontend/pages/account/orders/[id].vue` (`GET /me/orders/{id}`, `KeyReveal` per item only when `Delivered` — orders-history spec `Order Detail With Conditional Key Reveal`).
+- [ ] 17.5 Manual check: confirm `KeyReveal` renders no key codes for a non-`Delivered` order fixture (orders-history spec `Non-delivered order hides keys`).
+- Test: `npm run test` (full suite) green.
+
+## Phase 7: Deploy/runbook
+
+**PR18** — `feat/mvp-18-deploy-runbook` — base: `main` (after PR12 and PR17 both merged) — depends on: PR11, PR12, PR17 — ~200 lines
+
+- [ ] 18.1 `deploy/fly.toml`, `deploy/railway.json` skeletons (env keys per design §10; `release_command`/pre-deploy running `Maxkeys.Api --migrate`).
+- [ ] 18.2 Add `--migrate` flag handling in `src/Maxkeys.Api/Program.cs` (`Database.Migrate()` then exit — ADR-13).
+- [ ] 18.3 Vercel deployment notes for `frontend/` (env: `NUXT_PUBLIC_API_BASE`, `SUPABASE_URL`, `SUPABASE_KEY`, `NUXT_PUBLIC_SITE_URL`).
+- [ ] 18.4 Write the sandbox end-to-end runbook (proposal Success Criteria): browse → variant → 2-item cart (one qty 2) → guest checkout → MP sandbox approval → webhook processed once → `AwaitingFulfillment` → operator attaches 3 keys → `Delivered` → one email → keys visible in Mis compras.
+- [ ] 18.5 Manually execute the sandbox runbook once against real MP sandbox + a test Supabase user; record pass/fail in the runbook doc.
+- Test: `dotnet test && npm run test` green; runbook executed manually (no automated harness — real MP sandbox required).

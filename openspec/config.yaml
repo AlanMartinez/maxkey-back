@@ -1,0 +1,68 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Project: maxkeys (greenfield, no source code yet — only mock ui/ prototype).
+  Backend: .NET 8 Web API, layered (Domain/Application/Infrastructure/API), EF Core + PostgreSQL (Supabase).
+  Frontend: Nuxt 3 + TypeScript + Tailwind CSS.
+  Auth: Supabase Auth (Google OAuth), JWT validated via JWKS middleware in .NET.
+  Storage: Cloudflare R2 (S3-compatible SDK). Payments: Mercado Pago Checkout Pro + webhook.
+  Background jobs: IHostedService polling an outbox table. Logging: Serilog. Errors: Problem Details.
+  Deploy: dockerized backend (Fly.io/Railway), frontend on Vercel.
+
+strict_tdd: false
+
+testing:
+  status: expected-not-yet-verifiable
+  reason: No source code exists yet; commands are declared conventions, not detected/verified capabilities.
+  backend:
+    framework: xUnit
+    command: "dotnet test"
+    priority_layers:
+      - webhook idempotency (Mercado Pago)
+      - order state transitions
+      - manual-fulfillment marking
+  frontend:
+    framework: Vitest
+    command: "npm run test"
+  coverage:
+    available: false
+    command: ""
+  quality:
+    linter: ""
+    type_checker: "tsc (frontend, expected)"
+    formatter: ""
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Flag any change touching payments (Mercado Pago) or auth (Supabase JWT/JWKS) as high-risk
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Webhook and payment-state specs MUST cover idempotency and replay scenarios
+  design:
+    - Include sequence diagrams for complex flows (checkout, webhook processing, outbox polling)
+    - Document architecture decisions with rationale
+    - Respect layering: Domain has no dependency on Infrastructure/API
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Split backend (.NET) and frontend (Nuxt) work into separate task groups when both are touched
+  apply:
+    guidelines:
+      - Follow existing code patterns once established
+      - Keep Domain layer framework-agnostic (no EF Core/ASP.NET types leaking in)
+      - Use Problem Details for API error responses
+    tdd: false
+    test_command: "dotnet test"
+  verify:
+    test_command: "dotnet test && npm run test"
+    build_command: "dotnet build"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+review:
+  budget_lines: 400
+  delivery_strategy: auto-chain

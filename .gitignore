@@ -1,0 +1,24 @@
+# dotnet
+bin/
+obj/
+TestResults/
+*.user
+
+# node / nuxt
+node_modules/
+dist/
+.nuxt/
+.output/
+
+# secrets
+.env
+.env.*
+appsettings.*.local.json
+
+# IDE
+.vs/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
