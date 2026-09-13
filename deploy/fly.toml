@@ -1,0 +1,76 @@
+# Fly.io deployment config for the Maxkeys backend (maxkeys-back), design
+# section 12 ("Deployment — two repositories, two independent pipelines").
+# This is a skeleton: replace every <placeholder> and set the secrets listed
+# at the bottom via `fly secrets set` before the first deploy. See
+# docs/runbook-sandbox.md for the full sandbox setup sequence.
+
+app = "maxkeys-api"     # <placeholder> Fly app name
+primary_region = "eze"  # <placeholder> Fly region code (eze = Buenos Aires)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  # ADR-13 / task 18a.2: runs `Maxkeys.Api --migrate` once per release, before
+  # new instances receive traffic. Never runs on ordinary web-instance startup
+  # — that would race migrations across instances.
+  release_command = "dotnet Maxkeys.Api.dll --migrate"
+
+[http_service]
+  # Matches the Dockerfile's ASPNETCORE_URLS=http://+:8080 / EXPOSE 8080.
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health/live"
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  Serilog__MinimumLevel = "Information"
+
+  # --- Auth (design section 10; task 10.0 open — confirm Supabase signing mode first) ---
+  Auth__Mode = "Jwks"  # or "Hs256"
+  Auth__Issuer = "https://<supabase-ref>.supabase.co/auth/v1"
+  Auth__Audience = "authenticated"
+  Auth__JwksUrl = "https://<supabase-ref>.supabase.co/auth/v1/.well-known/jwks.json"
+
+  # --- Payments (Mercado Pago) ---
+  Payments__WebhookEnabled = "true"
+  Payments__NotificationUrl = "https://<your-fly-app>.fly.dev/webhooks/mercadopago"
+
+  # --- CORS (task 18a.3) — never a wildcard; one explicit origin per entry ---
+  Cors__AllowedOrigins__0 = "https://<your-vercel-project>.vercel.app"  # Vercel production origin
+  # Add one more Cors__AllowedOrigins__<n> per Vercel preview origin that needs API
+  # access (PR18b README note); preview origins follow the pattern
+  # https://<project>-<hash>-<team>.vercel.app and change per deploy.
+
+  # --- Storage (Cloudflare R2 — URL builder only, ADR-12) ---
+  Storage__R2PublicBaseUrl = "https://<bucket>.r2.dev"
+
+  # --- Email (ADR-08) ---
+  Email__Sender = "Smtp"
+  Email__From = "orders@<your-domain>"
+  Email__OperatorTo = "<operator-inbox>@<your-domain>"
+  Email__Smtp__Host = "<smtp-host>"
+  Email__Smtp__Port = "587"
+  Email__Smtp__UseStartTls = "true"
+
+  # --- Keys ---
+  Keys__CurrentVersion = "1"
+
+# Secrets — set with `fly secrets set NAME=value`, never committed here:
+#   ConnectionStrings__Default   Supabase pooled Postgres connection string ("Include Error Detail=false" in prod)
+#   Auth__Hs256Secret            only if Auth__Mode=Hs256
+#   Auth__AdminSubs__0           operator Supabase user id (repeat __1, __2, ... for more operators)
+#   Payments__AccessToken        Mercado Pago production access token
+#   Payments__WebhookSecret      Mercado Pago webhook secret
+#   Keys__EncryptionKey          base64 AES-256 key (decodes to exactly 32 bytes) — separate from the dev key
+#   Email__Smtp__User
+#   Email__Smtp__Password

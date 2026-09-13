@@ -17,6 +17,9 @@ internal static class TestTokens
     public static string CreateRs256(string sub, string issuer, string audience, SecurityKey signingKey, TimeSpan? lifetime = null) =>
         Write(sub, issuer, audience, new SigningCredentials(signingKey, SecurityAlgorithms.RsaSha256), lifetime);
 
+    public static string CreateEs256(string sub, string issuer, string audience, SecurityKey signingKey, TimeSpan? lifetime = null) =>
+        Write(sub, issuer, audience, new SigningCredentials(signingKey, SecurityAlgorithms.EcdsaSha256), lifetime);
+
     private static string Write(string sub, string issuer, string audience, SigningCredentials credentials, TimeSpan? lifetime)
     {
         var now = DateTime.UtcNow;
