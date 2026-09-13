@@ -45,8 +45,10 @@ Two independent stacks, one per repository (ADR-18), joined only by the shared d
 | 3a | maxkeys-back | EF Core persistence: projects + AppDbContext + configurations | `feat/mvp-03-ef-persistence` | `feat/mvp-02b-order-keys` → `main` after PR2b | 2b | 362 (actual) | 2 | `dotnet build` | N/A — no migration/tests yet in this slice | delete `src/Maxkeys.Application`, `src/Maxkeys.Infrastructure` |
 | 3b | maxkeys-back | EF Core InitialCreate migration + Testcontainers fixture | `feat/mvp-03b-ef-testcontainers` | `feat/mvp-03-ef-persistence` → `main` after PR3a | 3a | 238 (actual, +1,100-line generated migration excluded) | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter AppDbContext` | `dotnet ef database update` against Testcontainers/`TEST_POSTGRES_CONNECTION` | `dotnet ef database update 0`; delete `Infrastructure/Persistence/Migrations`, `tests/Maxkeys.Application.Tests` |
 | 4 | maxkeys-back | KeyCipher | `feat/mvp-04-key-cipher` | `feat/mvp-03b-ef-testcontainers` → `main` after PR3b | 3b | ~150 | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` | N/A — pure crypto | delete `Security/KeyCipher*` |
-| 5 | maxkeys-back | Checkout application | `feat/mvp-05-checkout-application` | `feat/mvp-04-key-cipher` → `main` after PR4 | 3 | ~350 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` | N/A (`FakePaymentGateway`) | delete `Checkout/*`, `Catalog/*` (Application) |
-| 6 | maxkeys-back | Payment webhook application | `feat/mvp-06-payment-webhook-application` | `feat/mvp-05-checkout-application` → `main` after PR5 | 5 | ~320 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Payments` | N/A (`FakePaymentGateway`) | delete `Payments/ProcessPaymentNotification.cs` |
+| 5a | maxkeys-back | Catalog listing application | `feat/mvp-05a-catalog-application` | `feat/mvp-04-key-cipher` → `main` after PR4 | 4 | 336 (actual) | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter GetCatalogTests` | N/A (pure Application, Postgres-backed test) | delete `Catalog/{CatalogDtos,StorageOptions,GetCatalog}.cs`, `tests/.../Catalog/{CatalogTestData,GetCatalogTests}.cs` |
+| 5a2 | maxkeys-back | Product detail query + payment gateway seam | `feat/mvp-05a2-product-detail-gateway` | `feat/mvp-05a-catalog-application` → `main` after PR5a | 5a | 268 (actual) | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter "GetProductBySlugTests\|Payments"` | N/A (`FakePaymentGateway`) | delete `Catalog/GetProductBySlug.cs`, `Payments/*`, `tests/.../Fakes/FakePaymentGateway.cs`, `tests/.../Catalog/GetProductBySlugTests.cs` |
+| 5b | maxkeys-back | Checkout application | `feat/mvp-05b-checkout-application` | `feat/mvp-05a2-product-detail-gateway` → `main` after PR5a2 | 5a2 | ~200 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` | N/A (`FakePaymentGateway`) | delete `Checkout/*` |
+| 6 | maxkeys-back | Payment webhook application | `feat/mvp-06-payment-webhook-application` | `feat/mvp-05b-checkout-application` → `main` after PR5b | 5b | ~320 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Payments` | N/A (`FakePaymentGateway`) | delete `Payments/ProcessPaymentNotification.cs` |
 | 7 | maxkeys-back | Outbox processor + email seam | `feat/mvp-07-outbox-processor` | `feat/mvp-06-payment-webhook-application` → `main` after PR6 | 3 | ~380 | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` | run `OutboxProcessor` one poll cycle against Testcontainers | delete `Outbox/*` (Application+Infrastructure), email seam files |
 | 8 | maxkeys-back | Fulfillment application + orders history | `feat/mvp-08-fulfillment-application` | `feat/mvp-07-outbox-processor` → `main` after PR7 | 4, 7 | ~380 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter "Fulfillment\|Orders"` | N/A (`RecordingEmailSender` fake) | delete `Fulfillment/*`, `OrderDeliveredHandler`, `GetMyOrder(s)`; revert fulfillment spec edit |
 | 9 | maxkeys-back | API skeleton | `feat/mvp-09-api-skeleton` | `feat/mvp-08-fulfillment-application` → `main` after PR8 | 5, 7 | ~370 | 4 | `dotnet build && dotnet test tests/Maxkeys.Api.Tests --filter Catalog` | `dotnet run --project src/Maxkeys.Api` with empty `Payments:AccessToken`, hit `/health` | delete `src/Maxkeys.Api` (revert to PR8 state) |
@@ -133,17 +135,29 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 ## Phase 3: Application
 
-**PR5** — `feat/mvp-05-checkout-application` — base: PR4 → `main` after merge — depends on: PR3 — ~350 lines
+**PR5 split (auto-chain)**: PR5's estimate (~350 lines) plus the payment gateway seam and its fake ran well over the 400-line cap once catalog querying, image URL composition and the full test coverage were accounted for. First measured as one slice (580 actual lines), then split by orchestrator decision into three stacked slices: PR5a `feat/mvp-05a-catalog-application` (task 5.1 part: `CatalogDtos.cs`/`StorageOptions.cs`/`GetCatalog.cs` + listing/filter/search/imageUrl tests, 336 actual lines), PR5a2 `feat/mvp-05a2-product-detail-gateway` (task 5.1 remainder: `GetProductBySlug.cs` + detail tests, plus tasks 5.2/5.3: `IPaymentGateway`/`PaymentGatewayException`/`FakePaymentGateway`, 268 actual lines), and PR5b `feat/mvp-05b-checkout-application` (tasks 5.4-5.6, `CreateOrder`/`GetOrderStatus`, not started). All stacked-to-main. PR6 now bases on PR5b.
 
-- [ ] 5.1 Add `src/Maxkeys.Application/Catalog/CatalogDtos.cs`, `GetCatalog.cs` (platform filter + text search — catalog spec `Product Listing`), `GetProductBySlug.cs` (404 unknown/inactive — catalog spec `Product Detail Lookup`).
-- [ ] 5.2 Add `src/Maxkeys.Application/Payments/IPaymentGateway.cs`, `PaymentGatewayException.cs`.
-- [ ] 5.3 Add `tests/Maxkeys.Application.Tests/Fakes/FakePaymentGateway.cs`.
+**PR5a** — `feat/mvp-05a-catalog-application` — base: PR4 → `main` after merge — depends on: PR4 — 336 lines (actual)
+
+- [x] 5.1 (part) Add `src/Maxkeys.Application/Catalog/CatalogDtos.cs` (all three DTO records — `ProductSummary`, `ProductVariantDetail`, `ProductDetail` — matching design §7 verbatim), `StorageOptions.cs` (`Storage:R2PublicBaseUrl` + `ImageUrlBuilder`/`AddStorageUrlBuilder`, ADR-12 — placed in Application, not Infrastructure as design §3 lists, because `GetCatalog`/`GetProductBySlug` consume it directly and Application must not reference Infrastructure per ADR-01), `GetCatalog.cs` (platform filter + text search — catalog spec `Product Listing`).
+- Test: `tests/Maxkeys.Application.Tests/Catalog/CatalogTestData.cs` (shared seed helpers, reused by PR5a2), `GetCatalogTests.cs` (4 tests: active-only listing with `FromPrice`/`OldPrice` from the cheapest variant, platform filter, case-insensitive search, `imageUrl` composed from base URL + key). `dotnet build Maxkeys.sln` 0 warnings; `dotnet test tests/Maxkeys.Application.Tests --filter GetCatalogTests` green — 4/4.
+
+**PR5a2** — `feat/mvp-05a2-product-detail-gateway` — base: PR5a → `main` after merge — depends on: PR5a — 268 lines (actual)
+
+- [x] 5.1 (remainder) Add `src/Maxkeys.Application/Catalog/GetProductBySlug.cs` (404 unknown/inactive — catalog spec `Product Detail Lookup`; variant `Name` composed from `Region`/`Edition` since `ProductVariant` has no stored name column).
+- [x] 5.2 Add `src/Maxkeys.Application/Payments/IPaymentGateway.cs`, `PaymentGatewayException.cs`.
+- [x] 5.3 Add `tests/Maxkeys.Application.Tests/Fakes/FakePaymentGateway.cs`.
+- Test: `tests/Maxkeys.Application.Tests/Catalog/GetProductBySlugTests.cs` (3 tests, reuses `CatalogTestData` from PR5a: detail with active variants ordered by `SortOrder`, unknown slug → null, inactive product → null). `dotnet build Maxkeys.sln` 0 warnings; `dotnet test tests/Maxkeys.Application.Tests --filter "GetProductBySlugTests|Payments"` green.
+- **Known gap (not a task, see PR12 task 12.0)**: `ProductDetail.Description` is always `""` — the `Product` domain entity has no `Description` column even though the proposal's ERD included one.
+
+**PR5b** — `feat/mvp-05b-checkout-application` — base: PR5a2 → `main` after merge — depends on: PR5a2 — ~200 lines
+
 - [ ] 5.4 Add `src/Maxkeys.Application/Checkout/CreateOrder.cs`: load active variants, recompute price/snapshots (cart-checkout spec `Server-Side Price Recomputation`), `Order.Create`, commit #1, `IPaymentGateway.CreatePreference`, commit #2 (design §6a); optional-bearer `UserId` linkage (cart-checkout spec `Guest and Authenticated Checkout`, auth spec `User Identity Linking`).
 - [ ] 5.5 Add `src/Maxkeys.Application/Checkout/GetOrderStatus.cs` (masked email, `lastPaymentAttemptStatus`).
 - [ ] 5.6 `tests/Maxkeys.Application.Tests/Checkout/CreateOrderTests.cs`: multi-item checkout (2 variants, one qty 2) → 1 order/2 items; price tampering ignored; inactive/unknown variant → 422; missing email guest checkout → 422; authenticated checkout with edited email → `UserId` set, email as submitted; preference item count == order item count.
 - Test: `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` green.
 
-**PR6** — `feat/mvp-06-payment-webhook-application` — base: PR5 → `main` after merge — depends on: PR5 — ~320 lines
+**PR6** — `feat/mvp-06-payment-webhook-application` — base: PR5b → `main` after merge — depends on: PR5b — ~320 lines
 
 - [ ] 6.1 Add `src/Maxkeys.Application/Payments/ProcessPaymentNotification.cs`: dedupe by `request_id` (spec `Notification Deduplication`), authoritative fetch via `IPaymentGateway.GetPayment` (spec `Authoritative Payment Fetch`), state guard (spec `Idempotent State Transition`); branches — approved+match → `MarkPaid` + `OrderApproved` outbox row same tx (spec `Transactional Outbox Insert on Approval`); approved+mismatch → dedupe row + Error log, no transition; rejected/pending/in_process → `RecordPaymentAttempt` only (spec `Rejected Payment Handling`); other statuses → generic ignored-status log (spec `Non-Actionable Status Handling`).
 - [ ] 6.2 `tests/Maxkeys.Application.Tests/Payments/ProcessPaymentNotificationTests.cs`: same request id ×3 → one `Paid`, one outbox row; different request ids, order already `Paid` → no second transition/outbox row (spec `Re-notification after Paid`); concurrent duplicate approval (two request ids, same instant) → exactly one transition/one outbox row (spec `Concurrent duplicate delivery of the same approval`); amount/currency mismatch → ignored, no transition; `rejected` on `Pending` → `LastPaymentAttempt*` recorded, stays `Pending`, zero outbox rows, later `approved` still transitions once (spec `Rejection followed by a later approval`); `refunded` → log-only, no fields written (spec `Refunded status ignored`).
@@ -212,6 +226,7 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR12** — `feat/mvp-12-email-seed` — base: PR11 → `main` after merge — depends on: PR7, PR9 — ~260 lines
 
+- [ ] 12.0 Add `Product.Description` (Domain property + EF config `text` + additive migration `AddProductDescription`) and map it in `CatalogDtos`; the proposal ERD and the frontend `types/api.ts` `ProductDetail.description` require it (gap surfaced in PR5a2; `ProductDetail.Description` is currently always `""`).
 - [ ] 12.1 Add `src/Maxkeys.Infrastructure/Email/EmailOptions.cs` (`Email:Sender`, `From`, `OperatorAddress`, `Smtp:Host/Port/UseStartTls/User/Password`).
 - [ ] 12.2 Add `src/Maxkeys.Infrastructure/Email/SmtpEmailSender.cs : IEmailSender` (MailKit, ADR-08); DI selects `Smtp` or `Logging` by `Email:Sender`.
 - [ ] 12.3 Add `src/Maxkeys.Infrastructure/Persistence/CatalogSeeder.cs`, `seed/catalog.json`; wire `Maxkeys.Api --seed-catalog <path>` in `Program.cs` (ADR-12, upsert by slug).
@@ -253,20 +268,20 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR16** — `feat/mvp-16-frontend-checkout` — repo: `maxkeys-front` — base: PR15 → `main` after merge — depends on: PR15 — ~300 lines
 
-- [ ] 16.1 `composables/useCheckout.ts`: `status: idle|submitting|redirecting|error`; `submit(email)` → `POST /checkout/orders`, `sessionStorage['nexo.lastOrderId']`, redirect to `initPoint`.
-- [ ] 16.2 `components/checkout/ContactForm.vue`, `OrderSummary.vue`, `PayWithMercadoPago.vue`.
-- [ ] 16.3 `pages/checkout/index.vue`, `pages/checkout/result.vue` (polls `GET /checkout/orders/{id}/status` every 3s up to 20 tries; clears cart only when `status !== 'Pending'` or MP query `status=approved`).
-- [ ] 16.4 `tests/useCheckout.spec.ts`: request body shape (`variantId`, `quantity` pairs + email); state machine transitions.
+- [x] 16.1 `composables/useCheckout.ts`: `status: idle|submitting|redirecting|error`; `submit(email)` → `POST /checkout/orders`, `sessionStorage['nexo.lastOrderId']`, redirect to `initPoint`.
+- [x] 16.2 `components/checkout/ContactForm.vue`, `OrderSummary.vue`, `PayWithMercadoPago.vue`.
+- [x] 16.3 `pages/checkout/index.vue`, `pages/checkout/result.vue` (polls `GET /checkout/orders/{id}/status` every 3s up to 20 tries; clears cart only when `status !== 'Pending'` or MP query `status=approved`).
+- [x] 16.4 `tests/useCheckout.spec.ts`: request body shape (`variantId`, `quantity` pairs + email); state machine transitions.
 - Test: `npm run test -- useCheckout` green.
 
 **PR17** — `feat/mvp-17-frontend-auth-orders` — repo: `maxkeys-front` — base: PR16 → `main` after merge — depends on: PR14 — ~380 lines
 
-- [ ] 17.1 `composables/useAuth.ts`: wraps `useSupabaseClient()`/`useSupabaseUser()`, `signInWithGoogle()` (`redirectTo=${siteUrl}/auth/callback`), `signOut()`.
-- [ ] 17.2 `components/layout/LoginDialog.vue`, `middleware/auth.ts` (redirect cookie `nexo.redirect` + `navigateTo('/?login=1')` when unauthenticated), `pages/auth/callback.vue`.
-- [ ] 17.3 `components/orders/OrderCard.vue`, `OrderStatusBadge.vue`, `KeyReveal.vue` (reveal/copy, rendered only when order `Delivered`).
-- [ ] 17.4 `pages/account/orders/index.vue` (`middleware:'auth'`, `GET /me/orders`), `pages/account/orders/[id].vue` (`GET /me/orders/{id}`, `KeyReveal` per item only when `Delivered` — orders-history spec `Order Detail With Conditional Key Reveal`).
-- [ ] 17.5 Add order-detail DTOs to `types/api.ts`, citing the design section 7 rows they mirror (`GET /me/orders`, `GET /me/orders/{id}`).
-- [ ] 17.6 Manual check: confirm `KeyReveal` renders no key codes for a non-`Delivered` order fixture (orders-history spec `Non-delivered order hides keys`).
+- [x] 17.1 `composables/useAuth.ts`: wraps `useSupabaseClient()`/`useSupabaseUser()`, `signInWithGoogle()` (`redirectTo=${siteUrl}/auth/callback`), `signOut()`.
+- [x] 17.2 `components/layout/LoginDialog.vue`, `middleware/auth.ts` (redirect cookie `nexo.redirect` + `navigateTo('/?login=1')` when unauthenticated), `pages/auth/callback.vue`.
+- [x] 17.3 `components/orders/OrderCard.vue`, `OrderStatusBadge.vue`, `KeyReveal.vue` (reveal/copy, rendered only when order `Delivered`).
+- [x] 17.4 `pages/account/orders/index.vue` (`middleware:'auth'`, `GET /me/orders`), `pages/account/orders/[id].vue` (`GET /me/orders/{id}`, `KeyReveal` per item only when `Delivered` — orders-history spec `Order Detail With Conditional Key Reveal`).
+- [x] 17.5 Add order-detail DTOs to `types/api.ts`, citing the design section 7 rows they mirror (`GET /me/orders`, `GET /me/orders/{id}`).
+- [x] 17.6 Manual check: confirm `KeyReveal` renders no key codes for a non-`Delivered` order fixture (orders-history spec `Non-delivered order hides keys`).
 - Test: `npm run test` (full suite) green.
 
 ## Phase 7: Deploy/runbook
