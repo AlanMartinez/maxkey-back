@@ -34,6 +34,7 @@ try
     app.MapHealthEndpoints();
     app.MapCatalogEndpoints();
     app.MapCheckoutEndpoints();
+    app.MapWebhookEndpoints();
     app.MapMeEndpoints();
     app.MapAdminEndpoints();
 
