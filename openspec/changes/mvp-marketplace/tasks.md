@@ -99,13 +99,13 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 - [x] 2.6 (PR2a part) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs` + `OrderItemTests.cs`: creation happy path (total computed, snapshots kept); 21-item and 0-item orders → `DomainException`; invalid email → `DomainException`; quantity 0 and 11 → `DomainException`; every PR2a transition valid path + one invalid-state path → `DomainConflictException`; `RecordPaymentAttempt` sets the three `LastPaymentAttempt*` fields and keeps `Pending`; `MarkPaid` sets `MpPaymentId`/`PaidAt`/`LastPaymentAttemptStatus=approved`; `UpdatedAt` bump verified on a transition. (PR2b: `AttachKey` all-or-nothing, variant-mismatch, wrong-state-attach cases.)
 - Test: `dotnet test tests/Maxkeys.Domain.Tests --filter Order` green (43/43 full suite green).
 
-**PR2b** — `feat/mvp-02b-order-keys` — base: PR2a → `main` after merge — depends on: PR2a — ~200 lines
+**PR2b** — `feat/mvp-02b-order-keys` — base: PR2a → `main` after merge — depends on: PR2a — 265 lines (actual, well under the 400 cap)
 
-- [ ] 2.3 Add `src/Maxkeys.Domain/Keys/Key.cs` (`EncryptedCode` non-empty, `KeyVersion >= 1`, `LoadedBy` non-empty), `KeyStatus.cs` (`Available, Assigned`), `AssignTo(orderItemId, now)`.
-- [ ] 2.4 (remainder) Add `OrderItem.Keys` collection + `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`); `Order.AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05).
-- [ ] 2.6 (remainder) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs`: `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
-- [ ] 2.7 `tests/Maxkeys.Domain.Tests/KeyTests.cs`: `Key.AssignTo` transition.
-- Test: `dotnet test tests/Maxkeys.Domain.Tests` green.
+- [x] 2.3 Add `src/Maxkeys.Domain/Keys/Key.cs` (`EncryptedCode` non-empty, `KeyVersion >= 1`, `LoadedBy` non-empty), `KeyStatus.cs` (`Available, Assigned`), `AssignTo(orderItemId, now)`.
+- [x] 2.4 (remainder) Add `OrderItem.Keys` collection + `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`); `Order.AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05).
+- [x] 2.6 (remainder) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs`: `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
+- [x] 2.7 `tests/Maxkeys.Domain.Tests/Keys/KeyTests.cs`: `Key.AssignTo` transition.
+- Test: `dotnet test tests/Maxkeys.Domain.Tests` green (56/56).
 
 ## Phase 2: Infrastructure (EF + migrations, KeyCipher)
 
@@ -218,17 +218,17 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR13** — `feat/mvp-13-frontend-scaffold` — repo: `maxkeys-front` — base: own initial commit → `main` — depends on: — — ~380 lines
 
-- [ ] 13.1 Bootstrap the `maxkeys-front` repo: `git init -b main` in `C:\Personal\Projects\maxkeys-front`.
-- [ ] 13.2 Create `.gitignore` (`node_modules/`, `.nuxt/`, `.output/`, `dist/`, `.env`, `.env.local`).
-- [ ] 13.3 Create `README.md` linking to `maxkeys-back/openspec/changes/mvp-marketplace/` (specs + design section 7) as the API contract source.
-- [ ] 13.4 Commit the bootstrap as the initial commit on `main` (`chore: initial commit (Nuxt scaffold bootstrap)`); add remote `git remote add origin https://github.com/AlanMartinez/maxkey-front.git`; push (`git push -u origin main`).
-- [ ] 13.5 `nuxt.config.ts` (modules `@nuxtjs/supabase` [`redirect:false`], `@nuxtjs/tailwindcss`; `runtimeConfig.public.apiBaseUrl`, `siteUrl`).
-- [ ] 13.6 `tailwind.config.ts` (tokens: `colors.bg #0A0A0E`, `colors.surface #12121A`, `colors.accent {DEFAULT:#7C5CFC, hover:#8F6FFF}`, `colors.success #22D3A8`, `fontFamily.display=['Space Grotesk']`, `fontFamily.sans=['Inter']`, `backdropBlur.glass=12px`).
-- [ ] 13.7 `assets/css/main.css`, `app.vue` (`AppHeader` + `<NuxtPage>` + `CartDrawer` + `LoginDialog`).
-- [ ] 13.8 `composables/useApi.ts` (`$fetch.create` with `baseURL` from `runtimeConfig.public.apiBaseUrl`, fed by env `NUXT_PUBLIC_API_BASE_URL`; bearer attach on request, `ApiError` on response error).
-- [ ] 13.9 `types/api.ts` — DTOs mirrored by hand from design section 7 (catalog + checkout DTOs first); each type carries a comment citing the section 7 row it mirrors (e.g. `// mirrors design.md §7 "GET /catalog/products" response`), per the cross-repo contract (ADR-18).
-- [ ] 13.10 `components/layout/AppHeader.vue`, `AppFooter.vue`; `components/ui/AppButton.vue`, `AppBadge.vue`, `Skeleton.vue`, `EmptyState.vue`, `ErrorState.vue`.
-- [ ] 13.11 `.env.example` (`NUXT_PUBLIC_API_BASE_URL`, `NUXT_PUBLIC_SITE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`).
+- [x] 13.1 Bootstrap the `maxkeys-front` repo: `git init -b main` in `C:\Personal\Projects\maxkeys-front`.
+- [x] 13.2 Create `.gitignore` (`node_modules/`, `.nuxt/`, `.output/`, `dist/`, `.env`, `.env.local`).
+- [x] 13.3 Create `README.md` linking to `maxkeys-back/openspec/changes/mvp-marketplace/` (specs + design section 7) as the API contract source.
+- [x] 13.4 Commit the bootstrap as the initial commit on `main` (`chore: initial commit (Nuxt scaffold bootstrap)`); add remote `git remote add origin https://github.com/AlanMartinez/maxkey-front.git`; push (`git push -u origin main`).
+- [x] 13.5 `nuxt.config.ts` (modules `@nuxtjs/supabase` [`redirect:false`], `@nuxtjs/tailwindcss`; `runtimeConfig.public.apiBaseUrl`, `siteUrl`).
+- [x] 13.6 `tailwind.config.ts` (tokens: `colors.bg #0A0A0E`, `colors.surface #12121A`, `colors.accent {DEFAULT:#7C5CFC, hover:#8F6FFF}`, `colors.success #22D3A8`, `fontFamily.display=['Space Grotesk']`, `fontFamily.sans=['Inter']`, `backdropBlur.glass=12px`).
+- [x] 13.7 `assets/css/main.css`, `app.vue` (`AppHeader` + `<NuxtPage>` + `CartDrawer` + `LoginDialog`).
+- [x] 13.8 `composables/useApi.ts` (`$fetch.create` with `baseURL` from `runtimeConfig.public.apiBaseUrl`, fed by env `NUXT_PUBLIC_API_BASE_URL`; bearer attach on request, `ApiError` on response error).
+- [x] 13.9 `types/api.ts` — DTOs mirrored by hand from design section 7 (catalog + checkout DTOs first); each type carries a comment citing the section 7 row it mirrors (e.g. `// mirrors design.md §7 "GET /catalog/products" response`), per the cross-repo contract (ADR-18).
+- [x] 13.10 `components/layout/AppHeader.vue`, `AppFooter.vue`; `components/ui/AppButton.vue`, `AppBadge.vue`, `Skeleton.vue`, `EmptyState.vue`, `ErrorState.vue`.
+- [x] 13.11 `.env.example` (`NUXT_PUBLIC_API_BASE_URL`, `NUXT_PUBLIC_SITE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`).
 - Test: `npm run test && nuxi typecheck` green.
 
 **PR14** — `feat/mvp-14-frontend-catalog` — repo: `maxkeys-front` — base: PR13 → `main` after merge — depends on: PR13 — ~350 lines
