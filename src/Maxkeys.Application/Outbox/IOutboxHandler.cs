@@ -6,7 +6,7 @@ namespace Maxkeys.Application.Outbox;
 /// Business logic for one <see cref="OutboxEvent.Type"/> value, invoked by the
 /// out-of-process <c>OutboxProcessor</c> (PR7b; design section 3, section 6c;
 /// ADR-03 — a fourth interface accepted because two real implementations exist:
-/// <see cref="OrderApprovedHandler"/> here and a future <c>OrderDeliveredHandler</c>).
+/// <see cref="OrderApprovedHandler"/> and <see cref="OrderDeliveredHandler"/>).
 /// The processor stays ignorant of business logic: it only claims rows and
 /// dispatches by <see cref="EventType"/>.
 /// </summary>

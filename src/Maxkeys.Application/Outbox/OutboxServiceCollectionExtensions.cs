@@ -6,13 +6,14 @@ namespace Maxkeys.Application.Outbox;
 /// Registers every <see cref="IOutboxHandler"/> so <c>OutboxProcessor</c>
 /// (PR7b, Infrastructure) can resolve <c>IEnumerable&lt;IOutboxHandler&gt;</c>
 /// and dispatch by <see cref="IOutboxHandler.EventType"/> without knowing the
-/// concrete handler types. A future PR adds <c>OrderDeliveredHandler</c> here.
+/// concrete handler types.
 /// </summary>
 public static class OutboxServiceCollectionExtensions
 {
     public static IServiceCollection AddOutboxHandlers(this IServiceCollection services)
     {
         services.AddScoped<IOutboxHandler, OrderApprovedHandler>();
+        services.AddScoped<IOutboxHandler, OrderDeliveredHandler>();
 
         return services;
     }

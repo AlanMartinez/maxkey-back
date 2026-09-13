@@ -34,15 +34,15 @@ phases:
   apply:
     status: in-progress
     engram_topic: sdd/mvp-marketplace/apply-progress
-    completed_prs_backend: [PR0 main, PR1a #1 merged, PR1b #2, PR2a #3, PR2b #4, PR3a #6, PR3b #7, PR4 #8, PR5a #9, PR5a2 #10, catch-up #5 (lands PR1b+PR2a on main)]
-    completed_prs_frontend: [PR13 #1 merged, PR14 #2, PR15 #3, PR16 #4, PR17a #5, PR17b #6]
-    in_progress: none
-    next_backend: PR5b feat/mvp-05b-checkout-application (base feat/mvp-05a2-product-detail-gateway; tasks 5.4-5.6; request DTO field is `email` per design 7)
-    next_frontend: PR18b Vercel config after PR17b
-    attempt_ledger: backend blocked (pr5a work unit 626 lines > 400) - maintainer reset needed before next acquire; use --max-changed-lines ~900 per work unit since agents enforce 400 per PR and splits happen
-    merge_queue_backend: '#5 -> #4 -> #6 -> #7 -> #8 -> #9 -> #10, retarget each to main before merging; never merge child into parent branch'
-    merge_queue_frontend: "#2 -> #3 -> #4 -> #5 -> #6, same rule"
-    follow_ups: [task 12.0 Product.Description domain gap, Supabase JWT signing mode before PR10, MP x-signature sandbox check in PR11, .gitattributes for LF]
+    completed_prs_backend: [PR0 main, PR1a #1 merged, PR1b #2, PR2a #3, catch-up #5 merged, PR2b #4, PR3a #6, PR3b #7, PR4 #8, PR5a #9, PR5a2 #10, catch-up #11 (lands PR2b-PR5a2, OPEN), PR5b #12, PR6 #13, PR7a #14, PR7b #15]
+    completed_prs_frontend: [PR13 #1 merged, PR14 #2 merged, PR15 #3, PR16 #4, PR17a #5, PR17b #6, catch-up #7 (lands PR15-PR17b), PR18b #8, dev-server fix #9 (unverified smoke)]
+    in_progress: none (session ended 2026-09-13; all agents stopped cleanly)
+    next_backend: PR8 feat/mvp-08-fulfillment-application (base feat/mvp-07b-outbox-processor; tasks 8.1-8.7 incl. spec carry-over 8.6; est ~380 -> pre-split 8a AttachKey+ListAwaiting+tests / 8b OrderDeliveredHandler+email template+GetMyOrders+tests)
+    next_frontend: none until backend API exists (PR9); then end-to-end smoke; verify dev-server pipe error after fix #9
+    attempt_ledger: backend and frontend ledgers clean (last units settled complete); acquire with --max-changed-lines 900 per work unit
+    merge_queue_backend: '#11 -> #12 -> #13 -> #14 -> #15 (all opened against main; merge in order, each diff collapses after the previous merge)'
+    merge_queue_frontend: '#7 -> #8 -> #9 (against main)'
+    follow_ups: [task 12.0 Product.Description domain gap, Supabase signing mode CONFIRMED asymmetric ECC P-256 (Auth:Mode=Jwks) - PR10 unblocked, Google provider still DISABLED in Supabase (user must add Google Cloud client id/secret + redirect URLs), MP x-signature sandbox check in PR11, Email:OperatorTo vs design Email:OperatorAddress naming reconcile in PR12, .gitattributes for LF, frontend dev-server pipe error smoke]
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (separate repo, PR13-PR17; layout amendment pending)
