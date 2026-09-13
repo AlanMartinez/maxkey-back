@@ -25,3 +25,7 @@ Thumbs.db
 
 # Gentle AI skill registry cache
 .atl/.skill-registry.cache.json
+
+# CodeGraph index (per checkout)
+.codegraph/
+openspec/changes/*/.gentle-ai-instance
