@@ -5,6 +5,7 @@ using Maxkeys.Api.Errors;
 using Maxkeys.Api.Logging;
 using Maxkeys.Infrastructure;
 using Maxkeys.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 SerilogSetup.Bootstrap();
@@ -24,6 +25,19 @@ try
     builder.Services.AddSupabaseJwtAuth(builder.Configuration);
 
     var app = builder.Build();
+
+    // --migrate runs Database.MigrateAsync() then exits (ADR-13, task 18a.2).
+    // Deployed as the Fly.io release_command / Railway pre-deploy command, never
+    // on normal web-instance startup, to avoid a multi-instance migration race.
+    // Checked before --seed-catalog so a release step runs --migrate and an
+    // operator runs --seed-catalog separately, by hand, whenever the catalog changes.
+    if (args.Contains("--migrate"))
+    {
+        using var migrateScope = app.Services.CreateScope();
+        var migrateDb = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await migrateDb.Database.MigrateAsync();
+        return;
+    }
 
     var seedCatalogPath = GetSeedCatalogPath(args);
     if (seedCatalogPath is not null)
