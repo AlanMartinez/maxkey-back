@@ -35,13 +35,13 @@ phases:
     status: in-progress
     engram_topic: sdd/mvp-marketplace/apply-progress
     completed_prs_backend: [PR0 main, PR1a #1 merged, PR1b #2, PR2a #3, PR2b #4, PR3a #6, PR3b #7, PR4 #8, PR5a #9, PR5a2 #10, catch-up #5 (lands PR1b+PR2a on main)]
-    completed_prs_frontend: [PR13 #1 merged, PR14 #2, PR15 #3, PR16 #4, PR17a #5]
-    in_progress: PR17b frontend orders (agent running at save time; branch feat/mvp-17b-frontend-orders, base feat/mvp-17a-frontend-auth)
+    completed_prs_frontend: [PR13 #1 merged, PR14 #2, PR15 #3, PR16 #4, PR17a #5, PR17b #6]
+    in_progress: none
     next_backend: PR5b feat/mvp-05b-checkout-application (base feat/mvp-05a2-product-detail-gateway; tasks 5.4-5.6; request DTO field is `email` per design 7)
     next_frontend: PR18b Vercel config after PR17b
     attempt_ledger: backend blocked (pr5a work unit 626 lines > 400) - maintainer reset needed before next acquire; use --max-changed-lines ~900 per work unit since agents enforce 400 per PR and splits happen
     merge_queue_backend: '#5 -> #4 -> #6 -> #7 -> #8 -> #9 -> #10, retarget each to main before merging; never merge child into parent branch'
-    merge_queue_frontend: '#2 -> #3 -> #4 -> #5, same rule'
+    merge_queue_frontend: "#2 -> #3 -> #4 -> #5 -> #6, same rule"
     follow_ups: [task 12.0 Product.Description domain gap, Supabase JWT signing mode before PR10, MP x-signature sandbox check in PR11, .gitattributes for LF]
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)

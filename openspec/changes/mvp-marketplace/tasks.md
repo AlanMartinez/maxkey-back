@@ -278,10 +278,10 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 - [x] 17.1 `composables/useAuth.ts`: wraps `useSupabaseClient()`/`useSupabaseUser()`, `signInWithGoogle()` (`redirectTo=${siteUrl}/auth/callback`), `signOut()`.
 - [x] 17.2 `components/layout/LoginDialog.vue`, `middleware/auth.ts` (redirect cookie `nexo.redirect` + `navigateTo('/?login=1')` when unauthenticated), `pages/auth/callback.vue`.
-- [ ] 17.3 `components/orders/OrderCard.vue`, `OrderStatusBadge.vue`, `KeyReveal.vue` (reveal/copy, rendered only when order `Delivered`).
-- [ ] 17.4 `pages/account/orders/index.vue` (`middleware:'auth'`, `GET /me/orders`), `pages/account/orders/[id].vue` (`GET /me/orders/{id}`, `KeyReveal` per item only when `Delivered` — orders-history spec `Order Detail With Conditional Key Reveal`).
-- [ ] 17.5 Add order-detail DTOs to `types/api.ts`, citing the design section 7 rows they mirror (`GET /me/orders`, `GET /me/orders/{id}`).
-- [ ] 17.6 Manual check: confirm `KeyReveal` renders no key codes for a non-`Delivered` order fixture (orders-history spec `Non-delivered order hides keys`).
+- [x] 17.3 `components/orders/OrderCard.vue`, `OrderStatusBadge.vue`, `KeyReveal.vue` (reveal/copy, rendered only when order `Delivered`).
+- [x] 17.4 `pages/account/orders/index.vue` (`middleware:'auth'`, `GET /me/orders`), `pages/account/orders/[id].vue` (`GET /me/orders/{id}`, `KeyReveal` per item only when `Delivered` — orders-history spec `Order Detail With Conditional Key Reveal`).
+- [x] 17.5 Add order-detail DTOs to `types/api.ts`, citing the design section 7 rows they mirror (`GET /me/orders`, `GET /me/orders/{id}`).
+- [x] 17.6 Manual check: confirm `KeyReveal` renders no key codes for a non-`Delivered` order fixture (orders-history spec `Non-delivered order hides keys`).
 - Test: `npm run test` (full suite) green.
 
 ## Phase 7: Deploy/runbook
