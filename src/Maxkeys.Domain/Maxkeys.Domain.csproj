@@ -1,0 +1,6 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, TreatWarningsAsErrors come from Directory.Build.props -->
+  <!-- BCL only: no PackageReference here, per design section 3 (Domain references nothing but the BCL) -->
+
+</Project>
