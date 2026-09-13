@@ -31,7 +31,9 @@ public sealed class GetOrderStatus
             MaskEmail(order.BuyerEmail),
             order.LastPaymentAttemptId,
             order.LastPaymentAttemptStatus,
-            order.LastPaymentAttemptAt);
+            order.LastPaymentAttemptAt,
+            order.TotalAmount,
+            order.Currency);
     }
 
     private static string MaskEmail(string email)
