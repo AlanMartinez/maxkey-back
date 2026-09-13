@@ -38,9 +38,11 @@ Two independent stacks, one per repository (ADR-18), joined only by the shared d
 | PR | Repo | Title | Branch | Base branch | Depends on | Est. lines | Phase | Focused test | Runtime harness | Rollback boundary |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 0 | maxkeys-back | Repo bootstrap | `chore/mvp-00-repo-bootstrap` | — (first commit) | — | ~40 | 0 | none (scaffolding only) | N/A — no runtime yet | delete `.git`, redo `git init` |
-| 1 | maxkeys-back | Domain foundation | `feat/mvp-01-domain-foundation` | `main` | 0 | ~250 | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "Product|OutboxEvent"` | N/A — no host yet | delete `Maxkeys.Domain/{Common,Catalog,Outbox,Payments}` + `Domain.Tests` |
-| 2 | maxkeys-back | Order domain | `feat/mvp-02-order-domain` | `feat/mvp-01-domain-foundation` → `main` after PR1 | 1 | ~380 | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter Order` | N/A | delete `Orders/`, `Keys/`; revert cart-checkout spec edit |
-| 3 | maxkeys-back | EF Core persistence + Testcontainers fixture | `feat/mvp-03-ef-persistence` | `feat/mvp-02-order-domain` → `main` after PR2 | 2 | ~350 (+generated migration) | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter AppDbContext` | `dotnet ef database update` against Testcontainers/`TEST_POSTGRES_CONNECTION` | `dotnet ef database update 0`; delete `Infrastructure/Persistence` |
+| 1a | maxkeys-back | Domain foundation (scaffold + catalog) | `feat/mvp-01-domain-foundation` | `main` | 0 | 324 (actual) | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "Product"` | N/A — no host yet | delete `Maxkeys.Domain/{Common,Catalog}` + `Domain.Tests` |
+| 1b | maxkeys-back | Domain outbox + webhook dedupe | `feat/mvp-01b-domain-outbox` | `feat/mvp-01-domain-foundation` → `main` after PR1a | 1a | 267 (actual) | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "OutboxEvent|ProcessedWebhookNotification"` | N/A | delete `Maxkeys.Domain/{Outbox,Payments}` + their tests |
+| 2a | maxkeys-back | Order core (status, item, aggregate) | `feat/mvp-02a-order-core` | `feat/mvp-01b-domain-outbox` → `main` after PR1b | 1b | 400 (actual) | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter Order` | N/A | delete `Orders/`; revert cart-checkout spec edit |
+| 2b | maxkeys-back | Order keys + delivery derivation | `feat/mvp-02b-order-keys` | `feat/mvp-02a-order-core` → `main` after PR2a | 2a | ~200 | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "Order\|Key"` | N/A | delete `Keys/`, `Order.AttachKey` |
+| 3 | maxkeys-back | EF Core persistence + Testcontainers fixture | `feat/mvp-03-ef-persistence` | `feat/mvp-02b-order-keys` → `main` after PR2b | 2b | ~350 (+generated migration) | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter AppDbContext` | `dotnet ef database update` against Testcontainers/`TEST_POSTGRES_CONNECTION` | `dotnet ef database update 0`; delete `Infrastructure/Persistence` |
 | 4 | maxkeys-back | KeyCipher | `feat/mvp-04-key-cipher` | `feat/mvp-03-ef-persistence` → `main` after PR3 | 1 | ~150 | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` | N/A — pure crypto | delete `Security/KeyCipher*` |
 | 5 | maxkeys-back | Checkout application | `feat/mvp-05-checkout-application` | `feat/mvp-04-key-cipher` → `main` after PR4 | 3 | ~350 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` | N/A (`FakePaymentGateway`) | delete `Checkout/*`, `Catalog/*` (Application) |
 | 6 | maxkeys-back | Payment webhook application | `feat/mvp-06-payment-webhook-application` | `feat/mvp-05-checkout-application` → `main` after PR5 | 5 | ~320 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Payments` | N/A (`FakePaymentGateway`) | delete `Payments/ProcessPaymentNotification.cs` |
@@ -81,28 +83,33 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR1** — `feat/mvp-01-domain-foundation` — base: `main` — depends on: PR0 — ~250 lines
 
-- [ ] 1.1 Create `Maxkeys.sln`, `Directory.Build.props` (`net8.0`, nullable, implicit usings, `TreatWarningsAsErrors`), `src/Maxkeys.Domain/Maxkeys.Domain.csproj` (BCL only).
-- [ ] 1.2 Add `src/Maxkeys.Domain/Common/Entity.cs` (client-generated `Guid Id`), `DomainException.cs`, `DomainConflictException.cs : DomainException` (422 vs 409 split, design §7).
-- [ ] 1.3 Add `src/Maxkeys.Domain/Catalog/Product.cs` (`Slug` non-empty/lowercase/unique invariant, `Name`/`Platform` non-empty), `ProductVariant.cs` (`Price > 0`, `OldPrice` null or `> Price`, `Currency == "ARS"`).
-- [ ] 1.4 Add `src/Maxkeys.Domain/Outbox/OutboxEvent.cs` (`Claim(leaseUntil)`, `MarkProcessed(now)`, `MarkFailedAttempt(error, now, maxAttempts)`), `OutboxEventStatus.cs`, `OutboxEventTypes.cs` (`OrderApproved`, `OrderDelivered`).
-- [ ] 1.5 Add `src/Maxkeys.Domain/Payments/ProcessedWebhookNotification.cs` (`RequestId` non-empty, insert-only).
-- [ ] 1.6 Create `tests/Maxkeys.Domain.Tests` (xUnit): `ProductTests`, `ProductVariantTests`, `OutboxEventTests` — backoff math `30s * 2^n` and `Failed` at the 8th attempt (outbox-processing spec: `Exponential Backoff on Failure`, `Dead-Letter After Max Attempts`), using `FakeTimeProvider`.
-- Test: `dotnet test tests/Maxkeys.Domain.Tests` green.
+- [x] 1.1 Create `Maxkeys.sln`, `Directory.Build.props` (`net8.0`, nullable, implicit usings, `TreatWarningsAsErrors`), `src/Maxkeys.Domain/Maxkeys.Domain.csproj` (BCL only).
+- [x] 1.2 Add `src/Maxkeys.Domain/Common/Entity.cs` (client-generated `Guid Id`), `DomainException.cs`, `DomainConflictException.cs : DomainException` (422 vs 409 split, design §7).
+- [x] 1.3 Add `src/Maxkeys.Domain/Catalog/Product.cs` (`Slug` non-empty/lowercase/unique invariant, `Name`/`Platform` non-empty), `ProductVariant.cs` (`Price > 0`, `OldPrice` null or `> Price`, `Currency == "ARS"`).
+- [x] 1.4 Add `src/Maxkeys.Domain/Outbox/OutboxEvent.cs` (`Claim(leaseUntil)`, `MarkProcessed(now)`, `MarkFailedAttempt(error, now, maxAttempts)`), `OutboxEventStatus.cs`, `OutboxEventTypes.cs` (`OrderApproved`, `OrderDelivered`).
+- [x] 1.5 Add `src/Maxkeys.Domain/Payments/ProcessedWebhookNotification.cs` (`RequestId` non-empty, insert-only).
+- [x] 1.6 Create `tests/Maxkeys.Domain.Tests` (xUnit): `ProductTests`, `ProductVariantTests`, `OutboxEventTests` — backoff math `30s * 2^n` and `Failed` at the 8th attempt (outbox-processing spec: `Exponential Backoff on Failure`, `Dead-Letter After Max Attempts`), using `FakeTimeProvider`. ****PR1 split (auto-chain)**: implementation measured 591 lines against the 400-line cap, so the slice was split into PR1a `feat/mvp-01-domain-foundation` (tasks 1.1–1.3 + catalog tests, 324 lines, 12 tests) and PR1b `feat/mvp-01b-domain-outbox` (tasks 1.4–1.5 + outbox/webhook tests, 267 lines, 11 tests), stacked-to-main. PR2 now bases on PR1b. Both branches build and test green (23/23 total).cs` remain). Driven by 6 non-trivial entity/exception files plus full spec-mandated test coverage (backoff exponential math, dead-letter, claim/process transitions) bundled in the same PR per this task list. Flagged to the orchestrator/user for a `size:exception` decision or a future retroactive split; PR2 was not started.
 
-**PR2** — `feat/mvp-02-order-domain` — base: PR1 → `main` after merge — depends on: PR1 — ~380 lines
+**PR2a** — `feat/mvp-02a-order-core` — base: PR1b → `main` after merge — depends on: PR1b — 400 lines (actual)
 
-- [ ] 2.1 Add `src/Maxkeys.Domain/Orders/OrderStatus.cs` (`Pending, Paid, AwaitingFulfillment, Delivered, Cancelled`).
-- [ ] 2.2 Add `src/Maxkeys.Domain/Orders/OrderItem.cs`: `Quantity` invariant **1..10**; `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`).
+- [x] 2.1 Add `src/Maxkeys.Domain/Orders/OrderStatus.cs` (`Pending, Paid, AwaitingFulfillment, Delivered, Cancelled`).
+- [x] 2.2 Add `src/Maxkeys.Domain/Orders/OrderItem.cs`: `Quantity` invariant **1..10**, snapshot names non-empty. (PR2a: no `Keys`/`IsComplete` yet — deferred to PR2b once `Key` exists.)
+- [x] 2.4 (PR2a part) Add `src/Maxkeys.Domain/Orders/Order.cs`: factory `Create(userId?, buyerEmail, lines[], now)` enforcing **1..20 items**, email format, computed `TotalAmount`; transitions `AttachPreference`, `RecordPaymentAttempt`, `MarkPaid`, `MarkAwaitingFulfillment`, `Cancel`. (PR2b: `AttachKey` all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05.)
+- [x] 2.5 **Spec carry-over** — update `specs/cart-checkout/spec.md`: add scenario "Order exceeds 20 items rejected" (422) under `Order Creation From Cart`, and scenario "Quantity outside 1..10 rejected" (422) matching the `Order.Create`/`OrderItem` invariants above.
+- [x] 2.6 (PR2a part) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs` + `OrderItemTests.cs`: creation happy path (total computed, snapshots kept); 21-item and 0-item orders → `DomainException`; invalid email → `DomainException`; quantity 0 and 11 → `DomainException`; every PR2a transition valid path + one invalid-state path → `DomainConflictException`; `RecordPaymentAttempt` sets the three `LastPaymentAttempt*` fields and keeps `Pending`; `MarkPaid` sets `MpPaymentId`/`PaidAt`/`LastPaymentAttemptStatus=approved`; `UpdatedAt` bump verified on a transition. (PR2b: `AttachKey` all-or-nothing, variant-mismatch, wrong-state-attach cases.)
+- Test: `dotnet test tests/Maxkeys.Domain.Tests --filter Order` green (43/43 full suite green).
+
+**PR2b** — `feat/mvp-02b-order-keys` — base: PR2a → `main` after merge — depends on: PR2a — ~200 lines
+
 - [ ] 2.3 Add `src/Maxkeys.Domain/Keys/Key.cs` (`EncryptedCode` non-empty, `KeyVersion >= 1`, `LoadedBy` non-empty), `KeyStatus.cs` (`Available, Assigned`), `AssignTo(orderItemId, now)`.
-- [ ] 2.4 Add `src/Maxkeys.Domain/Orders/Order.cs`: factory `Create(userId?, email, lines[], now)` enforcing **1..20 items**, email format, computed `TotalAmount`; transitions `AttachPreference`, `RecordPaymentAttempt`, `MarkPaid`, `MarkAwaitingFulfillment`, `AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05), `Cancel`.
-- [ ] 2.5 **Spec carry-over** — update `specs/cart-checkout/spec.md`: add scenario "Order exceeds 20 items rejected" (422) under `Order Creation From Cart`, and scenario "Quantity outside 1..10 rejected" (422) matching the `Order.Create`/`OrderItem` invariants above.
-- [ ] 2.6 `tests/Maxkeys.Domain.Tests/OrderTests.cs`: every transition in design §4.2 (valid + invalid); pricing/snapshots; 21-item order → `DomainException`; quantity 0 and 11 → `DomainException`; `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
+- [ ] 2.4 (remainder) Add `OrderItem.Keys` collection + `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`); `Order.AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05).
+- [ ] 2.6 (remainder) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs`: `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
 - [ ] 2.7 `tests/Maxkeys.Domain.Tests/KeyTests.cs`: `Key.AssignTo` transition.
 - Test: `dotnet test tests/Maxkeys.Domain.Tests` green.
 
 ## Phase 2: Infrastructure (EF + migrations, KeyCipher)
 
-**PR3** — `feat/mvp-03-ef-persistence` — base: PR2 → `main` after merge — depends on: PR2 — ~350 lines (+ generated migration, excluded from budget)
+**PR3** — `feat/mvp-03-ef-persistence` — base: PR2b → `main` after merge — depends on: PR2b — ~350 lines (+ generated migration, excluded from budget)
 
 - [ ] 3.1 Create `src/Maxkeys.Infrastructure/Maxkeys.Infrastructure.csproj` (Npgsql, `EFCore.NamingConventions`) and `src/Maxkeys.Application/Persistence/IAppDbContext.cs` (`DbSet<Product/ProductVariant/Order/OrderItem/Key/OutboxEvent/ProcessedWebhookNotification>`, `SaveChangesAsync`).
 - [ ] 3.2 Create `src/Maxkeys.Infrastructure/Persistence/AppDbContext.cs : DbContext, IAppDbContext` with snake_case naming (ADR-16).
