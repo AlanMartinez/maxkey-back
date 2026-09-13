@@ -36,9 +36,10 @@ public sealed record ProductVariantDetail(
 /// <summary>
 /// Full product detail (design section 7 <c>GET /catalog/products/{slug}</c>
 /// response; frontend mirror: <c>ProductDetail extends ProductSummary</c>).
-/// <see cref="Description"/> is empty until the <c>Product</c> domain entity
-/// gains a description column — the proposal's ERD listed it but PR1 did not
-/// add it to <c>Product</c> (see this PR's apply-progress deviation note).
+/// <see cref="Description"/> is mapped from <c>Product.Description</c> (added
+/// in PR12 task 12.0 — the proposal's ERD listed it but PR1 did not add it to
+/// <c>Product</c>; it was empty for every product created before that column
+/// existed).
 /// </summary>
 public sealed record ProductDetail(
     Guid Id,

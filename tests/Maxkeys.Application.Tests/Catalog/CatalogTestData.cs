@@ -14,10 +14,11 @@ internal static class CatalogTestData
         bool isActive,
         string? slug = null,
         string? name = null,
-        string? imageKey = null)
+        string? imageKey = null,
+        string? description = null)
     {
         slug ??= $"product-{Guid.NewGuid():N}";
-        var product = new Product(slug, name ?? $"Product {slug}", platform, isActive, imageKey);
+        var product = new Product(slug, name ?? $"Product {slug}", platform, isActive, imageKey, description);
         context.Products.Add(product);
         return product;
     }
