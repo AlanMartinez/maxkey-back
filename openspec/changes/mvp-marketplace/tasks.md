@@ -126,10 +126,10 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR4** — `feat/mvp-04-key-cipher` — base: `feat/mvp-03b-ef-testcontainers` → `main` after merge — depends on: PR3b — ~150 lines
 
-- [ ] 4.1 Add `src/Maxkeys.Application/Security/KeyCipherOptions.cs` (`Keys:EncryptionKey` base64/32 bytes, `Keys:CurrentVersion`), validated at startup (fail fast).
-- [ ] 4.2 Add `src/Maxkeys.Application/Security/KeyCipher.cs`: `Encrypt(string) -> (byte[] blob, short version)` / `Decrypt(byte[], short) -> string` via `AesGcm`, random 12-byte nonce, 16-byte tag, layout `nonce|tag|ciphertext` (fulfillment spec `Key Encryption at Rest`).
-- [ ] 4.3 `tests/Maxkeys.Application.Tests/Security/KeyCipherTests.cs`: round-trip; ciphertext ≠ plaintext; tampered tag/wrong version fails.
-- Test: `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` green.
+- [x] 4.1 Add `src/Maxkeys.Application/Security/KeyCipherOptions.cs` (`Keys:EncryptionKey` base64/32 bytes, `Keys:CurrentVersion`), validated at startup (fail fast).
+- [x] 4.2 Add `src/Maxkeys.Application/Security/KeyCipher.cs`: `Encrypt(string) -> (byte[] blob, short version)` / `Decrypt(byte[], short) -> string` via `AesGcm`, random 12-byte nonce, 16-byte tag, layout `nonce|tag|ciphertext` (fulfillment spec `Key Encryption at Rest`).
+- [x] 4.3 `tests/Maxkeys.Application.Tests/Security/KeyCipherTests.cs`: round-trip; ciphertext ≠ plaintext; tampered tag/wrong version fails.
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` green — 8/8.
 
 ## Phase 3: Application
 
