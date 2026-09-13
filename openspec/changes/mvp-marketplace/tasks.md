@@ -64,7 +64,7 @@ Two independent stacks, one per repository (ADR-18), joined only by the shared d
 | 15 | maxkeys-front | Frontend cart | `feat/mvp-15-frontend-cart` | `feat/mvp-14-frontend-catalog` → `main` after PR14 | 13 | ~300 | 6 | `npm run test -- useCart` | `npm run dev`, add/remove items, refresh (persistence) | delete `useCart.ts`, cart components |
 | 16 | maxkeys-front | Frontend checkout + result | `feat/mvp-16-frontend-checkout` | `feat/mvp-15-frontend-cart` → `main` after PR15 | 15 (backend PR9/PR11 for end-to-end) | ~300 | 6 | `npm run test -- useCheckout` | `npm run dev`, submit checkout against a running API, land on result page | delete `useCheckout.ts`, checkout pages/components |
 | 17 | maxkeys-front | Frontend auth + orders history | `feat/mvp-17-frontend-auth-orders` | `feat/mvp-16-frontend-checkout` → `main` after PR16 | 14 (backend PR10 for end-to-end) | ~380 | 6 | `npm run test` (full suite) | `npm run dev`, Google login round-trip against dev Supabase project | delete `useAuth.ts`, `LoginDialog`, auth middleware/callback, orders pages |
-| 18a | maxkeys-back | Deploy config + runbook | `feat/mvp-18a-deploy-runbook` | `main` (after PR11 and PR12 merged) | 11, 12 | ~180 | 7 | `dotnet test` | manual sandbox runbook (task 18a.5) — real MP sandbox + Supabase user, no automated harness | revert deploy configs; redeploy previous image |
+| 18a | maxkeys-back | Deploy config + runbook | `feat/mvp-18a-deploy-runbook` | `feat/mvp-12-email-seed` → `main` after PR12 | 11, 12 | ~180 | 7 | `dotnet test` | manual sandbox runbook (task 18a.5) — real MP sandbox + Supabase user, no automated harness | revert deploy configs; redeploy previous image |
 | 18b | maxkeys-front | Vercel config + env docs | `feat/mvp-18b-deploy-config` | `main` (after PR17 merged) | 17 | ~80 | 7 | `npm run test` | `npm run build` + Vercel preview deploy | revert Vercel config; Vercel instant rollback |
 
 **Frontend independence**: PR13‑PR17 have zero dependency on backend PR1‑PR12 (they build/test against mocked `$fetch` and the DTO contract in design section 7) and live in a separate repository — they can be developed/merged in parallel on `maxkeys-front`'s own `main`-based stack.
@@ -297,13 +297,13 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 ## Phase 7: Deploy/runbook
 
-**PR18a** — `feat/mvp-18a-deploy-runbook` — repo: `maxkeys-back` — base: `main` (after PR11 and PR12 merged) — depends on: PR11, PR12 — ~180 lines
+**PR18a** — `feat/mvp-18a-deploy-runbook` — repo: `maxkeys-back` — base: `feat/mvp-12-email-seed` → `main` after PR12 — depends on: PR11, PR12 — ~180 lines
 
-- [ ] 18a.1 `deploy/fly.toml`, `deploy/railway.json` skeletons (env keys per design §10; `release_command`/pre-deploy running `Maxkeys.Api --migrate`).
-- [ ] 18a.2 Add `--migrate` flag handling in `src/Maxkeys.Api/Program.cs` (`Database.Migrate()` then exit — ADR-13).
-- [ ] 18a.3 Set production `Cors:AllowedOrigins` values (Vercel production origin + preview origins as needed) in `deploy/fly.toml`/`railway.json` env config.
-- [ ] 18a.4 Write the sandbox end-to-end runbook at `docs/runbook-sandbox.md` (proposal Success Criteria): browse → variant → 2-item cart (one qty 2) → guest checkout → MP sandbox approval → webhook processed once → `AwaitingFulfillment` → operator attaches 3 keys → `Delivered` → one email → keys visible in Mis compras.
-- [ ] 18a.5 Manually execute the sandbox runbook once against real MP sandbox + a test Supabase user; record pass/fail in the runbook doc.
+- [x] 18a.1 `deploy/fly.toml`, `deploy/railway.json` skeletons (env keys per design §10; `release_command`/pre-deploy running `Maxkeys.Api --migrate`).
+- [x] 18a.2 Add `--migrate` flag handling in `src/Maxkeys.Api/Program.cs` (`Database.Migrate()` then exit — ADR-13).
+- [x] 18a.3 Set production `Cors:AllowedOrigins` values (Vercel production origin + preview origins as needed) in `deploy/fly.toml`/`railway.json` env config.
+- [x] 18a.4 Write the sandbox end-to-end runbook at `docs/runbook-sandbox.md` (proposal Success Criteria): browse → variant → 2-item cart (one qty 2) → guest checkout → MP sandbox approval → webhook processed once → `AwaitingFulfillment` → operator attaches 3 keys → `Delivered` → one email → keys visible in Mis compras.
+- [ ] 18a.5 Manually execute the sandbox runbook once against real MP sandbox + a test Supabase user; record pass/fail in the runbook doc. Pending manual execution by the user; runbook written in 18a.4.
 - Test: `dotnet test` green; runbook executed manually (no automated harness — real MP sandbox required).
 
 **PR18b** — `feat/mvp-18b-deploy-config` — repo: `maxkeys-front` — base: `main` (after PR17 merged) — depends on: PR17 — ~80 lines
