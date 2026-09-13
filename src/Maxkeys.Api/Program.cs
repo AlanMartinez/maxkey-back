@@ -29,7 +29,7 @@ try
 
     app.MapHealthEndpoints();
     app.MapCatalogEndpoints();
-    // CheckoutEndpoints map here arrives in PR9b, once IPaymentGateway is registered.
+    app.MapCheckoutEndpoints();
 
     app.Run();
 }

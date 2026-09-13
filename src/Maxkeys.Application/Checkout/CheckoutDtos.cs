@@ -21,4 +21,6 @@ public sealed record CheckoutStatusResult(
     string BuyerEmail,
     string? LastPaymentAttemptId,
     string? LastPaymentAttemptStatus,
-    DateTimeOffset? LastPaymentAttemptAt);
+    DateTimeOffset? LastPaymentAttemptAt,
+    decimal TotalAmount,
+    string Currency);

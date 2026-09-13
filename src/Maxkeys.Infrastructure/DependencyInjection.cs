@@ -1,10 +1,13 @@
 using Maxkeys.Application.Catalog;
+using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Notifications;
 using Maxkeys.Application.Outbox;
+using Maxkeys.Application.Payments;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Application.Security;
 using Maxkeys.Infrastructure.Email;
 using Maxkeys.Infrastructure.Outbox;
+using Maxkeys.Infrastructure.Payments;
 using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -15,8 +18,7 @@ namespace Maxkeys.Infrastructure;
 /// <summary>
 /// Composition root for the Infrastructure layer (design section 2/3), wired
 /// from <c>Maxkeys.Api/Program.cs</c> via a single <see cref="AddInfrastructure"/>
-/// call so the API project stays a thin host. Checkout use cases and the
-/// payment gateway seam are registered in PR9b once <c>CheckoutEndpoints</c> exists.
+/// call so the API project stays a thin host.
 /// </summary>
 public static class DependencyInjection
 {
@@ -35,6 +37,7 @@ public static class DependencyInjection
         services.AddOutboxHandlers();
         services.AddOutboxProcessor(configuration);
 
+        AddPaymentGateway(services, configuration);
         AddUseCases(services);
 
         return services;
@@ -49,5 +52,22 @@ public static class DependencyInjection
     {
         services.AddScoped<GetCatalog>();
         services.AddScoped<GetProductBySlug>();
+        services.AddScoped<CreateOrder>();
+        services.AddScoped<GetOrderStatus>();
+    }
+
+    /// <summary>
+    /// <see cref="NotConfiguredPaymentGateway"/> is registered when
+    /// <c>Payments:AccessToken</c> is empty, so <c>POST /checkout/orders</c> builds
+    /// and runs green with no Mercado Pago credentials (design section 3/9, PR9).
+    /// PR11 adds the non-empty branch registering the real <c>MercadoPagoGateway</c>.
+    /// </summary>
+    private static void AddPaymentGateway(IServiceCollection services, IConfiguration configuration)
+    {
+        var accessToken = configuration["Payments:AccessToken"];
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            services.AddScoped<IPaymentGateway, NotConfiguredPaymentGateway>();
+        }
     }
 }
