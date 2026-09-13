@@ -246,9 +246,9 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR15** — `feat/mvp-15-frontend-cart` — repo: `maxkeys-front` — base: PR14 → `main` after merge — depends on: PR13 — ~300 lines
 
-- [ ] 15.1 `composables/useCart.ts`: `useState<CartState>`, `CartLine` shape, computed `count`/`subtotal`, actions `add`/`remove`/`setQuantity` (clamp 1..10), `clear`; persisted to `localStorage['nexo.cart.v1']`, hydrated `onMounted`.
-- [ ] 15.2 `components/cart/CartDrawer.vue`, `CartLine.vue`.
-- [ ] 15.3 `tests/useCart.spec.ts`: add/merge same variant, `setQuantity` clamps to 1..10, persistence round-trip, `clear`.
+- [x] 15.1 `composables/useCart.ts`: `useState<CartState>`, `CartLine` shape, computed `count`/`subtotal`, actions `add`/`remove`/`setQuantity` (clamp 1..10), `clear`; persisted to `localStorage['nexo.cart.v1']`, hydrated `onMounted`.
+- [x] 15.2 `components/cart/CartDrawer.vue`, `CartLine.vue`.
+- [x] 15.3 `tests/useCart.spec.ts`: add/merge same variant, `setQuantity` clamps to 1..10, persistence round-trip, `clear`.
 - Test: `npm run test -- useCart` green.
 
 **PR16** — `feat/mvp-16-frontend-checkout` — repo: `maxkeys-front` — base: PR15 → `main` after merge — depends on: PR15 — ~300 lines
