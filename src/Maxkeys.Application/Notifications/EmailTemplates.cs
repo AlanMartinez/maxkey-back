@@ -37,6 +37,32 @@ public static class EmailTemplates
         return (subject, body.ToString());
     }
 
+    /// <summary>
+    /// Buyer delivery email sent once per <see cref="OrderStatus.AwaitingFulfillment"/> →
+    /// <see cref="OrderStatus.Delivered"/> transition (fulfillment spec: One-Time Delivery
+    /// Email; outbox-processing spec, <c>OrderDeliveredHandler</c>). <paramref name="items"/>
+    /// carry already-decrypted key codes — this template never touches <c>KeyCipher</c>.
+    /// </summary>
+    public static (string Subject, string TextBody) BuyerOrderDelivered(Order order, IReadOnlyList<BuyerDeliveryItem> items)
+    {
+        var subject = $"Your keys for order {order.Id}";
+
+        var body = new StringBuilder()
+            .AppendLine($"Thank you for your purchase! Here are your keys for order {order.Id}.")
+            .AppendLine();
+
+        foreach (var item in items)
+        {
+            body.AppendLine($"{item.ProductName} ({item.VariantName}):");
+            foreach (var code in item.KeyCodes)
+            {
+                body.AppendLine($"  - {code}");
+            }
+        }
+
+        return (subject, body.ToString());
+    }
+
     /// <summary>Same masking rule as <c>Checkout.GetOrderStatus</c> — kept local since templates must not depend on Checkout.</summary>
     private static string MaskEmail(string email)
     {
