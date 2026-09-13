@@ -238,10 +238,10 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR14** — `feat/mvp-14-frontend-catalog` — repo: `maxkeys-front` — base: PR13 → `main` after merge — depends on: PR13 — ~350 lines
 
-- [ ] 14.1 `components/catalog/HeroCarousel.vue`, `PlatformFilter.vue`, `ProductCard.vue`, `ProductGrid.vue`.
-- [ ] 14.2 `components/product/VariantSelector.vue` (emits selected variant), `TrustBadges.vue`.
-- [ ] 14.3 `pages/index.vue` (catalog via `useAsyncData` + `useApi`, `GET /catalog/products` — catalog spec `Product Listing`, `Filter by platform`, `Search by name`), `pages/product/[slug].vue` (`GET /catalog/products/{slug}` — catalog spec `Product Detail Lookup`).
-- [ ] 14.4 `tests/VariantSelector.spec.ts`: emits the selected variant on click.
+- [x] 14.1 `components/catalog/HeroCarousel.vue`, `PlatformFilter.vue`, `ProductCard.vue`, `ProductGrid.vue`.
+- [x] 14.2 `components/product/VariantSelector.vue` (emits selected variant), `TrustBadges.vue`.
+- [x] 14.3 `pages/index.vue` (catalog via `useAsyncData` + `useApi`, `GET /catalog/products` — catalog spec `Product Listing`, `Filter by platform`, `Search by name`), `pages/product/[slug].vue` (`GET /catalog/products/{slug}` — catalog spec `Product Detail Lookup`).
+- [x] 14.4 `tests/VariantSelector.spec.ts`: emits the selected variant on click.
 - Test: `npm run test -- VariantSelector` green.
 
 **PR15** — `feat/mvp-15-frontend-cart` — repo: `maxkeys-front` — base: PR14 → `main` after merge — depends on: PR13 — ~300 lines
