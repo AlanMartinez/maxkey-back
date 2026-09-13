@@ -20,6 +20,13 @@ public sealed class Key : Entity
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? AssignedAt { get; private set; }
 
+    /// <summary>EF Core materialization constructor (ADR-01) — properties are set by the ORM via their private setters.</summary>
+    private Key()
+    {
+        EncryptedCode = null!;
+        LoadedBy = null!;
+    }
+
     public Key(Guid productVariantId, byte[] encryptedCode, short keyVersion, string loadedBy, DateTimeOffset now)
     {
         if (encryptedCode is null || encryptedCode.Length == 0)
