@@ -35,6 +35,8 @@ public sealed class WebhookDisabledApiTestFixture : WebApplicationFactory<Progra
                 ["Cors:AllowedOrigins:0"] = "http://allowed.test",
                 ["Storage:R2PublicBaseUrl"] = "https://img.test",
                 ["Payments:AccessToken"] = string.Empty,
+                // Pin the production gateway selection: appsettings.Development.json enables the fake gateway (docs/local-demo.md).
+                ["Payments:Mode"] = string.Empty,
                 ["Payments:WebhookSecret"] = "unused-secret",
                 ["Payments:WebhookEnabled"] = "false",
             });
