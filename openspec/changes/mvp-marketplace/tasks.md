@@ -42,8 +42,9 @@ Two independent stacks, one per repository (ADR-18), joined only by the shared d
 | 1b | maxkeys-back | Domain outbox + webhook dedupe | `feat/mvp-01b-domain-outbox` | `feat/mvp-01-domain-foundation` → `main` after PR1a | 1a | 267 (actual) | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "OutboxEvent|ProcessedWebhookNotification"` | N/A | delete `Maxkeys.Domain/{Outbox,Payments}` + their tests |
 | 2a | maxkeys-back | Order core (status, item, aggregate) | `feat/mvp-02a-order-core` | `feat/mvp-01b-domain-outbox` → `main` after PR1b | 1b | 400 (actual) | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter Order` | N/A | delete `Orders/`; revert cart-checkout spec edit |
 | 2b | maxkeys-back | Order keys + delivery derivation | `feat/mvp-02b-order-keys` | `feat/mvp-02a-order-core` → `main` after PR2a | 2a | ~200 | 1 | `dotnet test tests/Maxkeys.Domain.Tests --filter "Order\|Key"` | N/A | delete `Keys/`, `Order.AttachKey` |
-| 3 | maxkeys-back | EF Core persistence + Testcontainers fixture | `feat/mvp-03-ef-persistence` | `feat/mvp-02b-order-keys` → `main` after PR2b | 2b | ~350 (+generated migration) | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter AppDbContext` | `dotnet ef database update` against Testcontainers/`TEST_POSTGRES_CONNECTION` | `dotnet ef database update 0`; delete `Infrastructure/Persistence` |
-| 4 | maxkeys-back | KeyCipher | `feat/mvp-04-key-cipher` | `feat/mvp-03-ef-persistence` → `main` after PR3 | 1 | ~150 | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` | N/A — pure crypto | delete `Security/KeyCipher*` |
+| 3a | maxkeys-back | EF Core persistence: projects + AppDbContext + configurations | `feat/mvp-03-ef-persistence` | `feat/mvp-02b-order-keys` → `main` after PR2b | 2b | 362 (actual) | 2 | `dotnet build` | N/A — no migration/tests yet in this slice | delete `src/Maxkeys.Application`, `src/Maxkeys.Infrastructure` |
+| 3b | maxkeys-back | EF Core InitialCreate migration + Testcontainers fixture | `feat/mvp-03b-ef-testcontainers` | `feat/mvp-03-ef-persistence` → `main` after PR3a | 3a | 238 (actual, +1,100-line generated migration excluded) | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter AppDbContext` | `dotnet ef database update` against Testcontainers/`TEST_POSTGRES_CONNECTION` | `dotnet ef database update 0`; delete `Infrastructure/Persistence/Migrations`, `tests/Maxkeys.Application.Tests` |
+| 4 | maxkeys-back | KeyCipher | `feat/mvp-04-key-cipher` | `feat/mvp-03b-ef-testcontainers` → `main` after PR3b | 3b | ~150 | 2 | `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` | N/A — pure crypto | delete `Security/KeyCipher*` |
 | 5 | maxkeys-back | Checkout application | `feat/mvp-05-checkout-application` | `feat/mvp-04-key-cipher` → `main` after PR4 | 3 | ~350 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` | N/A (`FakePaymentGateway`) | delete `Checkout/*`, `Catalog/*` (Application) |
 | 6 | maxkeys-back | Payment webhook application | `feat/mvp-06-payment-webhook-application` | `feat/mvp-05-checkout-application` → `main` after PR5 | 5 | ~320 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Payments` | N/A (`FakePaymentGateway`) | delete `Payments/ProcessPaymentNotification.cs` |
 | 7 | maxkeys-back | Outbox processor + email seam | `feat/mvp-07-outbox-processor` | `feat/mvp-06-payment-webhook-application` → `main` after PR6 | 3 | ~380 | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` | run `OutboxProcessor` one poll cycle against Testcontainers | delete `Outbox/*` (Application+Infrastructure), email seam files |
@@ -109,17 +110,21 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 ## Phase 2: Infrastructure (EF + migrations, KeyCipher)
 
-**PR3** — `feat/mvp-03-ef-persistence` — base: PR2b → `main` after merge — depends on: PR2b — ~350 lines (+ generated migration, excluded from budget)
+**PR3a** — `feat/mvp-03-ef-persistence` — base: PR2b → `main` after merge — depends on: PR2b — 362 lines (actual)
 
-- [ ] 3.1 Create `src/Maxkeys.Infrastructure/Maxkeys.Infrastructure.csproj` (Npgsql, `EFCore.NamingConventions`) and `src/Maxkeys.Application/Persistence/IAppDbContext.cs` (`DbSet<Product/ProductVariant/Order/OrderItem/Key/OutboxEvent/ProcessedWebhookNotification>`, `SaveChangesAsync`).
-- [ ] 3.2 Create `src/Maxkeys.Infrastructure/Persistence/AppDbContext.cs : DbContext, IAppDbContext` with snake_case naming (ADR-16).
-- [ ] 3.3 Create `Configurations/*.cs` (Product, ProductVariant, Order [`xmin` via `UseXminAsConcurrencyToken()`], OrderItem, Key [`bytea EncryptedCode`], OutboxEvent [`jsonb Payload`], ProcessedWebhookNotification [PK=`request_id`]) with indexes per design §5 (`products.slug` UNIQUE, `orders.user_id`/`status`, `UNIQUE(mp_payment_id) WHERE NOT NULL`, `outbox_events(status, next_attempt_at)`).
-- [ ] 3.4 Generate `dotnet ef migrations add InitialCreate` into `Infrastructure/Persistence/Migrations/`.
-- [ ] 3.5 Create `tests/Maxkeys.Application.Tests/Fixtures/PostgresFixture.cs` — Testcontainers Postgres. **Requires Docker locally/CI**; honor `TEST_POSTGRES_CONNECTION` env override when Docker is unavailable (ADR-09); document the override in the fixture's XML doc comment.
-- [ ] 3.6 `tests/Maxkeys.Application.Tests/Persistence/AppDbContextTests.cs`: migration applies cleanly; `slug` and `mp_payment_id` unique constraints enforced at the DB level.
-- Test: `dotnet test tests/Maxkeys.Application.Tests` green against a real container (or `TEST_POSTGRES_CONNECTION`).
+- [x] 3.1 Create `src/Maxkeys.Infrastructure/Maxkeys.Infrastructure.csproj` (Npgsql, `EFCore.NamingConventions`) and `src/Maxkeys.Application/Persistence/IAppDbContext.cs` (`DbSet<Product/ProductVariant/Order/OrderItem/Key/OutboxEvent/ProcessedWebhookNotification>`, `SaveChangesAsync`).
+- [x] 3.2 Create `src/Maxkeys.Infrastructure/Persistence/AppDbContext.cs : DbContext, IAppDbContext` with snake_case naming (ADR-16).
+- [x] 3.3 Create `Configurations/*.cs` (Product, ProductVariant, Order [`xmin` via `Property<uint>("xmin").IsRowVersion()` — `UseXminAsConcurrencyToken()` is obsolete in this Npgsql provider version], OrderItem, Key [`bytea EncryptedCode`], OutboxEvent [`jsonb Payload`], ProcessedWebhookNotification [PK=`request_id`]) with indexes per design §5 (`products.slug` UNIQUE, `orders.user_id`/`status`, `UNIQUE(mp_payment_id) WHERE NOT NULL`, `outbox_events(status, next_attempt_at)`, `keys(order_item_id)`, `keys(product_variant_id, status)`, `product_variants(product_id)`).
+- Test: `dotnet build Maxkeys.sln` green, 0 warnings (`TreatWarningsAsErrors`). **PR3 split (auto-chain)**: implementation measured 600 authored lines (excluding the generated migration) against the 400-line cap, so the slice was split into PR3a `feat/mvp-03-ef-persistence` (tasks 3.1–3.3, 362 lines) and PR3b `feat/mvp-03b-ef-testcontainers` (tasks 3.4–3.6, 238 lines + excluded migration), stacked-to-main — same pattern as the PR1a/PR1b split. PR4 now bases on PR3b.
 
-**PR4** — `feat/mvp-04-key-cipher` — base: PR3 → `main` after merge — depends on: PR1 — ~150 lines
+**PR3b** — `feat/mvp-03b-ef-testcontainers` — base: PR3a → `main` after merge — depends on: PR3a — 238 lines (actual, + generated migration excluded from budget)
+
+- [x] 3.4 Generate `dotnet ef migrations add InitialCreate` into `Infrastructure/Persistence/Migrations/` (via a local `dotnet-ef` tool, `.config/dotnet-tools.json`, and a `DesignTimeDbContextFactory` reading `ConnectionStrings__Default` with a local fallback).
+- [x] 3.5 Create `tests/Maxkeys.Application.Tests/Fixtures/PostgresFixture.cs` — Testcontainers Postgres. **Requires Docker locally/CI**; honors `TEST_POSTGRES_CONNECTION` env override when Docker is unavailable (ADR-09), documented in the fixture's XML doc comment; `PostgresCollection` shares one container across the test class.
+- [x] 3.6 `tests/Maxkeys.Application.Tests/Persistence/AppDbContextTests.cs`: migration applies cleanly (queryable context); `slug` and `mp_payment_id` unique constraints enforced at the DB level (`DbUpdateException`); `Order` + `OrderItem` + `Key` (bytea) round-trip through the database; `OutboxEvent` jsonb payload round-trips semantically.
+- Test: `dotnet test tests/Maxkeys.Application.Tests` green against a real container — 5/5. `dotnet test tests/Maxkeys.Domain.Tests` green — 56/56 (no regressions).
+
+**PR4** — `feat/mvp-04-key-cipher` — base: `feat/mvp-03b-ef-testcontainers` → `main` after merge — depends on: PR3b — ~150 lines
 
 - [ ] 4.1 Add `src/Maxkeys.Application/Security/KeyCipherOptions.cs` (`Keys:EncryptionKey` base64/32 bytes, `Keys:CurrentVersion`), validated at startup (fail fast).
 - [ ] 4.2 Add `src/Maxkeys.Application/Security/KeyCipher.cs`: `Encrypt(string) -> (byte[] blob, short version)` / `Decrypt(byte[], short) -> string` via `AesGcm`, random 12-byte nonce, 16-byte tag, layout `nonce|tag|ciphertext` (fulfillment spec `Key Encryption at Rest`).
@@ -233,10 +238,10 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR14** — `feat/mvp-14-frontend-catalog` — repo: `maxkeys-front` — base: PR13 → `main` after merge — depends on: PR13 — ~350 lines
 
-- [ ] 14.1 `components/catalog/HeroCarousel.vue`, `PlatformFilter.vue`, `ProductCard.vue`, `ProductGrid.vue`.
-- [ ] 14.2 `components/product/VariantSelector.vue` (emits selected variant), `TrustBadges.vue`.
-- [ ] 14.3 `pages/index.vue` (catalog via `useAsyncData` + `useApi`, `GET /catalog/products` — catalog spec `Product Listing`, `Filter by platform`, `Search by name`), `pages/product/[slug].vue` (`GET /catalog/products/{slug}` — catalog spec `Product Detail Lookup`).
-- [ ] 14.4 `tests/VariantSelector.spec.ts`: emits the selected variant on click.
+- [x] 14.1 `components/catalog/HeroCarousel.vue`, `PlatformFilter.vue`, `ProductCard.vue`, `ProductGrid.vue`.
+- [x] 14.2 `components/product/VariantSelector.vue` (emits selected variant), `TrustBadges.vue`.
+- [x] 14.3 `pages/index.vue` (catalog via `useAsyncData` + `useApi`, `GET /catalog/products` — catalog spec `Product Listing`, `Filter by platform`, `Search by name`), `pages/product/[slug].vue` (`GET /catalog/products/{slug}` — catalog spec `Product Detail Lookup`).
+- [x] 14.4 `tests/VariantSelector.spec.ts`: emits the selected variant on click.
 - Test: `npm run test -- VariantSelector` green.
 
 **PR15** — `feat/mvp-15-frontend-cart` — repo: `maxkeys-front` — base: PR14 → `main` after merge — depends on: PR13 — ~300 lines
