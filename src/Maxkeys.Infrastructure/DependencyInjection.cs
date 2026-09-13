@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Fulfillment;
@@ -14,6 +15,7 @@ using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Infrastructure;
 
@@ -60,20 +62,49 @@ public static class DependencyInjection
         services.AddScoped<GetMyOrder>();
         services.AddScoped<ListOrdersAwaitingFulfillment>();
         services.AddScoped<AttachKeyToOrderItem>();
+        services.AddScoped<ProcessPaymentNotification>();
     }
 
     /// <summary>
-    /// <see cref="NotConfiguredPaymentGateway"/> is registered when
-    /// <c>Payments:AccessToken</c> is empty, so <c>POST /checkout/orders</c> builds
-    /// and runs green with no Mercado Pago credentials (design section 3/9, PR9).
-    /// PR11 adds the non-empty branch registering the real <c>MercadoPagoGateway</c>.
+    /// Registers both candidate gateways plus a scoped <see cref="IPaymentGateway"/>
+    /// factory that picks between them by reading <see cref="MercadoPagoOptions.AccessToken"/>
+    /// *lazily*, at resolution time — not by reading raw configuration once during
+    /// this method call. <c>WebApplicationFactory</c>-based tests (and any host
+    /// customization that layers configuration on top of <c>builder.Configuration</c>
+    /// after <c>Program.cs</c> calls <c>AddInfrastructure</c>) only see their overrides
+    /// once the host finishes building; an eager read here would silently see the
+    /// pre-override value. When <c>Payments:AccessToken</c> is empty,
+    /// <see cref="NotConfiguredPaymentGateway"/> is used, so <c>POST /checkout/orders</c>
+    /// builds and runs green with no Mercado Pago credentials (design section 3/9, PR9).
+    /// Otherwise <see cref="MercadoPagoGateway"/> is used, backed by a typed
+    /// <c>HttpClient</c> (ADR-10) whose base address and bearer token are likewise
+    /// configured lazily via the <c>(IServiceProvider, HttpClient)</c> overload.
+    /// <see cref="MercadoPagoOptions"/> and <see cref="MercadoPagoSignatureValidator"/>
+    /// are always registered — the webhook endpoint needs them (kill switch, signature
+    /// check) independently of which gateway is selected.
     /// </summary>
     private static void AddPaymentGateway(IServiceCollection services, IConfiguration configuration)
     {
-        var accessToken = configuration["Payments:AccessToken"];
-        if (string.IsNullOrWhiteSpace(accessToken))
+        services.AddOptions<MercadoPagoOptions>().Bind(configuration.GetSection(MercadoPagoOptions.SectionName));
+        services.AddSingleton<MercadoPagoSignatureValidator>();
+
+        services.AddScoped<NotConfiguredPaymentGateway>();
+        services.AddHttpClient<MercadoPagoGateway>((sp, client) =>
         {
-            services.AddScoped<IPaymentGateway, NotConfiguredPaymentGateway>();
-        }
+            var options = sp.GetRequiredService<IOptionsMonitor<MercadoPagoOptions>>().CurrentValue;
+            client.BaseAddress = new Uri("https://api.mercadopago.com");
+            if (!string.IsNullOrWhiteSpace(options.AccessToken))
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", options.AccessToken);
+            }
+        });
+
+        services.AddScoped<IPaymentGateway>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptionsMonitor<MercadoPagoOptions>>().CurrentValue;
+            return string.IsNullOrWhiteSpace(options.AccessToken)
+                ? sp.GetRequiredService<NotConfiguredPaymentGateway>()
+                : sp.GetRequiredService<MercadoPagoGateway>();
+        });
     }
 }
