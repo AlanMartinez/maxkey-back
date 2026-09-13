@@ -297,7 +297,7 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR18b** — `feat/mvp-18b-deploy-config` — repo: `maxkeys-front` — base: `main` (after PR17 merged) — depends on: PR17 — ~80 lines
 
-- [ ] 18b.1 Add Vercel config (`vercel.json` if needed) for the Nitro preset (SSR), repo root as the project root (no root-directory override).
-- [ ] 18b.2 Finalize `.env.example` and document each var in `README.md` (`NUXT_PUBLIC_API_BASE_URL` pointed at the backend deploy URL, `NUXT_PUBLIC_SITE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`).
-- [ ] 18b.3 Note in `README.md` that Vercel preview deployments get their own origin and must be added to the backend's `Cors:AllowedOrigins` (PR18a) before they can call the API.
+- [x] 18b.1 Add Vercel config (`vercel.json` if needed) for the Nitro preset (SSR), repo root as the project root (no root-directory override).
+- [x] 18b.2 Finalize `.env.example` and document each var in `README.md` (`NUXT_PUBLIC_API_BASE_URL` pointed at the backend deploy URL, `NUXT_PUBLIC_SITE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`).
+- [x] 18b.3 Note in `README.md` that Vercel preview deployments get their own origin and must be added to the backend's `Cors:AllowedOrigins` (PR18a) before they can call the API.
 - Test: `npm run test` green; `npm run build` + a Vercel preview deploy reaches the running backend (manual check, requires PR18a deployed).
