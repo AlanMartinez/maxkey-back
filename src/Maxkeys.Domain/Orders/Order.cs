@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using Maxkeys.Domain.Common;
+using Maxkeys.Domain.Keys;
 
 namespace Maxkeys.Domain.Orders;
 
@@ -11,7 +12,7 @@ public sealed record OrderLine(
     decimal UnitPrice,
     int Quantity);
 
-/// <summary>A checkout order (design section 4.1/4.2). `AttachKey`/`Delivered` derivation added in PR2b.</summary>
+/// <summary>A checkout order (design section 4.1/4.2).</summary>
 public sealed class Order : Entity
 {
     private readonly List<OrderItem> _items = new();
@@ -31,6 +32,13 @@ public sealed class Order : Entity
     public DateTimeOffset? DeliveredAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public IReadOnlyList<OrderItem> Items => _items;
+
+    /// <summary>EF Core materialization constructor (ADR-01) — properties are set by the ORM via their private setters.</summary>
+    private Order()
+    {
+        BuyerEmail = null!;
+        Currency = null!;
+    }
 
     private Order(Guid? userId, string buyerEmail, DateTimeOffset now)
     {
@@ -155,5 +163,48 @@ public sealed class Order : Entity
 
         Status = OrderStatus.Cancelled;
         UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Assigns <paramref name="key"/> to <paramref name="orderItemId"/> (fulfillment
+    /// spec: Key Attachment). Once every item is complete the order transitions to
+    /// <see cref="OrderStatus.Delivered"/> and this method returns <c>true</c>
+    /// (fulfillment spec: All-or-Nothing Delivery Derivation); otherwise <c>false</c>.
+    /// </summary>
+    public bool AttachKey(Guid orderItemId, Key key, DateTimeOffset now)
+    {
+        if (Status != OrderStatus.AwaitingFulfillment)
+        {
+            throw new DomainConflictException("Cannot attach a key unless the order is awaiting fulfillment.");
+        }
+
+        var item = _items.FirstOrDefault(i => i.Id == orderItemId);
+        if (item is null)
+        {
+            throw new DomainException("Order item does not belong to this order.");
+        }
+
+        if (key.ProductVariantId != item.ProductVariantId)
+        {
+            throw new DomainException("Key product variant does not match the order item.");
+        }
+
+        if (item.IsComplete)
+        {
+            throw new DomainConflictException("Order item already has all required keys assigned.");
+        }
+
+        key.AssignTo(item.Id, now);
+        item.AddKey(key);
+        UpdatedAt = now;
+
+        if (!_items.All(i => i.IsComplete))
+        {
+            return false;
+        }
+
+        Status = OrderStatus.Delivered;
+        DeliveredAt = now;
+        return true;
     }
 }

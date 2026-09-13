@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TargetFramework, Nullable, ImplicitUsings, TreatWarningsAsErrors come from Directory.Build.props -->
+  <!-- References EF Core abstractions only, for DbSet<T> in IAppDbContext (ADR-01) — never Infrastructure -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Maxkeys.Domain\Maxkeys.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

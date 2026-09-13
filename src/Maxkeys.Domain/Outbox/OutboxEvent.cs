@@ -18,6 +18,13 @@ public sealed class OutboxEvent : Entity
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? ProcessedAt { get; private set; }
 
+    /// <summary>EF Core materialization constructor (ADR-01) — properties are set by the ORM via their private setters.</summary>
+    private OutboxEvent()
+    {
+        Type = null!;
+        Payload = null!;
+    }
+
     public OutboxEvent(string type, string payload, DateTimeOffset now)
     {
         if (string.IsNullOrWhiteSpace(type))
