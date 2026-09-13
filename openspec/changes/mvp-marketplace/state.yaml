@@ -34,8 +34,9 @@ phases:
   apply:
     status: in-progress
     engram_topic: sdd/mvp-marketplace/apply-progress
-    completed_prs: [PR0]
-    next_pr: PR1 (feat/mvp-01-domain-foundation, base main)
+    completed_prs: [PR0, PR1a (#1 open), PR1b (#2 open, stacked on #1)]
+    next_pr: PR2 (feat/mvp-02-order-domain, base feat/mvp-01b-domain-outbox)
+    attempt_ledger: objective reset pr1-reset-001 authorized by maintainer after PR1 split
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (separate repo, PR13-PR17; layout amendment pending)
