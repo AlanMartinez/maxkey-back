@@ -466,7 +466,7 @@ Secrets marked (S). Local development uses `dotnet user-secrets` for (S) values;
 
 | Key (appsettings / env) | Dev | Prod | Notes |
 |---|---|---|---|
-| `ConnectionStrings:Postgres` (S) | local Postgres or Supabase dev project | Supabase pooled connection string | `Include Error Detail=false` in prod |
+| `ConnectionStrings:Default` (S) | local Postgres or Supabase dev project | Supabase pooled connection string | `Include Error Detail=false` in prod |
 | `Auth:Mode` | `Jwks` | `Jwks` (fallback `Hs256`) | Open item: confirm Supabase signing mode |
 | `Auth:Issuer` | `https://<ref>.supabase.co/auth/v1` | same | validated |
 | `Auth:Audience` | `authenticated` | same | |
