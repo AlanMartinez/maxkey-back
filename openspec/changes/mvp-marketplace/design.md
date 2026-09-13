@@ -484,7 +484,7 @@ Secrets marked (S). Local development uses `dotnet user-secrets` for (S) values;
 | `Keys:CurrentVersion` | `1` | `1` | |
 | `Storage:R2PublicBaseUrl` | `https://<bucket>.r2.dev` or custom domain | custom domain | URL builder only (ADR-12) |
 | `Email:Sender` | `Logging` | `Smtp` | picks `LoggingEmailSender` / `SmtpEmailSender` |
-| `Email:From`, `Email:OperatorAddress` | any | real | |
+| `Email:From`, `Email:OperatorTo` | any | real | Reconciled in PR12 task 12.1 to match the property name already shipped in `EmailOptions` since PR7a (`Email:OperatorAddress` never existed in code) |
 | `Email:Smtp:Host/Port/UseStartTls/User/Password(S)` | — | provider values | generic SMTP (ADR-08) |
 | `Outbox:PollIntervalSeconds/BatchSize/LeaseSeconds/MaxAttempts` | `5/10/300/8` | same | |
 | `Serilog:MinimumLevel` | `Debug` | `Information` | |

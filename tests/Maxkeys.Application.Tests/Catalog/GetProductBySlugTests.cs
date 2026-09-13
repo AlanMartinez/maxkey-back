@@ -46,6 +46,32 @@ public sealed class GetProductBySlugTests
     }
 
     [Fact]
+    public async Task Returns_description_from_the_product_entity()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(
+                seed,
+                CatalogTestData.UniquePlatform(),
+                isActive: true,
+                slug: slug,
+                description: "500 ARS worth of in-game currency.");
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Equal("500 ARS worth of in-game currency.", detail!.Description);
+    }
+
+    [Fact]
     public async Task Returns_null_for_unknown_slug()
     {
         await using var context = _fixture.CreateContext();

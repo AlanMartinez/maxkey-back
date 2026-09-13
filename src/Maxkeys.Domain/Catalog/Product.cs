@@ -5,7 +5,9 @@ namespace Maxkeys.Domain.Catalog;
 /// <summary>
 /// A sellable product (e.g. a gift card family). Variants (region/edition/tier)
 /// are added by the catalog seeder, not by domain methods — the catalog is
-/// seed-managed in the MVP (design section 4.1).
+/// seed-managed in the MVP (design section 4.1). <see cref="UpdateCatalogInfo"/>
+/// is the one mutation method, added in PR12 so <c>CatalogSeeder</c> (ADR-12)
+/// can upsert an existing row by <see cref="Slug"/> instead of only inserting.
 /// </summary>
 public sealed class Product : Entity
 {
@@ -14,8 +16,15 @@ public sealed class Product : Entity
     public string Platform { get; private set; }
     public bool IsActive { get; private set; }
     public string? ImageKey { get; private set; }
+    public string Description { get; private set; }
 
-    public Product(string slug, string name, string platform, bool isActive = true, string? imageKey = null)
+    public Product(
+        string slug,
+        string name,
+        string platform,
+        bool isActive = true,
+        string? imageKey = null,
+        string? description = null)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
@@ -42,5 +51,30 @@ public sealed class Product : Entity
         Platform = platform;
         IsActive = isActive;
         ImageKey = imageKey;
+        Description = description ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Updates the mutable catalog fields of an existing product in place.
+    /// <see cref="Slug"/> is the seeder's upsert key and is never changed here.
+    /// Shares the same non-empty invariants as the constructor.
+    /// </summary>
+    public void UpdateCatalogInfo(string name, string platform, string? description, string? imageKey, bool isActive)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new DomainException("Product name must not be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(platform))
+        {
+            throw new DomainException("Product platform must not be empty.");
+        }
+
+        Name = name;
+        Platform = platform;
+        Description = description ?? string.Empty;
+        ImageKey = imageKey;
+        IsActive = isActive;
     }
 }

@@ -1,0 +1,54 @@
+{
+  "products": [
+    {
+      "slug": "steam-wallet-gift-card",
+      "name": "Steam Wallet Gift Card",
+      "platform": "Steam",
+      "description": "Add funds to your Steam Wallet to buy games, DLC, and in-game items.",
+      "imageKey": "products/steam-wallet-gift-card.png",
+      "isActive": true,
+      "variants": [
+        { "region": "AR", "edition": "USD 10", "price": 12000, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "USD 25", "price": 28000, "oldPrice": 30000, "currency": "ARS", "sortOrder": 1, "isActive": true },
+        { "region": "AR", "edition": "USD 50", "price": 54000, "oldPrice": null, "currency": "ARS", "sortOrder": 2, "isActive": true }
+      ]
+    },
+    {
+      "slug": "playstation-plus-membership",
+      "name": "PlayStation Plus Membership",
+      "platform": "PS5",
+      "description": "Online multiplayer, monthly games, and exclusive discounts on the PlayStation Store.",
+      "imageKey": "products/playstation-plus-membership.png",
+      "isActive": true,
+      "variants": [
+        { "region": "AR", "edition": "Essential · 1 Month", "price": 9500, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "Extra · 3 Months", "price": 32000, "oldPrice": 36000, "currency": "ARS", "sortOrder": 1, "isActive": true },
+        { "region": "AR", "edition": "Premium · 12 Months", "price": 98000, "oldPrice": 110000, "currency": "ARS", "sortOrder": 2, "isActive": true }
+      ]
+    },
+    {
+      "slug": "fc-25-points",
+      "name": "FC 25 Points",
+      "platform": "Cross-platform",
+      "description": "In-game currency for FC 25 Ultimate Team packs and squad building.",
+      "imageKey": "products/fc-25-points.png",
+      "isActive": true,
+      "variants": [
+        { "region": "AR", "edition": "1050 Points", "price": 15000, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "2800 Points", "price": 36000, "oldPrice": null, "currency": "ARS", "sortOrder": 1, "isActive": true }
+      ]
+    },
+    {
+      "slug": "xbox-game-pass-ultimate",
+      "name": "Xbox Game Pass Ultimate",
+      "platform": "Xbox",
+      "description": "Hundreds of high-quality games on console, PC, and cloud, plus EA Play and Xbox Live Gold.",
+      "imageKey": "products/xbox-game-pass-ultimate.png",
+      "isActive": true,
+      "variants": [
+        { "region": "AR", "edition": "1 Month", "price": 11000, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "3 Months", "price": 30000, "oldPrice": 33000, "currency": "ARS", "sortOrder": 1, "isActive": true }
+      ]
+    }
+  ]
+}
