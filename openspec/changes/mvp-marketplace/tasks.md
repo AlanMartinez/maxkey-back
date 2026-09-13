@@ -99,13 +99,13 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 - [x] 2.6 (PR2a part) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs` + `OrderItemTests.cs`: creation happy path (total computed, snapshots kept); 21-item and 0-item orders → `DomainException`; invalid email → `DomainException`; quantity 0 and 11 → `DomainException`; every PR2a transition valid path + one invalid-state path → `DomainConflictException`; `RecordPaymentAttempt` sets the three `LastPaymentAttempt*` fields and keeps `Pending`; `MarkPaid` sets `MpPaymentId`/`PaidAt`/`LastPaymentAttemptStatus=approved`; `UpdatedAt` bump verified on a transition. (PR2b: `AttachKey` all-or-nothing, variant-mismatch, wrong-state-attach cases.)
 - Test: `dotnet test tests/Maxkeys.Domain.Tests --filter Order` green (43/43 full suite green).
 
-**PR2b** — `feat/mvp-02b-order-keys` — base: PR2a → `main` after merge — depends on: PR2a — ~200 lines
+**PR2b** — `feat/mvp-02b-order-keys` — base: PR2a → `main` after merge — depends on: PR2a — 265 lines (actual, well under the 400 cap)
 
-- [ ] 2.3 Add `src/Maxkeys.Domain/Keys/Key.cs` (`EncryptedCode` non-empty, `KeyVersion >= 1`, `LoadedBy` non-empty), `KeyStatus.cs` (`Available, Assigned`), `AssignTo(orderItemId, now)`.
-- [ ] 2.4 (remainder) Add `OrderItem.Keys` collection + `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`); `Order.AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05).
-- [ ] 2.6 (remainder) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs`: `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
-- [ ] 2.7 `tests/Maxkeys.Domain.Tests/KeyTests.cs`: `Key.AssignTo` transition.
-- Test: `dotnet test tests/Maxkeys.Domain.Tests` green.
+- [x] 2.3 Add `src/Maxkeys.Domain/Keys/Key.cs` (`EncryptedCode` non-empty, `KeyVersion >= 1`, `LoadedBy` non-empty), `KeyStatus.cs` (`Available, Assigned`), `AssignTo(orderItemId, now)`.
+- [x] 2.4 (remainder) Add `OrderItem.Keys` collection + `IsComplete` derived (`Keys.Count(k => k.Status == Assigned) == Quantity`); `Order.AttachKey` (all-or-nothing → `Delivered`, bumps `UpdatedAt` per ADR-05).
+- [x] 2.6 (remainder) `tests/Maxkeys.Domain.Tests/Orders/OrderTests.cs`: `AttachKey` all-or-nothing (2 of 3 keys stays `AwaitingFulfillment`, 3rd flips `Delivered` once — fulfillment spec `All-or-Nothing Delivery Derivation`); variant mismatch → `DomainException`; wrong-state attach → `DomainConflictException`.
+- [x] 2.7 `tests/Maxkeys.Domain.Tests/Keys/KeyTests.cs`: `Key.AssignTo` transition.
+- Test: `dotnet test tests/Maxkeys.Domain.Tests` green (56/56).
 
 ## Phase 2: Infrastructure (EF + migrations, KeyCipher)
 
