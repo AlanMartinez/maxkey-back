@@ -34,6 +34,8 @@ try
     app.MapHealthEndpoints();
     app.MapCatalogEndpoints();
     app.MapCheckoutEndpoints();
+    app.MapMeEndpoints();
+    app.MapAdminEndpoints();
 
     app.Run();
 }

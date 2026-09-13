@@ -1,6 +1,8 @@
 using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Checkout;
+using Maxkeys.Application.Fulfillment;
 using Maxkeys.Application.Notifications;
+using Maxkeys.Application.Orders;
 using Maxkeys.Application.Outbox;
 using Maxkeys.Application.Payments;
 using Maxkeys.Application.Persistence;
@@ -54,6 +56,10 @@ public static class DependencyInjection
         services.AddScoped<GetProductBySlug>();
         services.AddScoped<CreateOrder>();
         services.AddScoped<GetOrderStatus>();
+        services.AddScoped<GetMyOrders>();
+        services.AddScoped<GetMyOrder>();
+        services.AddScoped<ListOrdersAwaitingFulfillment>();
+        services.AddScoped<AttachKeyToOrderItem>();
     }
 
     /// <summary>
