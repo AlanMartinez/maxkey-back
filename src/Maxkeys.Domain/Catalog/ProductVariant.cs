@@ -4,8 +4,10 @@ namespace Maxkeys.Domain.Catalog;
 
 /// <summary>
 /// A purchasable variant of a <see cref="Product"/> (region/edition/tier),
-/// each with its own ARS price. No transition methods in the MVP — variants
-/// are seed-managed (design section 4.1).
+/// each with its own ARS price. Variants are seed-managed (design section 4.1);
+/// <see cref="UpdateDetails"/> is the one mutation method, added in PR12 so
+/// <c>CatalogSeeder</c> (ADR-12) can upsert an existing row instead of only
+/// inserting.
 /// </summary>
 public sealed class ProductVariant : Entity
 {
@@ -44,6 +46,40 @@ public sealed class ProductVariant : Entity
         }
 
         ProductId = productId;
+        Price = price;
+        OldPrice = oldPrice;
+        Currency = currency;
+        Region = region;
+        Edition = edition;
+        SortOrder = sortOrder;
+        IsActive = isActive;
+    }
+
+    /// <summary>Updates all mutable fields in place. Shares the same invariants as the constructor.</summary>
+    public void UpdateDetails(
+        decimal price,
+        decimal? oldPrice,
+        string currency,
+        string? region,
+        string? edition,
+        int sortOrder,
+        bool isActive)
+    {
+        if (price <= 0)
+        {
+            throw new DomainException("Variant price must be greater than zero.");
+        }
+
+        if (oldPrice is not null && oldPrice <= price)
+        {
+            throw new DomainException("Variant old price must be greater than the current price.");
+        }
+
+        if (currency != "ARS")
+        {
+            throw new DomainException("Variant currency must be ARS.");
+        }
+
         Price = price;
         OldPrice = oldPrice;
         Currency = currency;
