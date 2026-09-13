@@ -17,14 +17,25 @@ internal static class TestRsaKey
 
     public static readonly RsaSecurityKey SigningKey = new(RSA.Create(2048)) { KeyId = Kid };
 
+    /// <summary>
+    /// ES256 (P-256) key published alongside the RSA key. Supabase projects on
+    /// asymmetric signing publish EC/ES256 keys, so the JWKS path must accept
+    /// them as well as RS256 (task 10.0 evidence).
+    /// </summary>
+    public const string EcKid = "test-ec-key-1";
+
+    public static readonly ECDsaSecurityKey EcSigningKey =
+        new(ECDsa.Create(ECCurve.NamedCurves.nistP256)) { KeyId = EcKid };
+
     public static string JwksJson
     {
         get
         {
             var parameters = SigningKey.Rsa!.ExportParameters(false);
+            var ecParameters = EcSigningKey.ECDsa.ExportParameters(false);
             var document = new
             {
-                keys = new[]
+                keys = new object[]
                 {
                     new
                     {
@@ -34,6 +45,16 @@ internal static class TestRsaKey
                         alg = "RS256",
                         n = Base64UrlEncoder.Encode(parameters.Modulus),
                         e = Base64UrlEncoder.Encode(parameters.Exponent),
+                    },
+                    new
+                    {
+                        kty = "EC",
+                        kid = EcKid,
+                        use = "sig",
+                        alg = "ES256",
+                        crv = "P-256",
+                        x = Base64UrlEncoder.Encode(ecParameters.Q.X),
+                        y = Base64UrlEncoder.Encode(ecParameters.Q.Y),
                     },
                 },
             };

@@ -32,6 +32,19 @@ public sealed class JwksAuthTests
     }
 
     [Fact]
+    public async Task Token_signed_with_a_published_es256_key_is_accepted()
+    {
+        // Supabase asymmetric signing publishes EC/ES256 keys (verified against the
+        // project's public JWKS for task 10.0), so this path must work end to end.
+        var token = TestTokens.CreateEs256(
+            Guid.NewGuid().ToString(), JwksApiTestFixture.Issuer, JwksApiTestFixture.Audience, TestRsaKey.EcSigningKey);
+
+        var response = await AuthorizedClient(token).GetAsync("/me/orders");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Token_signed_with_an_unpublished_kid_is_rejected()
     {
         var unpublishedKey = new RsaSecurityKey(RSA.Create(2048)) { KeyId = "unknown-kid" };
