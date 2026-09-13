@@ -66,7 +66,8 @@ public static class KeyCipherServiceCollectionExtensions
     public static IServiceCollection AddKeyCipher(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<KeyCipherOptions>()
-            .Bind(configuration.GetSection(KeyCipherOptions.SectionName));
+            .Bind(configuration.GetSection(KeyCipherOptions.SectionName))
+            .ValidateOnStart();
 
         services.AddSingleton<IValidateOptions<KeyCipherOptions>, KeyCipherOptionsValidator>();
         services.AddSingleton<KeyCipher>();

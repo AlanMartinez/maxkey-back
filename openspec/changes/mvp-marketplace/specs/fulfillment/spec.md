@@ -50,7 +50,7 @@ The system MUST store key codes AES-256-GCM encrypted with an associated `KeyVer
 - THEN the stored value is ciphertext (nonce, tag, ciphertext) with a `KeyVersion`, not the plaintext code
 
 ### Requirement: One-Time Delivery Email
-The system MUST send the delivery email containing all keys exactly once, triggered only by the `AwaitingFulfillment → Delivered` transition.
+The system MUST send the delivery email containing all keys exactly once per `AwaitingFulfillment → Delivered` transition, emitted via the `OrderDelivered` outbox event inserted in the same transaction as that transition. Handler retries MAY duplicate the email if the send succeeds but marking the event `Processed` fails (at-least-once).
 
 #### Scenario: Email sent once even under retry
 - GIVEN the `Delivered` transition is processed and, due to a retried request or duplicate event, the same transition is evaluated again

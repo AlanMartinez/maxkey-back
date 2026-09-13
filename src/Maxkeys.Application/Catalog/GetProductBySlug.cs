@@ -48,7 +48,7 @@ public sealed class GetProductBySlug
             _imageUrlBuilder.Build(product.ImageKey),
             cheapest?.Price ?? 0m,
             cheapest?.OldPrice,
-            Description: string.Empty,
+            product.Description,
             variants.Select(ToVariantDetail).ToList());
     }
 

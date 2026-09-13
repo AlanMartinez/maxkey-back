@@ -29,6 +29,11 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
                     b.Property<string>("ImageKey")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
