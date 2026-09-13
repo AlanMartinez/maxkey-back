@@ -10,6 +10,16 @@ The system MUST accept a checkout request containing a list of `{variantId, quan
 - WHEN the buyer submits checkout
 - THEN one `Order` is created with 2 `OrderItem` rows, one holding `Quantity=2`
 
+#### Scenario: Order exceeds 20 items rejected
+- GIVEN a cart with 21 distinct `{variantId, quantity}` lines
+- WHEN the buyer submits checkout
+- THEN the response is 422 Problem Details and no order is created
+
+#### Scenario: Quantity outside 1..10 rejected
+- GIVEN a cart line with `quantity=0` or `quantity=11`
+- WHEN the buyer submits checkout
+- THEN the response is 422 Problem Details and no order is created
+
 ### Requirement: Server-Side Price Recomputation
 The system MUST recompute unit price and snapshot product/variant names from the current `ProductVariant` record and MUST ignore any price or name submitted by the client.
 
