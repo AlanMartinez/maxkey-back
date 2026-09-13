@@ -1,0 +1,22 @@
+# Local demo database (docs/local-demo.md). Not used by any deployment target;
+# Fly.io/Railway provision Postgres separately (deploy/, docs/runbook-sandbox.md).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: maxkeys-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: maxkeys
+      POSTGRES_USER: maxkeys
+      POSTGRES_PASSWORD: maxkeys
+    volumes:
+      - maxkeys-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maxkeys -d maxkeys"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  maxkeys-postgres-data:

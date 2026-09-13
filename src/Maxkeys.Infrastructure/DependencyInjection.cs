@@ -15,6 +15,7 @@ using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Infrastructure;
@@ -105,7 +106,10 @@ public static class DependencyInjection
     /// configured lazily via the <c>(IServiceProvider, HttpClient)</c> overload.
     /// <see cref="MercadoPagoOptions"/> and <see cref="MercadoPagoSignatureValidator"/>
     /// are always registered — the webhook endpoint needs them (kill switch, signature
-    /// check) independently of which gateway is selected.
+    /// check) independently of which gateway is selected. <see cref="FakePaymentGateway"/>
+    /// (local demo mode, docs/local-demo.md) is selected only when <c>Payments:Mode</c>
+    /// is <c>Fake</c> AND the host environment is Development; in any other environment
+    /// the value is ignored and the production selection above applies unchanged.
     /// </summary>
     private static void AddPaymentGateway(IServiceCollection services, IConfiguration configuration)
     {
@@ -113,6 +117,7 @@ public static class DependencyInjection
         services.AddSingleton<MercadoPagoSignatureValidator>();
 
         services.AddScoped<NotConfiguredPaymentGateway>();
+        services.AddSingleton<FakePaymentGateway>();
         services.AddHttpClient<MercadoPagoGateway>((sp, client) =>
         {
             var options = sp.GetRequiredService<IOptionsMonitor<MercadoPagoOptions>>().CurrentValue;
@@ -126,6 +131,11 @@ public static class DependencyInjection
         services.AddScoped<IPaymentGateway>(sp =>
         {
             var options = sp.GetRequiredService<IOptionsMonitor<MercadoPagoOptions>>().CurrentValue;
+            if (options.IsFakeMode && sp.GetRequiredService<IHostEnvironment>().IsDevelopment())
+            {
+                return sp.GetRequiredService<FakePaymentGateway>();
+            }
+
             return string.IsNullOrWhiteSpace(options.AccessToken)
                 ? sp.GetRequiredService<NotConfiguredPaymentGateway>()
                 : sp.GetRequiredService<MercadoPagoGateway>();

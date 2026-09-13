@@ -34,6 +34,8 @@ public sealed class ApiTestFixture : WebApplicationFactory<Program>, IAsyncLifet
                 ["Keys:EncryptionKey"] = "8WkVdzuEWJDh35lKYZjBWeQhaadFl9ghCp3KRjZYgcY=",
                 ["Keys:CurrentVersion"] = "1",
                 ["Payments:AccessToken"] = string.Empty,
+                // Pin the production gateway selection: appsettings.Development.json enables the fake gateway (docs/local-demo.md).
+                ["Payments:Mode"] = string.Empty,
                 ["Cors:AllowedOrigins:0"] = AllowedOrigin,
                 ["Storage:R2PublicBaseUrl"] = "https://img.test",
             });

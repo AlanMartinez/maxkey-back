@@ -4,8 +4,10 @@ using Maxkeys.Api.Endpoints;
 using Maxkeys.Api.Errors;
 using Maxkeys.Api.Logging;
 using Maxkeys.Infrastructure;
+using Maxkeys.Infrastructure.Payments;
 using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Serilog;
 
 SerilogSetup.Bootstrap();
@@ -52,6 +54,8 @@ try
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseSerilogRequestLogging();
     app.UseCors(Maxkeys.Api.Cors.CorsOptions.PolicyName);
+    // Serves wwwroot/ (placeholder product images for the local demo, docs/local-demo.md).
+    app.UseStaticFiles();
     app.UseAuthentication();
     app.UseAuthorization();
 
@@ -61,6 +65,15 @@ try
     app.MapWebhookEndpoints();
     app.MapMeEndpoints();
     app.MapAdminEndpoints();
+
+    // Local demo mode (docs/local-demo.md): the fake payment page exists only in
+    // Development with Payments:Mode=Fake. Read through IOptionsMonitor so test
+    // hosts' configuration overrides are honoured.
+    var paymentsOptions = app.Services.GetRequiredService<IOptionsMonitor<MercadoPagoOptions>>().CurrentValue;
+    if (app.Environment.IsDevelopment() && paymentsOptions.IsFakeMode)
+    {
+        app.MapDevPaymentEndpoints();
+    }
 
     app.Run();
 }
