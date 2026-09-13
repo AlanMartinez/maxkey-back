@@ -35,8 +35,7 @@ public static class DependencyInjection
         services.AddKeyCipher(configuration);
         services.AddStorageUrlBuilder(configuration);
 
-        services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
-        services.AddScoped<IEmailSender, LoggingEmailSender>(); // SmtpEmailSender + Email:Sender selection arrive in PR12.
+        AddEmailSender(services, configuration);
 
         services.AddOutboxHandlers();
         services.AddOutboxProcessor(configuration);
@@ -63,6 +62,31 @@ public static class DependencyInjection
         services.AddScoped<ListOrdersAwaitingFulfillment>();
         services.AddScoped<AttachKeyToOrderItem>();
         services.AddScoped<ProcessPaymentNotification>();
+    }
+
+    /// <summary>
+    /// Registers both candidate <see cref="IEmailSender"/> implementations plus a
+    /// scoped factory that picks between them by reading
+    /// <see cref="EmailOptions.Sender"/> lazily via <see cref="IOptionsMonitor{T}"/>
+    /// at resolution time — the same lazy-selection pattern (and the same
+    /// rationale: <c>WebApplicationFactory</c> config overrides are only visible
+    /// after the host finishes building) used for <see cref="AddPaymentGateway"/>
+    /// in PR11.
+    /// </summary>
+    private static void AddEmailSender(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
+
+        services.AddScoped<LoggingEmailSender>();
+        services.AddScoped<SmtpEmailSender>();
+
+        services.AddScoped<IEmailSender>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptionsMonitor<EmailOptions>>().CurrentValue;
+            return options.Sender.Equals("Smtp", StringComparison.OrdinalIgnoreCase)
+                ? sp.GetRequiredService<SmtpEmailSender>()
+                : sp.GetRequiredService<LoggingEmailSender>();
+        });
     }
 
     /// <summary>
