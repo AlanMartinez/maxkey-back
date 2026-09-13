@@ -126,10 +126,10 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR4** — `feat/mvp-04-key-cipher` — base: `feat/mvp-03b-ef-testcontainers` → `main` after merge — depends on: PR3b — ~150 lines
 
-- [ ] 4.1 Add `src/Maxkeys.Application/Security/KeyCipherOptions.cs` (`Keys:EncryptionKey` base64/32 bytes, `Keys:CurrentVersion`), validated at startup (fail fast).
-- [ ] 4.2 Add `src/Maxkeys.Application/Security/KeyCipher.cs`: `Encrypt(string) -> (byte[] blob, short version)` / `Decrypt(byte[], short) -> string` via `AesGcm`, random 12-byte nonce, 16-byte tag, layout `nonce|tag|ciphertext` (fulfillment spec `Key Encryption at Rest`).
-- [ ] 4.3 `tests/Maxkeys.Application.Tests/Security/KeyCipherTests.cs`: round-trip; ciphertext ≠ plaintext; tampered tag/wrong version fails.
-- Test: `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` green.
+- [x] 4.1 Add `src/Maxkeys.Application/Security/KeyCipherOptions.cs` (`Keys:EncryptionKey` base64/32 bytes, `Keys:CurrentVersion`), validated at startup (fail fast).
+- [x] 4.2 Add `src/Maxkeys.Application/Security/KeyCipher.cs`: `Encrypt(string) -> (byte[] blob, short version)` / `Decrypt(byte[], short) -> string` via `AesGcm`, random 12-byte nonce, 16-byte tag, layout `nonce|tag|ciphertext` (fulfillment spec `Key Encryption at Rest`).
+- [x] 4.3 `tests/Maxkeys.Application.Tests/Security/KeyCipherTests.cs`: round-trip; ciphertext ≠ plaintext; tampered tag/wrong version fails.
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter KeyCipher` green — 8/8.
 
 ## Phase 3: Application
 
@@ -246,9 +246,9 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR15** — `feat/mvp-15-frontend-cart` — repo: `maxkeys-front` — base: PR14 → `main` after merge — depends on: PR13 — ~300 lines
 
-- [ ] 15.1 `composables/useCart.ts`: `useState<CartState>`, `CartLine` shape, computed `count`/`subtotal`, actions `add`/`remove`/`setQuantity` (clamp 1..10), `clear`; persisted to `localStorage['nexo.cart.v1']`, hydrated `onMounted`.
-- [ ] 15.2 `components/cart/CartDrawer.vue`, `CartLine.vue`.
-- [ ] 15.3 `tests/useCart.spec.ts`: add/merge same variant, `setQuantity` clamps to 1..10, persistence round-trip, `clear`.
+- [x] 15.1 `composables/useCart.ts`: `useState<CartState>`, `CartLine` shape, computed `count`/`subtotal`, actions `add`/`remove`/`setQuantity` (clamp 1..10), `clear`; persisted to `localStorage['nexo.cart.v1']`, hydrated `onMounted`.
+- [x] 15.2 `components/cart/CartDrawer.vue`, `CartLine.vue`.
+- [x] 15.3 `tests/useCart.spec.ts`: add/merge same variant, `setQuantity` clamps to 1..10, persistence round-trip, `clear`.
 - Test: `npm run test -- useCart` green.
 
 **PR16** — `feat/mvp-16-frontend-checkout` — repo: `maxkeys-front` — base: PR15 → `main` after merge — depends on: PR15 — ~300 lines
