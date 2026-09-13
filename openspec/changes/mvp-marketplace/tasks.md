@@ -27,9 +27,9 @@ Chain strategy: stacked-to-main
 | Repo | GitHub | Local folder | PRs | Owns |
 |---|---|---|---|---|
 | `maxkeys-back` | `AlanMartinez/maxkey-back` | `C:\Personal\Projects\maxkeys-back` (renamed from `maxkeys` after this session) | PR0, PR1–PR12, PR18a | `openspec/` (single source of truth for both repos), `Maxkeys.sln`, `src/`, `tests/`, `seed/`, `Dockerfile`, `deploy/` |
-| `maxkeys-front` | `AlanMartinez/maxkey-front` | `C:\Personal\Projects\maxkeys-front` (sibling folder) | PR13–PR17, PR18b | Nuxt 3 app at the repo root (no `frontend/` prefix); no `openspec/` copy — README links to `maxkeys-back/openspec/changes/mvp-marketplace/` as the contract source |
+| `maxkeys-front` | `AlanMartinez/maxkey-front` | separate repository (delivered — not a runtime target of this change) | PR13–PR17, PR18b | Nuxt 3 app at the repo root (no `frontend/` prefix); no `openspec/` copy — README links to `maxkeys-back/openspec/changes/mvp-marketplace/` as the contract source |
 
-`sdd-apply` must `cd` into the matching local folder before starting a PR in that repo's chain. No PR spans both repositories.
+Runtime work for this change runs only in the planning repository (`maxkeys-back`). Phase 6 (frontend) was delivered in the separate `maxkeys-front` repository and is closed here; no PR spans both repositories.
 
 ### PR Chain Order (authoritative — use this table for branch/base wiring)
 
@@ -240,11 +240,11 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 - [ ] 12.5 `tests/Maxkeys.Application.Tests/Catalog/CatalogQueriesTests.cs`: image URL resolved to absolute, not raw key; seeder upsert idempotent on re-run.
 - Test: `dotnet test tests/Maxkeys.Application.Tests --filter Catalog` green.
 
-## Phase 6: Frontend (repo `maxkeys-front`, independent of backend PR1‑PR12)
+## Phase 6: Frontend (repo `maxkeys-front`, independent of backend PR1‑PR12) — DELIVERED EXTERNALLY, closed for this change
 
 **PR13** — `feat/mvp-13-frontend-scaffold` — repo: `maxkeys-front` — base: own initial commit → `main` — depends on: — — ~380 lines
 
-- [x] 13.1 Bootstrap the `maxkeys-front` repo: `git init -b main` in `C:\Personal\Projects\maxkeys-front`.
+- [x] 13.1 Bootstrap the `maxkeys-front` repo: `git init -b main` in the sibling frontend folder.
 - [x] 13.2 Create `.gitignore` (`node_modules/`, `.nuxt/`, `.output/`, `dist/`, `.env`, `.env.local`).
 - [x] 13.3 Create `README.md` linking to `maxkeys-back/openspec/changes/mvp-marketplace/` (specs + design section 7) as the API contract source.
 - [x] 13.4 Commit the bootstrap as the initial commit on `main` (`chore: initial commit (Nuxt scaffold bootstrap)`); add remote `git remote add origin https://github.com/AlanMartinez/maxkey-front.git`; push (`git push -u origin main`).
