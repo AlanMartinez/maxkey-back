@@ -9,10 +9,16 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Maxkeys.Application\Maxkeys.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Lets tests/Maxkeys.Application.Tests drive OutboxProcessor.ProcessOnceAsync directly (PR7b task 7.6b) instead of sleeping through the poll loop. -->
+    <InternalsVisibleTo Include="Maxkeys.Application.Tests" />
   </ItemGroup>
 
 </Project>
