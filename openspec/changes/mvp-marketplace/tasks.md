@@ -7,7 +7,7 @@ Source of truth for scope/design: `proposal.md`, `specs/{domain}/spec.md`, `desi
 | Field | Value |
 |---|---|
 | Estimated changed lines | ~5,930 authored lines across 20 PRs (generated EF migration code excluded per design section 13) |
-| 400-line budget risk | Medium — no PR exceeds 400, but PR2, PR7, PR8, PR10, PR13, PR17 sit at ~380 (20-line margin) |
+| 400-line budget risk | Medium — no PR exceeds 400, but PR2, PR7b, PR8, PR10, PR13, PR17 sit at ~380 (20-line margin); PR7 itself split into PR7a (361 actual)/PR7b (~380) |
 | Chained PRs recommended | Yes |
 | Suggested split | PR0 (`maxkeys-back` bootstrap) → PR1‑PR12, PR18a (backend stack, `maxkeys-back`) ‖ PR13‑PR17, PR18b (frontend stack, `maxkeys-front`) |
 | Delivery strategy | auto-chain |
@@ -49,8 +49,9 @@ Two independent stacks, one per repository (ADR-18), joined only by the shared d
 | 5a2 | maxkeys-back | Product detail query + payment gateway seam | `feat/mvp-05a2-product-detail-gateway` | `feat/mvp-05a-catalog-application` → `main` after PR5a | 5a | 268 (actual) | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter "GetProductBySlugTests\|Payments"` | N/A (`FakePaymentGateway`) | delete `Catalog/GetProductBySlug.cs`, `Payments/*`, `tests/.../Fakes/FakePaymentGateway.cs`, `tests/.../Catalog/GetProductBySlugTests.cs` |
 | 5b | maxkeys-back | Checkout application | `feat/mvp-05b-checkout-application` | `feat/mvp-05a2-product-detail-gateway` → `main` after PR5a2 | 5a2 | 361 (actual) | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Checkout` | N/A (`FakePaymentGateway`) | delete `Checkout/*` |
 | 6 | maxkeys-back | Payment webhook application | `feat/mvp-06-payment-webhook-application` | `feat/mvp-05b-checkout-application` → `main` after PR5b | 5b | 378 (actual) | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter Payments` | N/A (`FakePaymentGateway`) | delete `Payments/ProcessPaymentNotification.cs` |
-| 7 | maxkeys-back | Outbox processor + email seam | `feat/mvp-07-outbox-processor` | `feat/mvp-06-payment-webhook-application` → `main` after PR6 | 3 | ~380 | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` | run `OutboxProcessor` one poll cycle against Testcontainers | delete `Outbox/*` (Application+Infrastructure), email seam files |
-| 8 | maxkeys-back | Fulfillment application + orders history | `feat/mvp-08-fulfillment-application` | `feat/mvp-07-outbox-processor` → `main` after PR7 | 4, 7 | ~380 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter "Fulfillment\|Orders"` | N/A (`RecordingEmailSender` fake) | delete `Fulfillment/*`, `OrderDeliveredHandler`, `GetMyOrder(s)`; revert fulfillment spec edit |
+| 7a | maxkeys-back | Outbox handler seam + email seam | `feat/mvp-07a-outbox-handler-email` | `feat/mvp-06-payment-webhook-application` → `feat/mvp-07b-outbox-processor` after PR7b bases on it | 3 | 361 (actual) | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` | N/A (pure Application/Infrastructure seam; `OutboxProcessor` itself is PR7b) | delete `Application/Outbox/*`, `Application/Notifications/*`, `Infrastructure/Email/LoggingEmailSender.cs`, `tests/.../Fakes/RecordingEmailSender.cs`, `tests/.../Outbox/OrderApprovedHandlerTests.cs` |
+| 7b | maxkeys-back | Outbox processor (poller) | `feat/mvp-07b-outbox-processor` | `feat/mvp-07a-outbox-handler-email` → `main` after PR7a | 3, 7a | ~380 | 5 | `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` | run `OutboxProcessor` one poll cycle against Testcontainers | delete `Infrastructure/Outbox/*`, `tests/.../Outbox/OutboxClaimQueryTests.cs` |
+| 8 | maxkeys-back | Fulfillment application + orders history | `feat/mvp-08-fulfillment-application` | `feat/mvp-07b-outbox-processor` → `main` after PR7b | 4, 7b | ~380 | 3 | `dotnet test tests/Maxkeys.Application.Tests --filter "Fulfillment\|Orders"` | N/A (`RecordingEmailSender` fake) | delete `Fulfillment/*`, `OrderDeliveredHandler`, `GetMyOrder(s)`; revert fulfillment spec edit |
 | 9 | maxkeys-back | API skeleton | `feat/mvp-09-api-skeleton` | `feat/mvp-08-fulfillment-application` → `main` after PR8 | 5, 7 | ~370 | 4 | `dotnet build && dotnet test tests/Maxkeys.Api.Tests --filter Catalog` | `dotnet run --project src/Maxkeys.Api` with empty `Payments:AccessToken`, hit `/health` | delete `src/Maxkeys.Api` (revert to PR8 state) |
 | 10 | maxkeys-back | API auth | `feat/mvp-10-api-auth` | `feat/mvp-09-api-skeleton` → `main` after PR9 | 8, 9 | ~380 | 4 | `dotnet test tests/Maxkeys.Api.Tests --filter Auth` | `dotnet run` + call `/me/orders` with a real Supabase token | delete `Auth/*`, `Me/Admin` endpoints |
 | 11 | maxkeys-back | Mercado Pago integration | `feat/mvp-11-mercadopago-integration` | `feat/mvp-10-api-auth` → `main` after PR10 | 6, 9 | ~350 | 5 | `dotnet test tests/Maxkeys.Api.Tests --filter Webhooks` | MP sandbox notification via public tunnel (task 11.6) | revert DI to `NotConfiguredPaymentGateway`; delete `MercadoPago*`, `WebhookEndpoints` |
@@ -163,7 +164,7 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 - [x] 6.2 `tests/Maxkeys.Application.Tests/Payments/ProcessPaymentNotificationTests.cs` (7 tests): same request id ×3 → one `Paid`, one outbox row, `GetPaymentAsync` called once; different request ids, order already `Paid` → no second transition/outbox row (spec `Re-notification after Paid`); concurrent duplicate approval (two request ids, two `DbContext`s, `Task.WhenAll`) → exactly one transition/one outbox row (spec `Concurrent duplicate delivery of the same approval`); amount/currency mismatch → ignored, no transition; `rejected` on `Pending` → `LastPaymentAttempt*` recorded, stays `Pending`, zero outbox rows, later `approved` still transitions once (spec `Rejection followed by a later approval`); `refunded` → log-only, no fields written, dedupe row present (spec `Refunded status ignored`); unknown external reference → `OrderNotFound`, dedupe row present.
 - Test: `dotnet test tests/Maxkeys.Application.Tests --filter Payments` green — 7/7 (34/34 full Application suite; 56/56 Domain, no regressions). `dotnet build Maxkeys.sln` 0 warnings.
 
-**PR8** — `feat/mvp-08-fulfillment-application` — base: PR7 → `main` after merge — depends on: PR4, PR7 — ~380 lines
+**PR8** — `feat/mvp-08-fulfillment-application` — base: PR7b → `main` after merge — depends on: PR4, PR7b — ~380 lines
 
 - [ ] 8.1 Add `src/Maxkeys.Application/Fulfillment/AttachKeyToOrderItem.cs`: load order+items+keys (`xmin`), `KeyCipher.Encrypt`, `Key.Create` + `Order.AttachKey`, insert `OutboxEvent(OrderDelivered)` in the same tx as the last-key `Delivered` transition (fulfillment spec `Key Attachment`, `All-or-Nothing Delivery Derivation`); catch `DbUpdateConcurrencyException`, reload, retry once, else 409 (spec `Concurrent double-attach on the same item`).
 - [ ] 8.2 Add `src/Maxkeys.Application/Fulfillment/ListOrdersAwaitingFulfillment.cs` (per-item assigned/required counts — spec `Admin Order Listing`).
@@ -176,7 +177,7 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 ## Phase 4: API
 
-**PR9** — `feat/mvp-09-api-skeleton` — base: PR8 → `main` after merge — depends on: PR5, PR7 — ~370 lines
+**PR9** — `feat/mvp-09-api-skeleton` — base: PR8 → `main` after merge — depends on: PR5, PR7b — ~370 lines
 
 - [ ] 9.1 Add `src/Maxkeys.Api/Maxkeys.Api.csproj`, `Program.cs` (minimal API bootstrap, DI via `Infrastructure/DependencyInjection.cs`), `appsettings.json`, `appsettings.Development.json`.
 - [ ] 9.2 Add `src/Maxkeys.Api/Errors/ProblemDetailsExceptionHandler.cs`: `DomainException`→422, `DomainConflictException`→409, `NotFoundException`→404, `PaymentGatewayException`→503, unhandled→500 (design §7 error table).
@@ -203,15 +204,20 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 ## Phase 5: Mercado Pago integration + outbox hosted service + email
 
-**PR7** — `feat/mvp-07-outbox-processor` — base: PR6 → `main` after merge — depends on: PR3 — ~380 lines
-*(chain position 7 — precedes PR8/PR9, which both depend on it; filed under this phase heading per topic, not build order — see PR Chain Order table above for the authoritative sequence)*
+**PR7a** — `feat/mvp-07a-outbox-handler-email` — base: PR6 → `feat/mvp-07b-outbox-processor` — depends on: PR3 — 361 lines (actual)
+*(chain position 7a — outbox handler seam + email seam only; the poller itself is PR7b. See PR Chain Order table above for the authoritative sequence.)*
 
-- [ ] 7.1 Add `src/Maxkeys.Application/Outbox/IOutboxHandler.cs` (`string EventType`, `HandleAsync`), `OrderApprovedHandler.cs` (`Paid` → `AwaitingFulfillment` + operator notification — outbox-processing spec `OrderApproved Handler`).
-- [ ] 7.2 Add `src/Maxkeys.Application/Notifications/IEmailSender.cs`, `EmailMessage.cs`, `EmailTemplates.cs` (operator "Order X awaiting fulfillment" template).
-- [ ] 7.3 Add `src/Maxkeys.Infrastructure/Email/LoggingEmailSender.cs` (dev default), `tests/Maxkeys.Application.Tests/Fakes/RecordingEmailSender.cs`.
+- [x] 7.1 Add `src/Maxkeys.Application/Outbox/IOutboxHandler.cs` (`string EventType`, `HandleAsync`), `OrderApprovedHandler.cs` (`Paid` → `AwaitingFulfillment` + operator notification — outbox-processing spec `OrderApproved Handler`). Also added `OutboxServiceCollectionExtensions.AddOutboxHandlers` so PR7b's processor can resolve `IEnumerable<IOutboxHandler>`.
+- [x] 7.2 Add `src/Maxkeys.Application/Notifications/IEmailSender.cs`, `EmailMessage.cs`, `EmailTemplates.cs` (operator "Order X awaiting fulfillment" template), `EmailOptions.cs` (`Email:Sender`, `Email:From`, `Email:OperatorTo`).
+- [x] 7.3 Add `src/Maxkeys.Infrastructure/Email/LoggingEmailSender.cs` (dev default), `tests/Maxkeys.Application.Tests/Fakes/RecordingEmailSender.cs`.
+- [x] 7.6a `tests/Maxkeys.Application.Tests/Outbox/OrderApprovedHandlerTests.cs`: `Paid` → `AwaitingFulfillment`, exactly one operator notification recorded via `RecordingEmailSender` (no key material in it); already `AwaitingFulfillment` → no-op, no email; unknown order → throws (lets the future processor retry/dead-letter).
+- Test: `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` green — 4/4 (3 new + 1 pre-existing `AppDbContextTests` outbox jsonb round-trip). Full suite 37/37. `dotnet build Maxkeys.sln` 0 warnings.
+
+**PR7b** — `feat/mvp-07b-outbox-processor` — base: PR7a → `main` after merge — depends on: PR3, PR7a — ~380 lines
+
 - [ ] 7.4 Add `src/Maxkeys.Infrastructure/Outbox/OutboxClaimQuery.cs` (`SELECT ... FOR UPDATE SKIP LOCKED`, marks `Processing` same tx — spec `Batch Claim With Row Locking`), `OutboxOptions.cs` (`PollIntervalSeconds/BatchSize/LeaseSeconds/MaxAttempts`).
-- [ ] 7.5 Add `src/Maxkeys.Infrastructure/Outbox/OutboxProcessor.cs : IHostedService` — poll loop, claim, dispatch by `EventType`, backoff `now + 30s * 2^Attempts`, `Failed` at the 8th attempt (spec `Exponential Backoff on Failure`, `Dead-Letter After Max Attempts`).
-- [ ] 7.6 `tests/Maxkeys.Application.Tests/Outbox/OutboxClaimQueryTests.cs`: two concurrent claimers never claim the same row (spec `Multi-Instance Claim Safety`); expired `Processing` lease reclaimable. `tests/Maxkeys.Application.Tests/Outbox/OrderApprovedHandlerTests.cs`: `Paid` → `AwaitingFulfillment`, operator notification recorded via `RecordingEmailSender`, event `Processed`. **Requires Docker/Testcontainers per PR3; honor `TEST_POSTGRES_CONNECTION`.**
+- [ ] 7.5 Add `src/Maxkeys.Infrastructure/Outbox/OutboxProcessor.cs : IHostedService` — poll loop, claim, dispatch by `EventType` (resolves `IEnumerable<IOutboxHandler>` registered via PR7a's `AddOutboxHandlers`), backoff `now + 30s * 2^Attempts`, `Failed` at the 8th attempt (spec `Exponential Backoff on Failure`, `Dead-Letter After Max Attempts`).
+- [ ] 7.6b `tests/Maxkeys.Application.Tests/Outbox/OutboxClaimQueryTests.cs`: two concurrent claimers never claim the same row (spec `Multi-Instance Claim Safety`); expired `Processing` lease reclaimable. **Requires Docker/Testcontainers per PR3; honor `TEST_POSTGRES_CONNECTION`.**
 - Test: `dotnet test tests/Maxkeys.Application.Tests --filter Outbox` green.
 
 **PR11** — `feat/mvp-11-mercadopago-integration` — base: PR10 → `main` after merge — depends on: PR6, PR9 — ~350 lines
@@ -224,10 +230,10 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 - [ ] 11.6 **Verify the `x-signature` manifest (segment order, lowercase `data.id`) against a real Mercado Pago sandbox notification** before merging; adjust `MercadoPagoSignatureValidator` if the sandbox payload differs from the documented manifest.
 - Test: `dotnet test tests/Maxkeys.Api.Tests --filter Webhooks` green.
 
-**PR12** — `feat/mvp-12-email-seed` — base: PR11 → `main` after merge — depends on: PR7, PR9 — ~260 lines
+**PR12** — `feat/mvp-12-email-seed` — base: PR11 → `main` after merge — depends on: PR7a, PR9 — ~260 lines
 
 - [ ] 12.0 Add `Product.Description` (Domain property + EF config `text` + additive migration `AddProductDescription`) and map it in `CatalogDtos`; the proposal ERD and the frontend `types/api.ts` `ProductDetail.description` require it (gap surfaced in PR5a2; `ProductDetail.Description` is currently always `""`).
-- [ ] 12.1 Add `src/Maxkeys.Infrastructure/Email/EmailOptions.cs` (`Email:Sender`, `From`, `OperatorAddress`, `Smtp:Host/Port/UseStartTls/User/Password`).
+- [ ] 12.1 Extend `src/Maxkeys.Application/Notifications/EmailOptions.cs` (already added in PR7a with `Sender`/`From`/`OperatorTo`) with `Smtp:Host/Port/UseStartTls/User/Password`. Note the property is named `OperatorTo`, not `OperatorAddress` as design section 10's config matrix names it — reconcile the doc or rename here, whichever this PR decides.
 - [ ] 12.2 Add `src/Maxkeys.Infrastructure/Email/SmtpEmailSender.cs : IEmailSender` (MailKit, ADR-08); DI selects `Smtp` or `Logging` by `Email:Sender`.
 - [ ] 12.3 Add `src/Maxkeys.Infrastructure/Persistence/CatalogSeeder.cs`, `seed/catalog.json`; wire `Maxkeys.Api --seed-catalog <path>` in `Program.cs` (ADR-12, upsert by slug).
 - [ ] 12.4 Add `src/Maxkeys.Infrastructure/Storage/StorageOptions.cs` (`Storage:R2PublicBaseUrl`), `R2ImageUrlResolver.cs` (catalog spec `Image URL Resolution`).
