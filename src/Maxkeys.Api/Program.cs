@@ -1,3 +1,4 @@
+using Maxkeys.Api.Auth;
 using Maxkeys.Api.Cors;
 using Maxkeys.Api.Endpoints;
 using Maxkeys.Api.Errors;
@@ -19,6 +20,7 @@ try
 
     builder.Services.AddInfrastructure(builder.Configuration);
     builder.Services.AddCorsPolicy(builder.Configuration);
+    builder.Services.AddSupabaseJwtAuth(builder.Configuration);
 
     var app = builder.Build();
 
@@ -26,6 +28,8 @@ try
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseSerilogRequestLogging();
     app.UseCors(Maxkeys.Api.Cors.CorsOptions.PolicyName);
+    app.UseAuthentication();
+    app.UseAuthorization();
 
     app.MapHealthEndpoints();
     app.MapCatalogEndpoints();

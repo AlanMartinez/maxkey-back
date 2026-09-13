@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Maxkeys.Api.Auth;
 using Maxkeys.Application.Checkout;
 
 namespace Maxkeys.Api.Endpoints;
@@ -6,11 +7,12 @@ namespace Maxkeys.Api.Endpoints;
 /// <summary>
 /// Public checkout endpoints (design section 7; cart-checkout spec). The
 /// request body intentionally has no <c>UserId</c> property — linkage comes
-/// only from the caller's optional bearer <c>sub</c> claim (design section 6a/6e,
-/// auth spec "User Identity Linking"). Full JWT validation and the
-/// present-but-invalid-token 401 (<c>OptionalBearerFilter</c>) arrive in PR10;
-/// until then <see cref="HttpContext.User"/> is always unauthenticated, so every
-/// checkout here is a guest checkout.
+/// only from the caller's optional bearer <c>sub</c> claim, validated by the
+/// JWT bearer handler wired in <c>Program.cs</c> (design section 6a/6e, auth
+/// spec "User Identity Linking"). <see cref="OptionalBearerFilter"/> rejects a
+/// present-but-invalid bearer with 401 instead of silently falling back to a
+/// guest order (design section 6e); a request with no header at all still
+/// proceeds as a guest.
 /// </summary>
 public static class CheckoutEndpoints
 {
@@ -35,7 +37,7 @@ public static class CheckoutEndpoints
             return Results.Created(
                 $"/checkout/orders/{result.OrderId}/status",
                 new CheckoutOrderResponse(result.OrderId, result.InitPoint));
-        });
+        }).AddEndpointFilter<OptionalBearerFilter>();
 
         group.MapGet("/{id:guid}/status", async (Guid id, GetOrderStatus useCase, CancellationToken cancellationToken) =>
         {
