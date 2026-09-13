@@ -268,16 +268,16 @@ Note: PR0 has no dedicated branch/PR — the initial commit lands directly on `m
 
 **PR16** — `feat/mvp-16-frontend-checkout` — repo: `maxkeys-front` — base: PR15 → `main` after merge — depends on: PR15 — ~300 lines
 
-- [ ] 16.1 `composables/useCheckout.ts`: `status: idle|submitting|redirecting|error`; `submit(email)` → `POST /checkout/orders`, `sessionStorage['nexo.lastOrderId']`, redirect to `initPoint`.
-- [ ] 16.2 `components/checkout/ContactForm.vue`, `OrderSummary.vue`, `PayWithMercadoPago.vue`.
-- [ ] 16.3 `pages/checkout/index.vue`, `pages/checkout/result.vue` (polls `GET /checkout/orders/{id}/status` every 3s up to 20 tries; clears cart only when `status !== 'Pending'` or MP query `status=approved`).
-- [ ] 16.4 `tests/useCheckout.spec.ts`: request body shape (`variantId`, `quantity` pairs + email); state machine transitions.
+- [x] 16.1 `composables/useCheckout.ts`: `status: idle|submitting|redirecting|error`; `submit(email)` → `POST /checkout/orders`, `sessionStorage['nexo.lastOrderId']`, redirect to `initPoint`.
+- [x] 16.2 `components/checkout/ContactForm.vue`, `OrderSummary.vue`, `PayWithMercadoPago.vue`.
+- [x] 16.3 `pages/checkout/index.vue`, `pages/checkout/result.vue` (polls `GET /checkout/orders/{id}/status` every 3s up to 20 tries; clears cart only when `status !== 'Pending'` or MP query `status=approved`).
+- [x] 16.4 `tests/useCheckout.spec.ts`: request body shape (`variantId`, `quantity` pairs + email); state machine transitions.
 - Test: `npm run test -- useCheckout` green.
 
 **PR17** — `feat/mvp-17-frontend-auth-orders` — repo: `maxkeys-front` — base: PR16 → `main` after merge — depends on: PR14 — ~380 lines
 
-- [ ] 17.1 `composables/useAuth.ts`: wraps `useSupabaseClient()`/`useSupabaseUser()`, `signInWithGoogle()` (`redirectTo=${siteUrl}/auth/callback`), `signOut()`.
-- [ ] 17.2 `components/layout/LoginDialog.vue`, `middleware/auth.ts` (redirect cookie `nexo.redirect` + `navigateTo('/?login=1')` when unauthenticated), `pages/auth/callback.vue`.
+- [x] 17.1 `composables/useAuth.ts`: wraps `useSupabaseClient()`/`useSupabaseUser()`, `signInWithGoogle()` (`redirectTo=${siteUrl}/auth/callback`), `signOut()`.
+- [x] 17.2 `components/layout/LoginDialog.vue`, `middleware/auth.ts` (redirect cookie `nexo.redirect` + `navigateTo('/?login=1')` when unauthenticated), `pages/auth/callback.vue`.
 - [ ] 17.3 `components/orders/OrderCard.vue`, `OrderStatusBadge.vue`, `KeyReveal.vue` (reveal/copy, rendered only when order `Delivered`).
 - [ ] 17.4 `pages/account/orders/index.vue` (`middleware:'auth'`, `GET /me/orders`), `pages/account/orders/[id].vue` (`GET /me/orders/{id}`, `KeyReveal` per item only when `Delivered` — orders-history spec `Order Detail With Conditional Key Reveal`).
 - [ ] 17.5 Add order-detail DTOs to `types/api.ts`, citing the design section 7 rows they mirror (`GET /me/orders`, `GET /me/orders/{id}`).
