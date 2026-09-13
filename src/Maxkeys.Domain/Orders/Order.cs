@@ -33,6 +33,13 @@ public sealed class Order : Entity
     public DateTimeOffset UpdatedAt { get; private set; }
     public IReadOnlyList<OrderItem> Items => _items;
 
+    /// <summary>EF Core materialization constructor (ADR-01) — properties are set by the ORM via their private setters.</summary>
+    private Order()
+    {
+        BuyerEmail = null!;
+        Currency = null!;
+    }
+
     private Order(Guid? userId, string buyerEmail, DateTimeOffset now)
     {
         UserId = userId;
