@@ -56,6 +56,9 @@ public static class DependencyInjection
     {
         services.AddScoped<GetCatalog>();
         services.AddScoped<GetProductBySlug>();
+        services.AddScoped<ListAdminProducts>();
+        services.AddScoped<UpdateProduct>();
+        services.AddScoped<UpdateProductVariant>();
         services.AddScoped<CreateOrder>();
         services.AddScoped<GetOrderStatus>();
         services.AddScoped<GetMyOrders>();
