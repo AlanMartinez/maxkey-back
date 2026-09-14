@@ -81,7 +81,15 @@ public sealed class AdminCatalogEndpointsTests
     [Fact]
     public async Task Empty_required_field_on_product_update_returns_422()
     {
-        var productId = await SeedProductAsync();
+        var platform = UniquePlatform();
+        Guid productId = default;
+        await Seed(async db =>
+        {
+            var product = new Product($"p-{Guid.NewGuid():N}", "Original Name", platform);
+            db.Products.Add(product);
+            await db.SaveChangesAsync();
+            productId = product.Id;
+        });
 
         var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/products/{productId}", new
         {
@@ -94,6 +102,82 @@ public sealed class AdminCatalogEndpointsTests
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<AdminProduct>>();
+        var unchanged = Assert.Single(products!, p => p.Id == productId);
+        Assert.Equal("Original Name", unchanged.Name);
+        Assert.Equal(platform, unchanged.Platform);
+    }
+
+    /// <summary>Admin Product Activation Toggle — "Product deactivated" spec scenario.</summary>
+    [Fact]
+    public async Task Deactivating_a_product_hides_it_from_the_public_catalog_listing()
+    {
+        var platform = UniquePlatform();
+        var slug = $"p-{Guid.NewGuid():N}";
+        Guid productId = default;
+        await Seed(async db =>
+        {
+            var product = new Product(slug, "Visible Product", platform);
+            db.Products.Add(product);
+            await db.SaveChangesAsync();
+            productId = product.Id;
+        });
+
+        var publicClient = _factory.CreateClient();
+        var before = await publicClient.GetFromJsonAsync<List<ProductSummary>>($"/catalog/products?platform={platform}");
+        Assert.Contains(before!, p => p.Slug == slug);
+
+        var putResponse = await AdminClient().PutAsJsonAsync($"/admin/catalog/products/{productId}", new
+        {
+            name = "Visible Product",
+            platform,
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = false,
+        });
+        Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
+
+        var after = await publicClient.GetFromJsonAsync<List<ProductSummary>>($"/catalog/products?platform={platform}");
+        Assert.DoesNotContain(after!, p => p.Slug == slug);
+    }
+
+    /// <summary>Admin Variant Activation Toggle — "Variant deactivated" spec scenario.</summary>
+    [Fact]
+    public async Task Deactivating_a_variant_hides_it_from_the_public_product_detail()
+    {
+        var platform = UniquePlatform();
+        var slug = $"p-{Guid.NewGuid():N}";
+        Guid variantId = default;
+        await Seed(async db =>
+        {
+            var product = new Product(slug, "Product With Variant", platform);
+            db.Products.Add(product);
+            var variant = new ProductVariant(product.Id, 100m, "ARS", region: "AR", edition: "Standard");
+            db.ProductVariants.Add(variant);
+            await db.SaveChangesAsync();
+            variantId = variant.Id;
+        });
+
+        var publicClient = _factory.CreateClient();
+        var before = await publicClient.GetFromJsonAsync<ProductDetail>($"/catalog/products/{slug}");
+        Assert.Contains(before!.Variants, v => v.Id == variantId);
+
+        var putResponse = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
+        {
+            price = 100m,
+            oldPrice = (decimal?)null,
+            currency = "ARS",
+            region = "AR",
+            edition = "Standard",
+            sortOrder = 0,
+            isActive = false,
+        });
+        Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
+
+        var after = await publicClient.GetFromJsonAsync<ProductDetail>($"/catalog/products/{slug}");
+        Assert.DoesNotContain(after!.Variants, v => v.Id == variantId);
     }
 
     [Fact]

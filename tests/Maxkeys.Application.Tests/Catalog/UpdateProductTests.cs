@@ -73,4 +73,29 @@ public sealed class UpdateProductTests
 
         Assert.Null(updated);
     }
+
+    /// <summary>Admin Product Activation Toggle — deactivation persists `IsActive = false`.</summary>
+    [Fact]
+    public async Task Deactivating_a_product_persists_is_active_false()
+    {
+        Guid productId;
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
+            productId = product.Id;
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new UpdateProduct(context, _imageUrlBuilder);
+
+        var updated = await sut.ExecuteAsync(productId, "Name", "PSN", null, null, isActive: false);
+
+        Assert.NotNull(updated);
+        Assert.False(updated!.IsActive);
+
+        await using var verify = _fixture.CreateContext();
+        var reloaded = await verify.Products.FindAsync(productId);
+        Assert.False(reloaded!.IsActive);
+    }
 }
