@@ -1,0 +1,56 @@
+change: admin-dashboard
+project: maxkeys
+artifact_store: hybrid
+execution_mode: auto
+delivery_strategy: ask-on-risk
+review_budget_lines: 800
+created: 2026-09-14
+updated: 2026-09-14
+phases:
+  explore:
+    status: done
+    artifact: exploration.md
+    engram_topic: sdd/admin-dashboard/explore
+    engram_id: 294
+  proposal:
+    status: done
+    artifact: proposal.md
+    engram_topic: sdd/admin-dashboard/proposal
+    slices_forecast: 5 (back: catalog / carousel / buyers+resend; front: guard+catalog+carousel / buyers)
+  spec:
+    status: done
+    artifact: specs/{admin-catalog,carousel,admin-buyers,fulfillment}/spec.md
+    engram_topic: sdd/admin-dashboard/spec
+    note: admin-catalog, carousel, admin-buyers are new full specs; fulfillment is a MODIFIED delta on "One-Time Delivery Email" (admin resend)
+  design:
+    status: done
+    artifact: design.md
+    engram_topic: sdd/admin-dashboard/design
+    engram_id: 298
+    note: D1 new outbox type OrderDeliveryResendRequested (adminSub in payload); D3 PUT endpoints, no toggle method; D4 /admin/buyers substring email search, page<=100; D5 GET /admin/me for middleware/admin.ts
+  tasks:
+    status: done
+    artifact: tasks.md
+    engram_topic: sdd/admin-dashboard/tasks
+    note: 5 phases = 5 stacked PRs (chain strategy already fixed by design D7); est. lines 400/600/450/550/250 (total ~2250), 800-line budget risk Low; decision needed before apply No
+  apply:
+    status: in_progress
+    engram_topic: sdd/admin-dashboard/apply-progress
+    note: slice 1 (Phase 1, back PR1 admin catalog) complete on branch feat/admin-catalog — 10/10 tasks done; not pushed, no PR opened; slices 2-5 not started
+  verify:
+    status: pending
+  archive:
+    status: pending
+repositories:
+  backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
+  frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3; slices 4-5)
+next_recommended: sdd-verify (slice 1) or sdd-apply (slice 2)
+decisions:
+  - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
+  - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles
+  - carousel slides reference ProductId; image/link derive from product unless overridden
+  - admin auth = existing AdminPolicy / Auth:AdminSubs allowlist
+  - admin UI = protected area in maxkeys-front
+open_items:
+  - follow-up: make --seed-catalog insert-only once admin editing exists (design Open Questions)
+  - follow-up: resend rate limit if abused (design Open Questions)
