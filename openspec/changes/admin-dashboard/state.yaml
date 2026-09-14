@@ -41,13 +41,13 @@ phases:
     status: partial
     artifact: verify-report.md
     engram_topic: sdd/admin-dashboard/verify-report
-    note: slice 1 (Phase 1, admin catalog) and slice 2 (Phase 2, carousel) both verified PASS - slice 1 remediation closed prior CRITICAL/WARNING (174/174 tests at that point), slice 2 fresh verify found 0 CRITICAL/0 WARNING/2 SUGGESTION (207/207 tests, 11/11 Phase 2 tasks, all 7 carousel spec scenarios covered, design D2 conformance with zero deviations, size:exception honored for the accepted budget overage); slices 3-5 not applied, not verified
+    note: slices 1-3 (back PR1 admin catalog, PR2 carousel, PR3 buyers+resend) all verified. Slice 1 PASS (remediated, 174/174 tests). Slice 2 PASS (0 CRITICAL/0 WARNING/2 SUGGESTION, 207/207 tests). Slice 3 PASS WITH WARNINGS (0 CRITICAL/1 WARNING/3 SUGGESTION, 223/223 tests, 15/15 Phase 3 tasks, all 7 admin-buyers + 3 fulfillment-delta scenarios covered with runtime evidence; WARNING = unescaped adminSub string interpolation into the OrderDeliveryResendRequested outbox JSON payload, not exploitable today given the closed AdminPolicy allowlist but a real robustness gap; size:exception honored for the accepted PR2/PR3 budget overages). Slices 4-5 (maxkeys-front) not applied, not verified, blocked on backend deploy per design D7.
   archive:
     status: pending
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3; slices 4-5)
-next_recommended: sdd-verify for slice 3 (Phase 3, Buyers+Resend); PR3's authored-line overage (900 vs 800 cap) needs a size:exception decision, same as PR2. Slices 4-5 remain blocked on maxkeys-front and backend deploy.
+next_recommended: sdd-archive for slices 1-3 (backend, all verified) once the slice-3 WARNING (adminSub JSON escaping in RequestDeliveryResend) is triaged/accepted by the maintainer; slices 4-5 (maxkeys-front) remain blocked on backend deploy per design D7 and are not yet ready for sdd-apply.
 decisions:
   - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
   - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles

@@ -214,6 +214,123 @@ SUGGESTION
 
 PASS. Build succeeds with 0 warnings/errors; all 207/207 tests pass (33 new carousel tests: 9 domain + 13 application + 11 Api); 11/11 Phase 2 tasks complete and match the code exactly; all 7 in-scope carousel spec scenarios have passing runtime-covering tests, no gaps; design D2 and the API contract table are followed with zero deviations (the flagged unknown-product-422-vs-404 point is confirmed to match the design's own contract table, not a deviation); migration is sound (Down() drops cleanly, no unrelated snapshot drift); no N+1; cancellation tokens propagated throughout. 2 SUGGESTION-level findings only, neither blocking. The previously accepted size:exception for the review-budget overage is honored and not re-litigated here.
 
-## Slices 3-5
+## Slice 3: Buyers + Resend (back PR3)
 
-Not applied. Phase 3 (Buyers+Resend), Phase 4/5 (frontend) have 0/23 remaining tasks checked in tasks.md and no corresponding apply-progress artifact. Out of scope for this report; do not infer spec/design compliance for them from this verification. Per design D7, Phase 3 (back PR3) depends on PR1 merged; do not start until PR1 and PR2's size:exception/merge status are resolved by the maintainer.
+> Scope: Phase 3 only (tasks 3.1-3.15, admin-buyers spec, fulfillment spec MODIFIED delta, design D1 + D4, contract table rows for `GET /admin/buyers` and `POST /admin/orders/{id}/resend-delivery`). Phases 1-2 (slices 1-2, above) carried forward unchanged. Slices 4-5 (frontend) not applied, out of scope.
+
+**Change**: admin-dashboard
+**Branch**: feat/admin-buyers (from feat/carousel-slides, from feat/admin-catalog, from origin/main) - not pushed, no PR opened
+**Commits verified**: 57d29b1 (production), 665c408 (tests), 3fbfe13 (docs/sdd)
+**Mode**: Standard (Strict TDD: false)
+**Verified**: 2026-09-14
+
+### Completeness (Phase 3 tasks)
+
+| Task | Status | Evidence |
+|---|---|---|
+| 3.1 OutboxEventTypes.cs | Done | OrderDeliveryResendRequested constant added |
+| 3.2 DeliveryEmailItems.cs | Done | Static FromOrder(order, keyCipher), decrypts assigned keys per item |
+| 3.3 OrderDeliveredHandler.cs refactor | Done | Calls DeliveryEmailItems.FromOrder; removed now-unused Maxkeys.Domain.Keys using; OrderDeliveredHandlerTests.cs untouched (not in diff) and still green (3/3) |
+| 3.4 RequestDeliveryResend.cs | Done | Loads order, null to 404, DomainConflictException unless Status == Delivered to 409, else inserts OrderDeliveryResendRequested outbox row, returns event id |
+| 3.5 OrderDeliveryResendHandler.cs | Done | IOutboxHandler, EventType = OrderDeliveryResendRequested, loads order with Include(Items.Keys), sends via DeliveryEmailItems.FromOrder + EmailTemplates.BuyerOrderDelivered |
+| 3.6 DI registration | Done | OutboxServiceCollectionExtensions.cs registers IOutboxHandler, OrderDeliveryResendHandler; Infrastructure/DependencyInjection.cs registers RequestDeliveryResend, ListBuyers |
+| 3.7 BuyersDtos.cs, ListBuyers.cs | Done | Q1 groups paid orders by email + search + paging + count; Q2 loads orders/items/keys for the page's emails; AssignedKeys count only, no key code |
+| 3.8 AdminBuyersEndpoints.cs | Done | GET /admin/buyers?email=&page=&pageSize=, .RequireAuthorization(AdminPolicy.Name) |
+| 3.9 AdminEndpoints.cs resend route | Done | POST /{id:guid}/resend-delivery on /admin/orders group, reads sub claim, 202/404/409 |
+| 3.10 Program.cs mapping | Done | app.MapAdminBuyersEndpoints(); present |
+| 3.11-3.12 RequestDeliveryResendTests.cs | Done | 3 facts: no DeliveredAt/key mutation, requestedBy audit payload, 409 + no outbox row on non-Delivered |
+| 3.13 OrderDeliveryResendHandlerTests.cs | Done | 1 fact: sends via RecordingEmailSender with every key code present; OrderDeliveredHandlerTests.cs (3 facts) confirmed still green |
+| 3.14 ListBuyersTests.cs | Done | 4 facts: grouping + unpaid excluded, email search, pagination + total, assigned-key-count-only |
+| 3.15 AdminBuyersEndpointsTests.cs + ResendDeliveryEndpointTests.cs | Done | 3 + 5 facts: 401/403/200-no-key-code-in-raw-JSON; 401/403/202/409/404 |
+
+15/15 Phase 3 tasks complete and match code state. No unchecked tasks in scope. git diff --stat feat/carousel-slides..HEAD: 19 files changed, 909 insertions(+), 27 deletions(-) - matches apply-progress (#302) exactly.
+
+### Build / Test Evidence
+
+- dotnet build (whole solution): Build succeeded, 0 Warnings, 0 Errors. Exit code 0.
+- dotnet test (whole solution): **223/223 passed**, 0 failed, 0 skipped. Exit code 0.
+  - Maxkeys.Domain.Tests: 65/65 passed (unchanged from slice 2)
+  - Maxkeys.Application.Tests: 83/83 passed (+8 slice 3: 3 RequestDeliveryResendTests + 1 OrderDeliveryResendHandlerTests + 4 ListBuyersTests)
+  - Maxkeys.Api.Tests: 75/75 passed (+8 slice 3: 3 AdminBuyersEndpointsTests + 5 ResendDeliveryEndpointTests)
+- dotnet test --filter "FullyQualifiedName~Buyers|FullyQualifiedName~Resend": Application 8/8, Api 8/8, all passed.
+
+Counts match the apply-progress record (Engram #302) exactly, and match the prompt's expected 223.
+
+### Spec Compliance Matrix
+
+**admin-buyers spec - 4 requirements, 7 scenarios in scope**
+
+| Requirement | Scenario | Covering test | Result |
+|---|---|---|---|
+| Buyer Listing Grouped By Email | Buyer with multiple orders grouped together | ListBuyersTests.Buyer_with_multiple_paid_orders_is_grouped_and_unpaid_orders_are_excluded | PASS |
+| Buyer Listing Grouped By Email | Email search narrows results | ListBuyersTests.Email_search_narrows_results_to_the_matching_buyer | PASS |
+| Buyer Listing Grouped By Email | Pagination bounds page size | ListBuyersTests.Pagination_bounds_page_size_and_reports_total | PASS |
+| Key Exposure in Buyer View | Key code not exposed | ListBuyersTests.Order_item_exposes_only_the_assigned_key_count (count only), AdminBuyersEndpointsTests.Listing_never_exposes_a_key_code_only_the_assigned_count (asserts Assert.DoesNotContain(code, rawJson) on the raw HTTP response body) | PASS |
+| Resend Delivery Email | Resend for a delivered order | ResendDeliveryEndpointTests.Resend_for_a_delivered_order_returns_202_with_an_outbox_event_id, RequestDeliveryResendTests.Resend_writes_outbox_event_with_requested_by_equal_to_acting_admin_sub, OrderDeliveryResendHandlerTests.Resend_sends_delivery_email_with_the_same_keys_via_recording_sender | PASS |
+| Resend Delivery Email | Resend rejected for non-delivered order (409, no email) | RequestDeliveryResendTests.Resend_on_non_delivered_order_is_rejected_and_writes_no_outbox_row, ResendDeliveryEndpointTests.Resend_for_a_non_delivered_order_returns_409_and_sends_no_email | PASS |
+| Admin Buyers Authorization | Non-admin rejected (403) | AdminBuyersEndpointsTests.Non_admin_sub_is_forbidden, ResendDeliveryEndpointTests.Non_admin_sub_is_forbidden | PASS |
+
+Also verified beyond named scenarios: 401 unauthenticated on both routes (AdminBuyersEndpointsTests.Anonymous_request_is_rejected, ResendDeliveryEndpointTests.Anonymous_request_is_rejected); resend on unknown order returns 404 (ResendDeliveryEndpointTests.Resend_for_an_unknown_order_returns_404) - PASS.
+
+7/7 in-scope admin-buyers scenarios fully passing with runtime evidence. No spec-scenario gaps.
+
+**fulfillment spec (MODIFIED "One-Time Delivery Email") - 3 scenarios in scope**
+
+| Scenario | Covering test | Result |
+|---|---|---|
+| Email sent once even under retry (regression on existing automatic-transition behavior, not new to this slice) | OrderDeliveredHandlerTests.Reevaluating_an_already_processed_event_sends_no_second_email (file untouched by this diff, still green) | PASS |
+| Admin resend for a delivered order - same email content sent again, logged with the admin sub | Same tests as admin-buyers "Resend for a delivered order" row above, plus RequestDeliveryResendTests.Resend_on_delivered_order_does_not_alter_delivered_at_or_keys (explicitly asserts DeliveredAt and every key EncryptedCode byte content are unchanged before/after) | PASS |
+| Resend rejected outside Delivered status (409, no email) | Same tests as admin-buyers "Resend rejected for non-delivered order" row above | PASS |
+
+3/3 in-scope fulfillment-delta scenarios fully passing with runtime evidence, including the explicit "MUST NOT alter DeliveredAt or the order keys" clause. No spec-scenario gaps.
+
+### Correctness / Design Coherence (D1, D4, contract table)
+
+| Check | Result |
+|---|---|
+| Resend route/status codes match contract table (202 {outboxEventId} / 404 / 409) | PASS - Results.Accepted(value: new ResendDeliveryResponse(outboxEventId.Value)) / Results.Problem(404) / DomainConflictException maps to 409 via existing ProblemDetailsExceptionHandler |
+| Buyers route matches contract table (GET /admin/buyers?email=&page=&pageSize= to 200 {items[...], page, pageSize, total}) | PASS - shape matches BuyersPage/AdminBuyer/AdminBuyerOrder/AdminBuyerOrderItem exactly |
+| AdminPolicy on both new routes | PASS - /admin/buyers group and /admin/orders group (existing) both .RequireAuthorization(AdminPolicy.Name) |
+| One class per use case (ADR-02) | PASS - RequestDeliveryResend, ListBuyers are separate classes; DeliveryEmailItems and OrderDeliveryResendHandler are a shared helper and an outbox handler respectively, not use cases, consistent with D1 |
+| Handler registered in OutboxServiceCollectionExtensions | PASS - services.AddScoped<IOutboxHandler, OrderDeliveryResendHandler>(); present |
+| OrderDeliveredHandler behavior unchanged | PASS - refactor only extracts DeliveryEmailItems.FromOrder; OrderDeliveredHandlerTests.cs is untouched by the diff (verified via git diff) and its 3 facts (including the already-Processed-is-a-no-op regression test) remain green |
+| No N+1 in ListBuyers (2 queries per D4) | PASS - Q1: single GroupBy query (count + page); Q2: single Include(Items.Keys) query filtered by that page's emails via Contains; no per-buyer round trip |
+| Cancellation tokens | PASS - propagated through ListBuyers.ExecuteAsync, RequestDeliveryResend.ExecuteAsync, OrderDeliveryResendHandler.HandleAsync, and both new endpoint delegates |
+| Outbox payload shape matches D1 ({"orderId","requestedBy","requestedAt"}) | PASS - exact field names and order |
+| DeliveredAt/keys untouched by resend | PASS - RequestDeliveryResend never writes to the order or its keys, only inserts an OutboxEvent; OrderDeliveryResendHandler only reads and sends, never persists; proven by RequestDeliveryResendTests.Resend_on_delivered_order_does_not_alter_delivered_at_or_keys |
+
+No design deviations found that break a spec requirement.
+
+### Security Spot-Check
+
+1. **Buyers JSON never includes Key.Code** - PASS. AdminBuyerOrderItem (BuyersDtos.cs) has only ProductName, VariantName, Quantity, AssignedKeys (an int count via item.Keys.Count(k => k.Status == KeyStatus.Assigned)); no key-code field exists anywhere in the Buyers DTO graph. AdminBuyersEndpointsTests.Listing_never_exposes_a_key_code_only_the_assigned_count asserts the raw HTTP response body string does not contain the plaintext code, closing the gap between "field absent" and "string absent from the wire payload."
+2. **Resend cannot target another buyer order beyond admin scope** - not applicable as a distinct risk: the endpoint is AdminPolicy-gated for all callers (no buyer-level scoping exists anywhere in the admin surface by design), so there is no narrower authorization boundary to bypass.
+3. **Payload injection via adminSub** - WARNING, see Issues below.
+
+### Issues
+
+**CRITICAL**: none.
+
+**WARNING**
+1. RequestDeliveryResend.ExecuteAsync builds the outbox JSON payload via raw string interpolation: `$$"""{"orderId":"{{orderId}}","requestedBy":"{{requestedBy}}","requestedAt":"{{now:O}}"}"""`. orderId is a Guid (cannot contain a quote character, safe by construction, matching the existing AttachKeyToOrderItem/ProcessPaymentNotification convention). requestedBy is the admin sub claim - a free-form string, and this is the first outbox payload in the codebase to interpolate a non-Guid value this way. Today it is not exploitable: AdminAuthorizationHandler (src/Maxkeys.Api/Auth/AdminPolicy.cs) only succeeds when sub is an exact StringComparer.Ordinal match against the operator-configured Auth:AdminSubs allowlist (appsettings.json: "AdminSubs": [] by default), so requestedBy can only ever be one of a small, deployer-controlled set of values (Supabase sub values are UUIDs, which cannot contain a quote, backslash, or control character). However, nothing in AuthOptions/AdminPolicy enforces that admin subs are UUID-shaped or JSON-safe - if an operator ever configures (or a future SSO/identity change introduces) an admin sub containing a quote or control character, the outbox row is written with invalid JSON, and OrderDeliveryResendHandler.ParseOrderId's JsonDocument.Parse(payload) throws on every processing attempt, permanently failing that resend (and any outbox retry, since the payload never changes) with no admin-facing error (the 202 was already returned before dispatch). Recommend JsonSerializer.Serialize (or at minimum manual escaping) for requestedBy instead of raw interpolation, to remove the implicit dependency on admin-sub format staying quote-free.
+
+**SUGGESTION**
+1. OrderDeliveryResendHandler does not replicate OrderDeliveredHandler's "already Processed row is a no-op" guard. Assessed against the spec: not a defect. The admin-buyers spec Resend Delivery Email requirement explicitly states "No rate limit applies," and the fulfillment spec at-least-once/idempotency language ("Handler retries MAY duplicate the email... (at-least-once)") is scoped to the original OrderDelivered transition, not the resend path - resend has no "exactly once" requirement to protect. A duplicate send on outbox retry (handler succeeds, MarkProcessed fails) is a bounded, spec-permitted consequence identical in shape to the original delivery own at-least-once behavior, not a new risk introduced by this slice.
+2. Untracked src/Maxkeys.Api/Properties/ and tests/Maxkeys.Api.Tests/Properties/ (IDE-generated launchSettings.json) remain in git status, still not covered by .gitignore (confirmed: no Properties entry). Carried forward unresolved across all 3 slice verifications now (first flagged in slice 1). Recommend resolving (gitignore or intentional commit) before PR1 opens, since PR1 is the earliest branch these could leak into; not blocking for PR3.
+3. The requestedBy audit trail is proven only via RequestDeliveryResendTests.Resend_writes_outbox_event_with_requested_by_equal_to_acting_admin_sub reading the raw OutboxEvent.Payload string; there is no separate structured audit-log table or query surface - the outbox row itself is the only durable record of which admin triggered a resend. This matches design D1 stated rationale ("requestedBy in the payload is a queryable audit record with no migration") and is not a gap for this slice, just a note that the audit trail retention depends entirely on the outbox table not being purged (no purge policy found in this codebase).
+
+### Review Budget
+
+Authored diff vs feat/carousel-slides is 900 lines (315 production + 585 tests), 0 generated files, per apply-progress (#302) and git diff --stat (909 insertions total, minus openspec doc lines, approx 900 authored src/tests). Exceeds both the tasks.md forecast (~450) and the 800-line hard cap. Per the task instructions, size:exception has already been accepted by the user for this slice - not re-flagged as a finding here, consistent with the PR2 precedent. Root cause is legitimate full spec-scenario test coverage (8 Application + 8 Api tests, one per named scenario plus 401/404 edge cases), not scope creep.
+
+### Verdict (Slice 3)
+
+**PASS WITH WARNINGS.** Build succeeds with 0 warnings/errors; all 223/223 tests pass (16 new: 8 Application + 8 Api); 15/15 Phase 3 tasks complete and match the code exactly; all 7 in-scope admin-buyers spec scenarios and all 3 in-scope fulfillment-delta scenarios have passing runtime-covering tests, including the explicit "MUST NOT alter DeliveredAt or the order keys" clause; design D1/D4 and the API contract table are followed with zero deviations that break a spec requirement; OrderDeliveredHandler existing behavior and tests are unchanged and green; no N+1; cancellation tokens propagated throughout; buyers JSON never exposes a key code (verified at the raw-JSON level, not just the DTO shape). One WARNING (unescaped adminSub string interpolation into an outbox JSON payload - not exploitable today given the closed admin allowlist, but a real robustness gap worth fixing before admin-sub format assumptions change) and 3 SUGGESTION-level findings, none blocking. The previously accepted size:exception for the review-budget overage is honored and not re-litigated here.
+
+## Slices 4-5
+
+Not applied. Phase 4 (Frontend guard+catalog+carousel) and Phase 5 (Frontend buyers) have 0/13 tasks checked in tasks.md and no corresponding apply-progress artifact. Both live in the sibling maxkeys-front repository and are explicitly blocked per design D7: Phase 4 needs backend slices 1-2 deployed, Phase 5 needs backend slice 3 deployed. Out of scope for this report; do not infer spec/design compliance for them from this verification.
+
+## Overall Status (Slices 1-3)
+
+Slice 1: PASS (remediated, 174/174 tests). Slice 2: PASS (207/207 tests). Slice 3: PASS WITH WARNINGS (223/223 tests). Combined across all three backend slices: 0 CRITICAL, 1 WARNING (open, slice 3 - adminSub payload interpolation), 6 SUGGESTION (1 carried-forward launchSettings hygiene item spans all 3 slices as the same untracked-files finding; 1 slice-1 remediation-closed item; 1 slice-2 PUT/422 symmetry nice-to-have; 3 new slice-3 items). No CRITICAL or blocking gap remains on any applied slice. Recommend: (a) the maintainer/orchestrator makes the size:exception decision explicit for PR2 and PR3 before either PR is opened (both already flagged as accepted per task instructions, not re-litigated); (b) fix or accept the slice-3 WARNING (adminSub JSON escaping) before PR3 opens; (c) resolve the untracked Properties/ hygiene item before PR1 opens; (d) proceed to sdd-archive for slices 1-3 once the WARNING is triaged, or continue to slices 4-5 in maxkeys-front (blocked on backend deploy per design D7).
