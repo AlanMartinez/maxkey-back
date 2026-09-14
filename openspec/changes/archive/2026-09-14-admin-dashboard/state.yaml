@@ -1,0 +1,76 @@
+change: admin-dashboard
+project: maxkeys
+artifact_store: hybrid
+execution_mode: auto
+delivery_strategy: ask-on-risk
+review_budget_lines: 800
+created: 2026-09-14
+updated: 2026-09-14
+archived: 2026-09-14
+phases:
+  explore:
+    status: done
+    artifact: exploration.md
+    engram_topic: sdd/admin-dashboard/explore
+    engram_id: 294
+  proposal:
+    status: done
+    artifact: proposal.md
+    engram_topic: sdd/admin-dashboard/proposal
+    engram_id: 296
+    slices_forecast: 5 (back: catalog / carousel / buyers+resend; front: guard+catalog+carousel / buyers)
+  spec:
+    status: done
+    artifact: specs/{admin-catalog,carousel,admin-buyers,fulfillment}/spec.md
+    engram_topic: sdd/admin-dashboard/spec
+    engram_id: 297
+    note: admin-catalog, carousel, admin-buyers are new full specs; fulfillment is a MODIFIED delta on "One-Time Delivery Email" (admin resend)
+  design:
+    status: done
+    artifact: design.md
+    engram_topic: sdd/admin-dashboard/design
+    engram_id: 298
+    note: D1 new outbox type OrderDeliveryResendRequested (adminSub in payload); D3 PUT endpoints, no toggle method; D4 /admin/buyers substring email search, page<=100; D5 GET /admin/me for middleware/admin.ts
+  tasks:
+    status: done
+    artifact: tasks.md
+    engram_topic: sdd/admin-dashboard/tasks
+    engram_id: 299
+    note: 5 phases = 5 stacked PRs (chain strategy already fixed by design D7); est. lines 400/600/450/550/250 (total ~2250), 800-line budget risk Low; decision needed before apply No
+  apply:
+    status: done
+    engram_topic: sdd/admin-dashboard/apply-progress
+    note: all 5 slices complete and merged to main via PRs #28/#29/#30/#31 (backend) and #11/#12/#14 (frontend); 49/49 tasks done; backend tests 223/223, frontend tests 67/67
+  verify:
+    status: done
+    artifact: verify-report.md
+    engram_topic: sdd/admin-dashboard/verify-report
+    engram_id: 301
+    note: ALL 5 SLICES VERIFIED FINAL (2026-09-14). Backend 223/223 tests (Domain 65, Application 83, Api 75), frontend 67/67 tests. All 0 CRITICAL, 0 WARNING (slice 3 WARNING resolved and confirmed). 12 SUGGESTION findings none blocking. Deploy ready.
+  archive:
+    status: done
+    artifact: archive-report.md
+    engram_topic: sdd/admin-dashboard/archive-report
+    engram_id: 317
+    archived_date: 2026-09-14
+repositories:
+  backend: https://github.com/AlanMartinez/maxkey-back.git (owns openspec/)
+  frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3)
+decisions:
+  - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
+  - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles
+  - carousel slides reference ProductId; image/link derive from product unless overridden
+  - admin auth = existing AdminPolicy / Auth:AdminSubs allowlist
+  - admin UI = protected area in maxkeys-front
+  - size:exception accepted for slices 2 (1216 authored lines) and 3 (900 authored lines) per design review-budget forecast overages
+follow_ups:
+  - make --seed-catalog insert-only once admin editing exists (design Open Questions, not in scope)
+  - resend rate limit if abused (design Open Questions, not in scope)
+  - real image upload (ADR-12 reversal, separate future change)
+  - add 2 admin Supabase sub values to Auth:AdminSubs per environment
+  - gitignore src/Maxkeys.Api/Properties/launchSettings.json and tests equivalent
+final_state:
+  delivery: 5 PRs merged to main via backend PRs #28 (slice 1), #29+#30 consolidated and merged via #31 (slices 2-3); frontend PRs #11 (slice 4), #12 consolidated and merged via #14 (slice 5); all feature branches deleted
+  test_totals: backend 223/223 (Domain 65, Application 83, Api 75), frontend 67/67; combined 290/290 passing
+  exceptions_accepted: size:exception for slices 2 and 3 (test-volume-driven, not scope creep)
+  blockers_resolved: slice 3 WARNING (unescaped adminSub in outbox JSON) fixed in commit d522915
