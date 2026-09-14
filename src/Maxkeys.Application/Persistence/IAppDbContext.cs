@@ -1,3 +1,4 @@
+using Maxkeys.Domain.Carousel;
 using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
@@ -16,6 +17,7 @@ public interface IAppDbContext
 {
     DbSet<Product> Products { get; }
     DbSet<ProductVariant> ProductVariants { get; }
+    DbSet<CarouselSlide> CarouselSlides { get; }
     DbSet<Order> Orders { get; }
     DbSet<OrderItem> OrderItems { get; }
     DbSet<Key> Keys { get; }
