@@ -37,6 +37,9 @@ docker compose up -d                    # postgres:16-alpine on localhost:5432, 
 # 2. Schema and catalog
 dotnet run --project src/Maxkeys.Api -- --environment Development --migrate
 dotnet run --project src/Maxkeys.Api -- --environment Development --seed-catalog "$PWD/seed/catalog.json"
+# --seed-catalog is bootstrap-only once the admin catalog UI exists: it upserts by slug and
+# overwrites any edits an admin made through /admin/catalog/*. Re-run it only to add new
+# products, not to refresh existing ones.
 
 # 3. API on http://localhost:8080 (the frontend's default API base URL)
 dotnet run --project src/Maxkeys.Api -- --environment Development --urls http://localhost:8080

@@ -13,6 +13,17 @@ public static class AdminEndpoints
 {
     public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder app)
     {
+        var meGroup = app.MapGroup("/admin").RequireAuthorization(AdminPolicy.Name);
+
+        // Lets the frontend admin guard confirm the caller passes AdminPolicy without
+        // depending on the shape of any other admin endpoint's response (design D5).
+        meGroup.MapGet("/me", (ClaimsPrincipal user) =>
+        {
+            var adminSub = user.FindFirst("sub")?.Value
+                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+            return Results.Ok(new AdminMeResponse(adminSub));
+        });
+
         var group = app.MapGroup("/admin/orders").RequireAuthorization(AdminPolicy.Name);
 
         // "status" is accepted for API-contract compatibility (design §7); the MVP has exactly
@@ -46,6 +57,9 @@ public static class AdminEndpoints
     private static AdminOrderResponse ToResponse(AdminOrderSummary order) =>
         new(order.Id, order.BuyerEmail, order.Status.ToString(), order.PaidAt, order.Items);
 }
+
+/// <summary>Response for <c>GET /admin/me</c> — confirms the caller passes <see cref="AdminPolicy"/> (design D5).</summary>
+public sealed record AdminMeResponse(string Sub);
 
 /// <summary>Admin request body for attaching one key code (masked by <c>SensitiveDataPolicy</c>).</summary>
 public sealed record AttachKeyRequest(string Code);

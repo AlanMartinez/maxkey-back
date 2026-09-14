@@ -65,6 +65,7 @@ try
     app.MapWebhookEndpoints();
     app.MapMeEndpoints();
     app.MapAdminEndpoints();
+    app.MapAdminCatalogEndpoints();
 
     // Local demo mode (docs/local-demo.md): the fake payment page exists only in
     // Development with Payments:Mode=Fake. Read through IOptionsMonitor so test
