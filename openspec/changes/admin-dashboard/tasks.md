@@ -43,17 +43,19 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Carousel (back, PR 2 — depends on PR 1 merged)
 
-- [ ] 2.1 `src/Maxkeys.Domain/Carousel/CarouselSlide.cs` — ctor/`Update` invariants (`ProductId != Guid.Empty`, `SortOrder >= 0`, trimmed overrides).
-- [ ] 2.2 `src/Maxkeys.Application/Persistence/IAppDbContext.cs`, `Infrastructure/Persistence/AppDbContext.cs` — add `DbSet<CarouselSlide>`.
-- [ ] 2.3 `src/Maxkeys.Infrastructure/Persistence/Configurations/CarouselSlideConfiguration.cs` — `carousel_slides`, FK Restrict, index `(is_active, sort_order)`.
-- [ ] 2.4 Generate EF migration `AddCarouselSlides` (+Designer, snapshot). **Excluded from authored line count; flag as generated in PR body.**
-- [ ] 2.5 `src/Maxkeys.Application/Carousel/CarouselDtos.cs`, `GetCarousel.cs` (public, join+filter inactive), `ListCarouselSlides.cs`, `CreateCarouselSlide.cs` (422 unknown product), `UpdateCarouselSlide.cs`, `DeleteCarouselSlide.cs`.
-- [ ] 2.6 `src/Maxkeys.Api/Endpoints/AdminCarouselEndpoints.cs` — admin CRUD, `.RequireAuthorization(AdminPolicy.Name)`.
-- [ ] 2.7 `src/Maxkeys.Api/Endpoints/CatalogEndpoints.cs` — add public `GET /catalog/carousel`.
-- [ ] 2.8 `Program.cs` — map `AdminCarouselEndpoints`.
-- [ ] 2.9 Tests: `tests/Maxkeys.Domain.Tests/Carousel/CarouselSlideTests.cs` — invariants. Verify: `dotnet test --filter Carousel`.
-- [ ] 2.10 Tests: `tests/Maxkeys.Application.Tests/Carousel/*Tests.cs` — hides inactive slide/product, override-vs-product image resolution, reorder, delete. Verify: `dotnet test --filter Carousel`.
-- [ ] 2.11 Tests: `tests/Maxkeys.Api.Tests/Admin/AdminCarouselEndpointsTests.cs` (401/403/200/422) + `tests/Maxkeys.Api.Tests/Catalog/CarouselEndpointTests.cs` (anonymous, ordering). Verify: `dotnet test --filter Carousel`.
+- [x] 2.1 `src/Maxkeys.Domain/Carousel/CarouselSlide.cs` — ctor/`Update` invariants (`ProductId != Guid.Empty`, `SortOrder >= 0`, trimmed overrides).
+- [x] 2.2 `src/Maxkeys.Application/Persistence/IAppDbContext.cs`, `Infrastructure/Persistence/AppDbContext.cs` — add `DbSet<CarouselSlide>`.
+- [x] 2.3 `src/Maxkeys.Infrastructure/Persistence/Configurations/CarouselSlideConfiguration.cs` — `carousel_slides`, FK Restrict, index `(is_active, sort_order)`.
+- [x] 2.4 Generate EF migration `AddCarouselSlides` (+Designer, snapshot). **Excluded from authored line count; flag as generated in PR body.**
+- [x] 2.5 `src/Maxkeys.Application/Carousel/CarouselDtos.cs`, `GetCarousel.cs` (public, join+filter inactive), `ListCarouselSlides.cs`, `CreateCarouselSlide.cs` (422 unknown product), `UpdateCarouselSlide.cs`, `DeleteCarouselSlide.cs`.
+- [x] 2.6 `src/Maxkeys.Api/Endpoints/AdminCarouselEndpoints.cs` — admin CRUD, `.RequireAuthorization(AdminPolicy.Name)`.
+- [x] 2.7 `src/Maxkeys.Api/Endpoints/CatalogEndpoints.cs` — add public `GET /catalog/carousel`.
+- [x] 2.8 `Program.cs` — map `AdminCarouselEndpoints`.
+- [x] 2.9 Tests: `tests/Maxkeys.Domain.Tests/Carousel/CarouselSlideTests.cs` — invariants. Verify: `dotnet test --filter Carousel`.
+- [x] 2.10 Tests: `tests/Maxkeys.Application.Tests/Carousel/*Tests.cs` — hides inactive slide/product, override-vs-product image resolution, reorder, delete. Verify: `dotnet test --filter Carousel`.
+- [x] 2.11 Tests: `tests/Maxkeys.Api.Tests/Admin/AdminCarouselEndpointsTests.cs` (401/403/200/422) + `tests/Maxkeys.Api.Tests/Catalog/CarouselEndpointTests.cs` (anonymous, ordering). Verify: `dotnet test --filter Carousel`.
+
+> **Slice 2 budget note (apply phase, 2026-09-14):** actual authored diff vs `feat/admin-catalog` is ~1216 lines (777 tests + 439 production), excluding the generated migration (606 lines: `.cs`+`.Designer.cs`+snapshot). This exceeds the 800-line hard cap forecast in the Review Workload Forecast (~600 estimated) — driven by full spec-scenario test coverage (9 domain + 13 application + 11 Api tests) per the Testing Strategy table. Flagged for an explicit `size:exception` decision before PR2 is opened; not split further because CarouselSlide (domain+EF+migration+CRUD+public read) is one cohesive, independently-revertable unit per design D2/D7.
 
 ## Phase 3: Buyers + Resend (back, PR 3 — depends on PR 1 merged)
 

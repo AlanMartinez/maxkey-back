@@ -36,18 +36,18 @@ phases:
   apply:
     status: in_progress
     engram_topic: sdd/admin-dashboard/apply-progress
-    note: slice 1 (Phase 1, back PR1 admin catalog) complete on branch feat/admin-catalog — 10/10 tasks done, plus remediation batch closing verify's CRITICAL/WARNING gaps (3 new tests); not pushed, no PR opened; slices 2-5 not started
+    note: slice 1 (Phase 1, back PR1 admin catalog) complete and slice 2 (Phase 2, back PR2 carousel) complete on branch feat/carousel-slides (from feat/admin-catalog) — 11/11 Phase 2 tasks done; dotnet test 207/207 passed (was 174); not pushed, no PR opened; slice 2 authored diff (~1216 lines, excl. generated migration) exceeds the 800-line hard cap — needs size:exception decision before PR2 opens; slices 3-5 not started
   verify:
-    status: in_progress
+    status: partial
     artifact: verify-report.md
     engram_topic: sdd/admin-dashboard/verify-report
-    note: slice 1 remediation applied - CRITICAL (Product deactivated untested) and WARNING (Variant deactivated partially tested) both closed with new end-to-end tests; dotnet test 174/174 passed (was 171); re-run sdd-verify for a fresh formal verdict; slices 2-5 not applied, not verified
+    note: slice 1 (Phase 1, admin catalog) and slice 2 (Phase 2, carousel) both verified PASS - slice 1 remediation closed prior CRITICAL/WARNING (174/174 tests at that point), slice 2 fresh verify found 0 CRITICAL/0 WARNING/2 SUGGESTION (207/207 tests, 11/11 Phase 2 tasks, all 7 carousel spec scenarios covered, design D2 conformance with zero deviations, size:exception honored for the accepted budget overage); slices 3-5 not applied, not verified
   archive:
     status: pending
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3; slices 4-5)
-next_recommended: sdd-verify (confirm slice 1 remediation, then continue slice 2)
+next_recommended: sdd-apply for slice 3 (Phase 3, Buyers+Resend, depends on PR1 merged); PR2's size:exception decision already accepted, no further verify blocker
 decisions:
   - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
   - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles
