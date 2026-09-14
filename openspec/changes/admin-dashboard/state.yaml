@@ -36,18 +36,18 @@ phases:
   apply:
     status: in_progress
     engram_topic: sdd/admin-dashboard/apply-progress
-    note: slice 1 (Phase 1, back PR1 admin catalog) complete on branch feat/admin-catalog — 10/10 tasks done, plus remediation batch closing verify's CRITICAL/WARNING gaps (3 new tests); not pushed, no PR opened; slices 2-5 not started
+    note: slice 1 (Phase 1, back PR1 admin catalog) complete and slice 2 (Phase 2, back PR2 carousel) complete on branch feat/carousel-slides (from feat/admin-catalog) — 11/11 Phase 2 tasks done; dotnet test 207/207 passed (was 174); not pushed, no PR opened; slice 2 authored diff (~1216 lines, excl. generated migration) exceeds the 800-line hard cap — needs size:exception decision before PR2 opens; slices 3-5 not started
   verify:
     status: in_progress
     artifact: verify-report.md
     engram_topic: sdd/admin-dashboard/verify-report
-    note: slice 1 remediation applied - CRITICAL (Product deactivated untested) and WARNING (Variant deactivated partially tested) both closed with new end-to-end tests; dotnet test 174/174 passed (was 171); re-run sdd-verify for a fresh formal verdict; slices 2-5 not applied, not verified
+    note: slice 1 remediation applied - CRITICAL (Product deactivated untested) and WARNING (Variant deactivated partially tested) both closed with new end-to-end tests; dotnet test 174/174 passed (was 171) at that point; re-run sdd-verify for a fresh formal verdict covering slice 1 + slice 2; slices 3-5 not applied, not verified
   archive:
     status: pending
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3; slices 4-5)
-next_recommended: sdd-verify (confirm slice 1 remediation, then continue slice 2)
+next_recommended: sdd-verify (confirm slice 2; resolve size:exception decision for PR2 budget overage), then sdd-apply for slice 3
 decisions:
   - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
   - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles
