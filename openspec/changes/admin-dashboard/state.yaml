@@ -36,15 +36,18 @@ phases:
   apply:
     status: in_progress
     engram_topic: sdd/admin-dashboard/apply-progress
-    note: slice 1 (Phase 1, back PR1 admin catalog) complete on branch feat/admin-catalog — 10/10 tasks done; not pushed, no PR opened; slices 2-5 not started
+    note: slice 1 (Phase 1, back PR1 admin catalog) complete on branch feat/admin-catalog — 10/10 tasks done, plus remediation batch closing verify's CRITICAL/WARNING gaps (3 new tests); not pushed, no PR opened; slices 2-5 not started
   verify:
-    status: pending
+    status: in_progress
+    artifact: verify-report.md
+    engram_topic: sdd/admin-dashboard/verify-report
+    note: slice 1 remediation applied - CRITICAL (Product deactivated untested) and WARNING (Variant deactivated partially tested) both closed with new end-to-end tests; dotnet test 174/174 passed (was 171); re-run sdd-verify for a fresh formal verdict; slices 2-5 not applied, not verified
   archive:
     status: pending
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3; slices 4-5)
-next_recommended: sdd-verify (slice 1) or sdd-apply (slice 2)
+next_recommended: sdd-verify (confirm slice 1 remediation, then continue slice 2)
 decisions:
   - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
   - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles
