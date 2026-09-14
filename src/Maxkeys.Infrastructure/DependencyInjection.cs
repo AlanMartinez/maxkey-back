@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Maxkeys.Application.Carousel;
 using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Fulfillment;
@@ -59,6 +60,11 @@ public static class DependencyInjection
         services.AddScoped<ListAdminProducts>();
         services.AddScoped<UpdateProduct>();
         services.AddScoped<UpdateProductVariant>();
+        services.AddScoped<GetCarousel>();
+        services.AddScoped<ListCarouselSlides>();
+        services.AddScoped<CreateCarouselSlide>();
+        services.AddScoped<UpdateCarouselSlide>();
+        services.AddScoped<DeleteCarouselSlide>();
         services.AddScoped<CreateOrder>();
         services.AddScoped<GetOrderStatus>();
         services.AddScoped<GetMyOrders>();
