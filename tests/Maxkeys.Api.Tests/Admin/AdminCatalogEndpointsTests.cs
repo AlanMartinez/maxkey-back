@@ -1,0 +1,199 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Maxkeys.Api.Tests.Auth;
+using Maxkeys.Application.Catalog;
+using Maxkeys.Domain.Catalog;
+using Maxkeys.Infrastructure.Persistence;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Maxkeys.Api.Tests.Admin;
+
+/// <summary>
+/// Covers the admin-catalog spec: Admin Product Listing Including Inactive,
+/// Admin Product Content Update, Admin Product Activation Toggle, Admin
+/// Variant Activation Toggle, Admin Catalog Authorization.
+/// </summary>
+[Collection(Hs256ApiCollection.Name)]
+public sealed class AdminCatalogEndpointsTests
+{
+    private const string NonAdminSub = "44444444-4444-4444-4444-444444444444";
+
+    private readonly Hs256ApiTestFixture _factory;
+
+    public AdminCatalogEndpointsTests(Hs256ApiTestFixture factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_list_is_rejected()
+    {
+        var response = await _factory.CreateClient().GetAsync("/admin/catalog/products");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_list()
+    {
+        var response = await AdminClient(NonAdminSub).GetAsync("/admin/catalog/products");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_listing_includes_inactive_products()
+    {
+        var platform = UniquePlatform();
+        var inactiveSlug = $"inactive-{Guid.NewGuid():N}";
+        await Seed(async db =>
+        {
+            db.Products.Add(new Product(inactiveSlug, "Inactive Product", platform, isActive: false));
+            await db.SaveChangesAsync();
+        });
+
+        var response = await AdminClient().GetAsync("/admin/catalog/products");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var products = await response.Content.ReadFromJsonAsync<List<AdminProduct>>();
+        Assert.Contains(products!, p => p.Slug == inactiveSlug && !p.IsActive);
+    }
+
+    [Fact]
+    public async Task Admin_can_update_product_description_and_image_key()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/products/{productId}", new
+        {
+            name = "Updated Name",
+            platform = "PSN",
+            description = "Updated description",
+            imageKey = "products/updated.png",
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.Equal("Updated Name", updated!.Name);
+        Assert.Equal("Updated description", updated.Description);
+    }
+
+    [Fact]
+    public async Task Empty_required_field_on_product_update_returns_422()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/products/{productId}", new
+        {
+            name = "",
+            platform = "PSN",
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Unknown_product_id_returns_404()
+    {
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}", new
+        {
+            name = "Name",
+            platform = "PSN",
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_deactivate_a_variant()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
+        {
+            price = 150m,
+            oldPrice = (decimal?)null,
+            currency = "ARS",
+            region = "AR",
+            edition = "Standard",
+            sortOrder = 0,
+            isActive = false,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<AdminVariant>();
+        Assert.False(updated!.IsActive);
+    }
+
+    [Fact]
+    public async Task Invalid_variant_price_returns_422()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
+        {
+            price = 0m,
+            oldPrice = (decimal?)null,
+            currency = "ARS",
+            region = (string?)null,
+            edition = (string?)null,
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    private static string UniquePlatform() => $"platform-{Guid.NewGuid():N}";
+
+    private async Task<Guid> SeedProductAsync()
+    {
+        Guid id = default;
+        await Seed(async db =>
+        {
+            var product = new Product($"p-{Guid.NewGuid():N}", "Original Name", UniquePlatform());
+            db.Products.Add(product);
+            await db.SaveChangesAsync();
+            id = product.Id;
+        });
+        return id;
+    }
+
+    private async Task<Guid> SeedVariantAsync()
+    {
+        Guid id = default;
+        await Seed(async db =>
+        {
+            var product = new Product($"p-{Guid.NewGuid():N}", "Product", UniquePlatform());
+            db.Products.Add(product);
+            var variant = new ProductVariant(product.Id, 100m, "ARS", region: "AR", edition: "Standard");
+            db.ProductVariants.Add(variant);
+            await db.SaveChangesAsync();
+            id = variant.Id;
+        });
+        return id;
+    }
+
+    private async Task Seed(Func<AppDbContext, Task> seed)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await seed(db);
+    }
+
+    private HttpClient AdminClient(string? sub = null)
+    {
+        var token = TestTokens.CreateHs256(
+            sub ?? Hs256ApiTestFixture.AdminSub, Hs256ApiTestFixture.Issuer, Hs256ApiTestFixture.Audience, Hs256ApiTestFixture.Hs256Secret);
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+}
