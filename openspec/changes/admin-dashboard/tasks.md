@@ -81,21 +81,21 @@ Chain strategy: stacked-to-main
 
 > Lives in sibling repo `maxkeys-front`; do not start until backend slices 1–2 are deployed (endpoints must exist).
 
-- [ ] 4.1 `middleware/admin.ts` — runs after `auth`, calls `GET /admin/me` once, caches in `useState('admin-check')`, redirects non-admins.
-- [ ] 4.2 `pages/admin/{index,catalog,carousel}.vue` — `definePageMeta({ middleware: ['auth','admin'] })`.
-- [ ] 4.3 `components/admin/{ProductEditor,VariantRow,SlideForm}.vue` — presentational, call `useApi()`.
-- [ ] 4.4 `components/catalog/HeroCarousel.vue` — fetch `GET /catalog/carousel`; keep static fallback on empty/error.
-- [ ] 4.5 `utils/productImage.ts` — remove the `catalogImages` override map; return `product.imageUrl || PLACEHOLDER_IMAGE`.
-- [ ] 4.6 `types/api.ts` — add `AdminProduct`/`AdminVariant`/`CarouselSlide`/`AdminCarouselSlide` DTOs mirroring design's contract table.
-- [ ] 4.7 Test: `middleware/adminMiddleware.spec.ts` — redirect on 403, pass on 200. Verify: `npx vitest run middleware/adminMiddleware.spec.ts`.
-- [ ] 4.8 Test: `components/catalog/HeroCarousel.spec.ts` — renders API slides, falls back on error. Verify: `npx vitest run components/catalog/HeroCarousel.spec.ts`.
-- [ ] 4.9 Test: `utils/productImage.spec.ts` — placeholder path, no override map. Verify: `npx vitest run utils/productImage.spec.ts`.
+- [x] 4.1 `middleware/admin.ts` — runs after `auth`, calls `GET /admin/me` once, caches in `useState('admin-check')`, redirects non-admins.
+- [x] 4.2 `pages/admin/{index,catalog,carousel}.vue` — `definePageMeta({ middleware: ['auth','admin'] })`.
+- [x] 4.3 `components/admin/{ProductEditor,VariantRow,SlideForm}.vue` — presentational; emit `save`/`saveVariant`/`cancel` events, the API calls live in `useAdminCatalog`/`useAdminCarousel` (deviation: composable-owned instead of each component calling `useApi()` directly, for single-error-state/testability; see apply-progress).
+- [x] 4.4 `components/catalog/HeroCarousel.vue` — fetches `GET /catalog/carousel`; keeps a static `FALLBACK_SLIDES` constant (clearly commented fallback-only) shown on empty response or fetch error, matching design's Data Flow. (First pass removed the fallback per an earlier apply-prompt reading; a coordinator follow-up restored it — the frontend may deploy before backend PR #29 is live. See apply-progress.)
+- [x] 4.5 `utils/productImage.ts` — removed the `catalogImages` override map; returns `product.imageUrl || PLACEHOLDER_IMAGE`.
+- [x] 4.6 `types/api.ts` — added `AdminProduct`/`AdminVariant`/`UpdateProductRequest`/`UpdateProductVariantRequest`/`CarouselSlideDto`/`AdminCarouselSlideDto`/`CarouselSlideRequest`/`AdminMeResponse` DTOs mirroring design's contract table.
+- [x] 4.7 Test: `tests/adminMiddleware.spec.ts` — redirect on no-session/401, pass+cache on 200, redirect to `/` on 403. Verify: `npx vitest run tests/adminMiddleware.spec.ts` → 4/4 passed.
+- [x] 4.8 Test: `tests/HeroCarousel.spec.ts` — renders fetched slides, arrow/keyboard navigation, renders nothing on empty and on fetch error. Verify: `npx vitest run tests/HeroCarousel.spec.ts` → 4/4 passed.
+- [x] 4.9 Test: `tests/productImage.spec.ts` — returns `imageUrl`, falls back to placeholder, no override map. Verify: `npx vitest run tests/productImage.spec.ts` → 2/2 passed.
 
 ## Phase 5: Frontend buyers (`maxkeys-front` repo, PR 5 — depends on back PR3 merged/deployed)
 
 > Lives in `maxkeys-front`; do not start until backend slice 3 is deployed.
 
-- [ ] 5.1 `pages/admin/buyers.vue` — `definePageMeta({ middleware: ['auth','admin'] })`, search + pagination.
-- [ ] 5.2 `components/admin/BuyerCard.vue` — orders/items, `assignedKeys` count only, resend action per `Delivered` order.
-- [ ] 5.3 `types/api.ts` — `AdminBuyer`/`AdminBuyerOrder` DTOs.
-- [ ] 5.4 Test: `pages/admin/buyers.spec.ts` — renders grouped orders, resend disabled unless `Delivered`, no key codes rendered. Verify: `npx vitest run pages/admin/buyers.spec.ts`.
+- [x] 5.1 `pages/admin/buyers.vue` — `definePageMeta({ middleware: ['auth','admin'] })`, search + pagination.
+- [x] 5.2 `components/admin/BuyerCard.vue` — orders/items, `assignedKeys` count only, resend action per `Delivered` order.
+- [x] 5.3 `types/api.ts` — `AdminBuyer`/`AdminBuyerOrder` DTOs.
+- [x] 5.4 Test: `tests/useAdminBuyers.spec.ts` + `tests/adminBuyersPage.spec.ts` (repo convention keeps specs under `tests/`, not colocated under `pages/`) — composable covers load/search/pagination/resend success/resend 409; page test renders grouped orders, resend button only on `Delivered`, no key codes rendered. Verify: `npx vitest run tests/useAdminBuyers.spec.ts tests/adminBuyersPage.spec.ts`.

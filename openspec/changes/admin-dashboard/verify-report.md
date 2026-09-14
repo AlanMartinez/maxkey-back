@@ -327,10 +327,219 @@ Authored diff vs feat/carousel-slides is 900 lines (315 production + 585 tests),
 
 **PASS WITH WARNINGS.** Build succeeds with 0 warnings/errors; all 223/223 tests pass (16 new: 8 Application + 8 Api); 15/15 Phase 3 tasks complete and match the code exactly; all 7 in-scope admin-buyers spec scenarios and all 3 in-scope fulfillment-delta scenarios have passing runtime-covering tests, including the explicit "MUST NOT alter DeliveredAt or the order keys" clause; design D1/D4 and the API contract table are followed with zero deviations that break a spec requirement; OrderDeliveredHandler existing behavior and tests are unchanged and green; no N+1; cancellation tokens propagated throughout; buyers JSON never exposes a key code (verified at the raw-JSON level, not just the DTO shape). One WARNING (unescaped adminSub string interpolation into an outbox JSON payload - not exploitable today given the closed admin allowlist, but a real robustness gap worth fixing before admin-sub format assumptions change) and 3 SUGGESTION-level findings, none blocking. The previously accepted size:exception for the review-budget overage is honored and not re-litigated here.
 
-## Slices 4-5
 
-Not applied. Phase 4 (Frontend guard+catalog+carousel) and Phase 5 (Frontend buyers) have 0/13 tasks checked in tasks.md and no corresponding apply-progress artifact. Both live in the sibling maxkeys-front repository and are explicitly blocked per design D7: Phase 4 needs backend slices 1-2 deployed, Phase 5 needs backend slice 3 deployed. Out of scope for this report; do not infer spec/design compliance for them from this verification.
+## Slice 4: Frontend guard+catalog+carousel (front PR4, maxkeys-front repo)
 
-## Overall Status (Slices 1-3)
+> Scope: Phase 4 only (tasks 4.1-4.9, plus one coordinator-requested correction commit). Phases 1-3 (backend slices 1-3, above) carried forward unchanged. Slice 5 (frontend buyers) is not applied and is out of scope for this report.
 
-Slice 1: PASS (remediated, 174/174 tests). Slice 2: PASS (207/207 tests). Slice 3: PASS WITH WARNINGS (223/223 tests). Combined across all three backend slices: 0 CRITICAL, 1 WARNING (open, slice 3 - adminSub payload interpolation), 6 SUGGESTION (1 carried-forward launchSettings hygiene item spans all 3 slices as the same untracked-files finding; 1 slice-1 remediation-closed item; 1 slice-2 PUT/422 symmetry nice-to-have; 3 new slice-3 items). No CRITICAL or blocking gap remains on any applied slice. Recommend: (a) the maintainer/orchestrator makes the size:exception decision explicit for PR2 and PR3 before either PR is opened (both already flagged as accepted per task instructions, not re-litigated); (b) fix or accept the slice-3 WARNING (adminSub JSON escaping) before PR3 opens; (c) resolve the untracked Properties/ hygiene item before PR1 opens; (d) proceed to sdd-archive for slices 1-3 once the WARNING is triaged, or continue to slices 4-5 in maxkeys-front (blocked on backend deploy per design D7).
+**Change**: admin-dashboard
+**Repo**: maxkeys-front (sibling repo; owns no openspec/ - backend repo is authoritative for SDD artifacts)
+**Branch**: feat/admin-area (from origin/main) - not pushed, no PR opened
+**Commits verified**: ce84237 (types+middleware+productImage), fa57ccf (HeroCarousel fetch), cb1b23d (admin pages/components/composables), f79878a (restore static fallback), 556a082 (add placeholder.svg asset)
+**Mode**: Standard (Strict TDD: false)
+**Verified**: 2026-09-14
+
+### Completeness (Phase 4 tasks)
+
+| Task | Status | Evidence |
+|---|---|---|
+| 4.1 middleware/admin.ts | Done | Runs after auth; calls GET /admin/me once via useApi(); caches result in useState boolean-or-null admin-check; no-session/401 goes to /?login=1 via REDIRECT_COOKIE_KEY; 403 goes to / |
+| 4.2 pages/admin index,catalog,carousel .vue | Done | All three declare definePageMeta middleware auth, admin |
+| 4.3 components/admin ProductEditor,VariantRow,SlideForm .vue | Done | Presentational; emit save/saveVariant/cancel; API calls live in useAdminCatalog/useAdminCarousel (documented deviation from literal task text, already reconciled in tasks.md itself) |
+| 4.4 components/catalog/HeroCarousel.vue | Done | Fetches GET /catalog/carousel via useAsyncData; FALLBACK_SLIDES constant (clearly commented FALLBACK-ONLY) shown when the fetch resolves empty or throws, matching design D2 Data Flow exactly |
+| 4.5 utils/productImage.ts | Done | catalogImages override map removed; productImageUrl() returns product.imageUrl or PLACEHOLDER_IMAGE; PLACEHOLDER_IMAGE points at /images/products/placeholder.svg, and the referenced asset now physically exists (commit 556a082), closing the gap flagged in apply-progress |
+| 4.6 types/api.ts | Done | AdminMeResponse/AdminProduct/AdminVariant/UpdateProductRequest/UpdateProductVariantRequest/CarouselSlideDto/AdminCarouselSlideDto/CarouselSlideRequest all present, field-for-field match against backend DTOs (see Contract Match below) |
+| 4.7 tests/adminMiddleware.spec.ts | Done | 4 tests: no-session redirect without calling the API; admin passes plus cache verified (API called once across two navigations); 403 goes to /; 401 goes to /?login=1 plus redirect cookie set. npx vitest run tests/adminMiddleware.spec.ts -> 4/4 passed |
+| 4.8 tests/HeroCarousel.spec.ts | Done | 4 tests: renders fetched slide plus product link; arrow/keyboard navigation wraps; renders 3 static fallback slides on empty API response; renders the same fallback on fetch rejection. npx vitest run tests/HeroCarousel.spec.ts -> 4/4 passed |
+| 4.9 tests/productImage.spec.ts | Done | 2 tests: returns imageUrl when present; falls back to PLACEHOLDER_IMAGE with no per-slug override. npx vitest run tests/productImage.spec.ts -> 2/2 passed |
+
+9/9 Phase 4 tasks complete and match the code state. No unchecked tasks in scope. git diff --stat origin/main..HEAD: 16 files changed, 692 insertions(+), 24 deletions(-) = 716 authored lines (includes the generated placeholder.svg asset, which is not code); under the ~550 forecast rounding margin and the 800-line hard cap - no size:exception needed for this slice.
+
+### Build / Test Evidence
+
+- npm test (vitest run, whole repo): 18 test files, 62/62 passed, exit code 0.
+- npm run typecheck (nuxi typecheck): exit code 0, no type errors.
+- npm run build (nuxt build): "Build complete!", exit code 0, all admin routes prerender/compile without SSR errors.
+- Focused: npx vitest run tests/adminMiddleware.spec.ts tests/HeroCarousel.spec.ts tests/productImage.spec.ts -> 10/10 passed across those 3 files.
+
+Counts match the apply-progress record (Engram #302) exactly, and match the state.yaml expectation of 62 or more.
+
+### Contract Match (highest-value check - no live backend was available during apply)
+
+Every DTO in types/api.ts added by this slice was cross-checked field-for-field, including field name, casing (System.Text.Json default camelCase), and nullability, against the backend C# records in AdminCatalogDtos.cs, CarouselDtos.cs, AdminEndpoints.cs, and the route paths in AdminCatalogEndpoints.cs, AdminCarouselEndpoints.cs, CatalogEndpoints.cs, AdminEndpoints.cs.
+
+| Frontend type / call site | Backend type / route | Result |
+|---|---|---|
+| AdminMeResponse sub / middleware calls GET /admin/me | AdminMeResponse(string Sub) / GET /admin/me under AdminPolicy | MATCH |
+| AdminProduct | AdminProduct record: Id, Slug, Name, Platform, IsActive, ImageKey, ImageUrl, Description, Variants | MATCH |
+| AdminVariant | AdminVariant record: Id, Region, Edition, Price, OldPrice, Currency, SortOrder, IsActive | MATCH |
+| UpdateProductRequest via saveProduct -> PUT /admin/catalog/products/{id} | UpdateProductRequest(Name, Platform, Description, ImageKey, IsActive) / same route | MATCH |
+| UpdateProductVariantRequest via saveVariant -> PUT /admin/catalog/variants/{id} | UpdateProductVariantRequest(Price, OldPrice, Currency, Region, Edition, SortOrder, IsActive) / same route | MATCH |
+| CarouselSlideDto (public) / HeroCarousel -> GET /catalog/carousel | CarouselSlideSummary(Id, Title, Caption, ImageUrl, ProductSlug, SortOrder) / same route, anonymous | MATCH |
+| AdminCarouselSlideDto / useAdminCarousel -> GET /admin/carousel | AdminCarouselSlide(Id, ProductId, ProductName, ProductSlug, ProductIsActive, SortOrder, IsActive, Title, Caption, ImageKey, ImageUrl) | MATCH |
+| CarouselSlideRequest / createSlide, updateSlide -> POST /admin/carousel, PUT /admin/carousel/{id} | CarouselSlideRequest(ProductId, SortOrder, IsActive, Title, Caption, ImageKey) | MATCH |
+| deleteSlide -> DELETE /admin/carousel/{id} | DELETE /admin/carousel/{id} -> 204/404 | MATCH |
+| ApiError (useApi.ts, pre-existing, unchanged) surfaces problem.detail/problem.title from any non-2xx body | Backend ProblemDetailsExceptionHandler maps DomainException to 422, DomainConflictException to 409, not-found to 404, all as RFC 7807 Problem Details | MATCH |
+
+No field-name, casing, nullability, or route-path mismatches found. This is a clean contract match across all 8 new/modified DTOs and every new route consumed by this slice.
+
+### Correctness / Design Coherence (D5, D6, contract table)
+
+| Check | Result |
+|---|---|
+| Middleware behavior matches D5 | PASS - runs after auth (checked via pages/admin middleware array order auth, admin), calls /admin/me once, caches in useState admin-check, redirects non-admins to /, backend 403 stays authoritative per call |
+| Unauthenticated -> login redirect | PASS - no session redirects to /?login=1 without calling the API at all |
+| 403 -> home | PASS - redirects to / when the API rejects with 403 |
+| 200 -> allowed, cached | PASS - API called exactly once across two navigations |
+| All admin pages declare both auth and admin middleware | PASS - index.vue, catalog.vue, carousel.vue all declare both |
+| PUT sends the FULL record including isActive | PASS - ProductEditor.submit and VariantRow.submit both build the complete request object; untouched fields pass through from props unchanged, matching design D3 re-send pattern |
+| 422 Problem Details surfaced to the user | PASS - saveError is set in both composables catch blocks and rendered with role=alert on both catalog.vue and carousel.vue |
+| Carousel product picker uses the admin product list | PASS - useAdminCarousel loads the admin product list and SlideForm select iterates it |
+| Overrides optional, empty is omitted per backend DTO | PASS - ProductEditor/SlideForm send empty strings as undefined, which JSON.stringify drops, matching the backend nullable optional properties |
+| HeroCarousel fetches GET /catalog/carousel, renders API slides, static fallback on empty/error | PASS - matches design D2 Data Flow verbatim; both fallback triggers covered by runtime tests |
+| productImage.ts has no per-slug override map, placeholder asset exists | PASS - map removed; placeholder.svg physically exists, resolving the gap flagged as open in apply-progress |
+| No new domain/API-shape decisions made client-side | PASS - all admin editing logic is thin composables over the existing useApi/ApiError primitives, pre-existing and unchanged in this diff |
+
+No design deviations found that diverge from the design.md contract table or Data Flow section. The one documented deviation (components emit events instead of calling useApi directly) is presentational-layer only, already reflected in tasks.md own task text, and does not change any wire-level behavior - not re-flagged as a finding.
+
+### Quality Spot-Checks
+
+- Secrets: none found in the diff; useApi bearer-token attachment is pre-existing and unchanged.
+- any-type creep: none found via a diff grep for any-type patterns. All new composables/components are fully typed against types/api.ts.
+- Accessibility basics on forms: every input in ProductEditor, VariantRow, SlideForm is wrapped in a label with adjacent descriptive text; the one icon-only input uses a screen-reader-only span inside the label. saveError is rendered with role=alert. No unlabeled form control found.
+- Loading/error states: both admin pages render a Skeleton while pending, an ErrorState with retry on error, and an EmptyState when the collection is empty, consistent with the rest of the app data-fetching pattern.
+- Spanish UI copy: all new admin-page copy is Spanish, consistent with the site existing es language and the rest of the storefront - not a finding.
+
+### Issues (Slice 4)
+
+CRITICAL: none.
+
+WARNING: none.
+
+SUGGESTION
+1. tests/adminMiddleware.spec.ts verifies the API-call-once cache behavior only for the cached-true (admin) path. There is no equivalent test asserting a cached-false (non-admin) result also skips a second /admin/me call on a subsequent navigation. Low risk - the code path is structurally identical to the tested true branch - but a nice-to-have for full symmetry.
+2. carousel.vue delete button calls deleteSlide with no confirmation step. Not a spec or design requirement (the wire-level contract is met), but a common admin-UX safety nicety worth considering.
+3. Carried forward from slices 1-3 (backend repo only, not part of this frontend slice diff): untracked src/Maxkeys.Api/Properties/ and tests/Maxkeys.Api.Tests/Properties/ remain in the backend repo git status, still unresolved. Noted for completeness; does not affect the frontend PR4 diff.
+
+### Review Budget
+
+Authored diff vs origin/main is 716 lines (692 insertions + 24 deletions across 16 files, including the generated placeholder.svg asset). Under the ~550-line forecast rounding margin and well under the 800-line hard cap - no size:exception needed for this slice, unlike slices 2 and 3.
+
+### Verdict (Slice 4)
+
+PASS. All 62/62 frontend tests pass (10 new/updated across adminMiddleware.spec.ts, HeroCarousel.spec.ts, productImage.spec.ts), typecheck is clean (exit 0), and nuxt build succeeds with all admin routes compiling/prerendering without SSR errors. 9/9 Phase 4 tasks are complete and match the code exactly. Every DTO and route added by this slice was cross-checked field-for-field against the backend actual C# records and endpoint routes with zero mismatches found. Design D5 and D6 are followed with zero deviations; the middleware redirect rules are all covered by passing runtime tests. HeroCarousel fallback behavior matches design D2 Data Flow exactly, with both empty-response and fetch-error triggers covered. The two gaps flagged as open in apply-progress (fallback removed, placeholder asset missing) were both resolved before this verification and are confirmed fixed in the final diff. 0 CRITICAL, 0 WARNING, 3 SUGGESTION findings, none blocking. No size:exception needed.
+
+
+## Slice 5: Frontend buyers page + resend (front PR5, maxkeys-front repo) — FINAL SLICE
+
+> Scope: Phase 5 only (tasks 5.1-5.4, admin-buyers spec consumption, design D4 contract table). Phases 1-4 (above) carried forward unchanged. This is the final slice of admin-dashboard.
+
+**Change**: admin-dashboard
+**Repo**: maxkeys-front (sibling repo; owns no openspec/ — backend repo is authoritative for SDD artifacts)
+**Branch**: feat/admin-buyers-ui (from feat/admin-area) — not pushed, no PR opened
+**Commit verified**: 0497596 `feat(admin): add buyers page with search, pagination, and delivery resend`
+**Mode**: Standard (Strict TDD: false)
+**Verified**: 2026-09-14
+
+### Completeness (Phase 5 tasks)
+
+| Task | Status | Evidence |
+|---|---|---|
+| 5.1 `pages/admin/buyers.vue` | Done | `definePageMeta({ middleware: ['auth','admin'] })`; search form bound to `searchTerm`; pending/error/empty states (`Skeleton`/`ErrorState`/`EmptyState`); `BuyerCard` list; Prev/Next pagination |
+| 5.2 `components/admin/BuyerCard.vue` | Done | Presentational; buyer email + order count header; per-order id/status/total + items (productName/variantName/quantity/assignedKeys count only); resend button only on `Delivered`; inline confirm (no `window.confirm`) |
+| 5.3 `types/api.ts` | Done | `AdminBuyerOrderItem`/`AdminBuyerOrder`/`AdminBuyer`/`AdminBuyersPage`/`ResendDeliveryResponse`, all field-for-field match backend DTOs (see Contract Match below) |
+| 5.4 Tests | Done (documented deviation) | `tests/useAdminBuyers.spec.ts` (4) + `tests/adminBuyersPage.spec.ts` (1) instead of the tasks.md-literal `pages/admin/buyers.spec.ts` — matches repo convention (all specs under `tests/`), same pattern as `adminMiddleware.spec.ts`/`HeroCarousel.spec.ts` |
+
+4/4 Phase 5 tasks complete and match code state. No unchecked tasks in scope. `git diff --stat feat/admin-area..HEAD`: 7 files changed, 391 insertions(+), 3 deletions(-) = 394 authored lines, matches apply-progress (#302) exactly.
+
+### Build / Test Evidence (re-run this verify pass)
+
+- `npm test` (vitest run, whole repo): 20 test files, 67/67 passed, exit 0.
+- `npm run typecheck` (`nuxi typecheck`): exit 0, no type errors.
+- `npm run build` (`nuxt build`): "Build complete!", exit 0; `buyers-jpMIT3s7.mjs` chunk present in `.output/server/chunks/build`.
+
+Counts match apply-progress (#302) exactly (62 baseline + 5 new = 67).
+
+### Contract Match (backend cross-check, re-verified this pass against current `feat/admin-buyers` branch source)
+
+| Frontend type / call site | Backend type / route | Result |
+|---|---|---|
+| `AdminBuyerOrderItem {productName,variantName,quantity,assignedKeys}` | `AdminBuyerOrderItem(ProductName,VariantName,Quantity,AssignedKeys)` (camelCase on the wire) | MATCH |
+| `AdminBuyerOrder {id,status,paidAt?,totalAmount,currency,items}` | `AdminBuyerOrder(Id,Status,PaidAt,TotalAmount,Currency,Items)` | MATCH |
+| `AdminBuyer {email,orderCount,lastPaidAt?,orders}` | `AdminBuyer(Email,OrderCount,LastPaidAt,Orders)` | MATCH |
+| `AdminBuyersPage {items,page,pageSize,total}` | `BuyersPage(Items,Page,PageSize,Total)` | MATCH |
+| `ResendDeliveryResponse {outboxEventId}` | `ResendDeliveryResponse(OutboxEventId)` | MATCH |
+| `OrderStatus` union (Pending/Paid/AwaitingFulfillment/Delivered/Cancelled) | `OrderStatus` enum, identical 5 values, same order | MATCH |
+| `useAdminBuyers` query `{email,page,pageSize}` to `GET /admin/buyers` | `AdminBuyersEndpoints.cs`: `MapGet(string? email, int? page, int? pageSize, ...)` | MATCH — exact query-param names, defaults (`page ?? 1`, `pageSize ?? 20`) handled server-side |
+| `resendDelivery()` to `POST /admin/orders/{id}/resend-delivery` | `AdminEndpoints.cs`: `group.MapPost("/{id:guid}/resend-delivery", ...)` on `/admin/orders` group | MATCH |
+| 202/404/409 status handling | `Results.Accepted(...)` / `Results.Problem(404)` / `DomainConflictException` to 409 via existing `ProblemDetailsExceptionHandler` | MATCH — `ApiError.detail` surfaced by `BuyerCard.vue` on any non-2xx, including 409 (tested) |
+
+Zero mismatches found across all 5 new/modified DTOs, the query-param names, and both consumed routes.
+
+### Behavior Checks
+
+| Check | Result |
+|---|---|
+| Page middleware `['auth','admin']` | PASS — `pages/admin/buyers.vue` `definePageMeta` |
+| Search wired to `GET /admin/buyers?email=` | PASS — `onSearch()` calls `search(searchTerm.value)`, which resets `page` to 1 and reloads |
+| Pagination wired (page/pageSize/total) | PASS — Prev/Next buttons call `goToPage(page +/- 1)`, disabled at bounds via `totalPages` computed |
+| Resend offered only for `Delivered` orders | PASS — `BuyerCard.vue`: `v-if="order.status === 'Delivered'"` |
+| Inline confirm, no `window.confirm` | PASS — `confirmingOrderId` ref gates a two-button Confirmar/Cancelar row; no `window.confirm`/`confirm(` found in the diff |
+| Success/error feedback on resend | PASS — `resendSuccess` renders "Email reenviado.", `resendError` renders `role="alert"` with detail or title |
+| No key code rendering anywhere | PASS — `AdminBuyerOrderItem` DTO has no key-code field at all on either side of the wire (only `assignedKeys` count); grep of `components/admin` and `pages/admin` for key/code patterns found only a source comment reaffirming intent, no rendered value |
+| Buyers nav link enabled | PASS — `pages/admin/index.vue` "Compradores" `NuxtLink` to `/admin/buyers` (previously disabled per apply-progress; now live) |
+| Per-order resend state isolation | PASS (structural) — `resending`/`resendError`/`resendSuccess` are `Record<string,...>` keyed by `orderId`, owned by the single `useAdminBuyers()` instance and passed down to every `BuyerCard`, so concurrent resends on different orders do not share state (see SUGGESTION 1 below — not directly exercised by a two-order-concurrent test) |
+
+No design (D4) or spec (admin-buyers) deviations found.
+
+### Spec Compliance Note
+
+The admin-buyers and fulfillment-delta spec scenarios are backend-owned and were already proven with runtime test evidence in Slice 3 above (Engram #308). This slice is the frontend consumer of that contract; its own tests prove correct consumption — grouped orders under one buyer, key-count-only rendering, resend gated on `Delivered`, and both the resend-success and resend-409 UI paths (`tests/adminBuyersPage.spec.ts`, `tests/useAdminBuyers.spec.ts`) — not a re-proof of backend behavior. No live backend was reachable in this environment during this verify pass; frontend-side runtime evidence is Vitest component/composable tests plus a clean production build, the same evidence pattern already accepted for slice 4.
+
+### Issues (Slice 5)
+
+CRITICAL: none.
+
+WARNING: none.
+
+SUGGESTION
+1. No dedicated test asserts that resending order A does not affect order B's resend state when both are `Delivered` and rendered simultaneously in the same buyer card list. The `Record<string,...>`-keyed state design makes this structurally sound, but it is not directly exercised.
+2. Carried forward, unresolved (backend repo only, not part of this frontend diff): untracked `src/Maxkeys.Api/Properties/` and `tests/Maxkeys.Api.Tests/Properties/` (IDE-generated launchSettings.json) remain in the backend repo git status — first flagged in slice 1, still open.
+3. Resend has no client-side rate limiting or debounce beyond the one-shot confirm step — matches the design's explicitly accepted "no rate limit" decision (Open Questions), not a gap.
+
+### Review Budget
+
+Authored diff vs `feat/admin-area` is 394 lines (391 insertions + 3 deletions across 7 files), matching apply-progress exactly. Over the ~250-line tasks.md forecast but well under the 800-line hard cap — no `size:exception` needed for this slice.
+
+### Verdict (Slice 5)
+
+PASS. All 67/67 frontend tests pass (5 new: 4 `useAdminBuyers.spec.ts` + 1 `adminBuyersPage.spec.ts`), typecheck is clean (exit 0), and `nuxt build` succeeds with the buyers page chunk present in server output. 4/4 Phase 5 tasks are complete and match the code exactly. Every DTO, query-param name, and route consumed by this slice was cross-checked field-for-field against the actual current backend C# records/routes (`RequestDeliveryResend.cs`, `BuyersDtos.cs`, `AdminBuyersEndpoints.cs`, `AdminEndpoints.cs`) with zero mismatches. Design D4's contract table is followed exactly. Resend is correctly gated on `Delivered` status, uses an inline confirm (no browser dialog), surfaces success/error feedback, and never renders a key code anywhere in the buyers UI. The buyers nav link is enabled. 0 CRITICAL, 0 WARNING, 3 SUGGESTION findings, none blocking.
+
+## Final Overall Status (Slices 1-5) — COMPLETE
+
+All 5 planned slices across both repos are now applied and verified.
+
+| Slice | Repo | Scope | Tests | Verdict |
+|---|---|---|---|---|
+| 1 | back | Admin catalog | 174/174 (remediated) | PASS |
+| 2 | back | Carousel | 207/207 | PASS |
+| 3 | back | Buyers + resend | 223/223 | PASS WITH WARNINGS, now PASS (WARNING resolved, see below) |
+| 4 | front | Guard + catalog + carousel | 62/62, typecheck clean, build green | PASS |
+| 5 | front | Buyers page + resend UI | 67/67, typecheck clean, build green | PASS |
+
+**Total tests**: backend 223/223 (`dotnet test`, whole solution: Domain 65, Application 83, Api 75), frontend 67/67 (`vitest`, whole repo, 20 files). Combined **290/290** passing across both repos, 0 failures.
+
+**Slice 3 WARNING resolution (verified this pass)**: the previously open WARNING — unescaped `adminSub` string interpolation into the `OrderDeliveryResendRequested` outbox JSON payload — is CONFIRMED FIXED in backend commit `d522915` "fix(fulfillment): serialize resend outbox payload with JsonSerializer" on `feat/admin-buyers`. `RequestDeliveryResend.cs` line 50 now reads `JsonSerializer.Serialize(new { orderId, requestedBy, requestedAt = now })` in place of the prior raw string interpolation. Re-verified by direct source read during this pass. This closes the only WARNING open across all 5 slices.
+
+**Open findings by severity, across all 5 slices (final)**:
+- CRITICAL: 0
+- WARNING: 0 (the one WARNING, slice 3 payload escaping, is now resolved and confirmed)
+- SUGGESTION: 12 total across all slices, none blocking. The recurring backend `Properties/` launchSettings.json hygiene item (flagged once per slice report since slice 1) is one open item, not 5 independent issues.
+
+**Deploy-order note (design D7, confirmed unchanged)**: backend slices must deploy in order #1 (admin catalog) then #2 (carousel) then #3 (buyers+resend) before frontend PR5 (buyers UI) has a reachable backend to call; frontend PR4 (guard+catalog+carousel) only needs backend #1+#2 live. Frontend PR4 is safe to deploy ahead of a fully-deployed backend specifically because (a) `HeroCarousel.vue` falls back to static `FALLBACK_SLIDES` on an empty response or fetch error (verified slice 4), and (b) the admin guard middleware fails closed — `GET /admin/me` returning 403/401/network-error all redirect away from admin pages rather than expose a broken admin UI. PR5 (buyers) has no equivalent fallback — `buyers.vue`'s `ErrorState` renders on any load failure, including "backend not yet deployed" — so PR5 specifically should not be exposed to real admin users until backend PR3 is actually live, even though the PR5 frontend build itself is safe to ship as code.
+
+**Recommendation**:
+1. Proceed to `sdd-archive` for all 5 slices — no CRITICAL or WARNING issues remain anywhere in the change.
+2. Before archiving, resolve or explicitly accept the one recurring SUGGESTION: untracked `src/Maxkeys.Api/Properties/` and `tests/Maxkeys.Api.Tests/Properties/` in the backend repo (confirm `.gitignore` coverage or intentional exclusion) so these IDE-generated files do not leak into PR1's diff.
+3. The already-accepted `size:exception` decisions for slices 2 (1216 authored lines) and 3 (900 authored lines) remain in effect and are not re-litigated.
+4. Push and open PRs 1-5 in stacked order per design D7; deploy backend #1 then #2 then #3 before exposing frontend PR5 to real admin traffic (frontend PR4 can ship once backend #1+#2 are live, thanks to the carousel fallback and fail-closed guard).
