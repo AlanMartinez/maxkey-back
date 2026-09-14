@@ -36,7 +36,7 @@ phases:
   apply:
     status: in_progress
     engram_topic: sdd/admin-dashboard/apply-progress
-    note: slice 1 (Phase 1, back PR1 admin catalog) complete and slice 2 (Phase 2, back PR2 carousel) complete on branch feat/carousel-slides (from feat/admin-catalog) — 11/11 Phase 2 tasks done; dotnet test 207/207 passed (was 174); not pushed, no PR opened; slice 2 authored diff (~1216 lines, excl. generated migration) exceeds the 800-line hard cap — needs size:exception decision before PR2 opens; slices 3-5 not started
+    note: slice 1 (Phase 1, back PR1 admin catalog), slice 2 (Phase 2, back PR2 carousel), and slice 3 (Phase 3, back PR3 buyers+resend) all complete on branch feat/admin-buyers (from feat/carousel-slides, from feat/admin-catalog) — 15/15 Phase 3 tasks done; dotnet test 223/223 passed (was 207); not pushed, no PR opened; slice 3 authored diff (900 lines, 315 production + 585 tests, 0 generated) exceeds the 800-line hard cap — needs size:exception decision before PR3 opens, same pattern as slice 2; slices 4-5 not started (live in maxkeys-front, blocked on backend deploy)
   verify:
     status: partial
     artifact: verify-report.md
@@ -47,7 +47,7 @@ phases:
 repositories:
   backend: https://github.com/AlanMartinez/maxkey-back.git (this repo; owns openspec/)
   frontend: https://github.com/AlanMartinez/maxkey-front.git (Nuxt 3; slices 4-5)
-next_recommended: sdd-apply for slice 3 (Phase 3, Buyers+Resend, depends on PR1 merged); PR2's size:exception decision already accepted, no further verify blocker
+next_recommended: sdd-verify for slice 3 (Phase 3, Buyers+Resend); PR3's authored-line overage (900 vs 800 cap) needs a size:exception decision, same as PR2. Slices 4-5 remain blocked on maxkeys-front and backend deploy.
 decisions:
   - images v1 = paste existing R2 ImageKey, ADR-12 intact (Engram sdd/admin-dashboard/decisions #295)
   - buyers = read-only view + resend delivery email; no revoke/reissue/ban/roles

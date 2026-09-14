@@ -59,21 +59,23 @@ Chain strategy: stacked-to-main
 
 ## Phase 3: Buyers + Resend (back, PR 3 — depends on PR 1 merged)
 
-- [ ] 3.1 `src/Maxkeys.Domain/Outbox/OutboxEventTypes.cs` — add `OrderDeliveryResendRequested`.
-- [ ] 3.2 `src/Maxkeys.Application/Outbox/DeliveryEmailItems.cs` — extract `FromOrder(order, keyCipher)` shared item builder.
-- [ ] 3.3 `src/Maxkeys.Application/Outbox/OrderDeliveredHandler.cs` — refactor to call `DeliveryEmailItems.FromOrder`; no behavior change.
-- [ ] 3.4 `src/Maxkeys.Application/Fulfillment/RequestDeliveryResend.cs` — 409 unless `Status=Delivered`; writes `OrderDeliveryResendRequested{orderId, requestedBy, requestedAt}`; does not touch `DeliveredAt`/keys.
-- [ ] 3.5 `src/Maxkeys.Application/Outbox/OrderDeliveryResendHandler.cs` — sends via `DeliveryEmailItems.FromOrder` + `EmailTemplates.BuyerOrderDelivered`.
-- [ ] 3.6 `OutboxServiceCollectionExtensions.cs`, `Infrastructure/DependencyInjection.cs` — register handler + new use cases.
-- [ ] 3.7 `src/Maxkeys.Application/Buyers/BuyersDtos.cs`, `ListBuyers.cs` — grouped-by-email, Q1 paid orders + Q2 items/keys, substring search, `Skip/Take`+count; no key codes, only `assignedKeys` count.
-- [ ] 3.8 `src/Maxkeys.Api/Endpoints/AdminBuyersEndpoints.cs` — `GET /admin/buyers`, `.RequireAuthorization(AdminPolicy.Name)`.
-- [ ] 3.9 `src/Maxkeys.Api/Endpoints/AdminEndpoints.cs` — add `POST /admin/orders/{id}/resend-delivery` (adminSub from `sub` claim), 202/404/409.
-- [ ] 3.10 `Program.cs` — map `AdminBuyersEndpoints`.
-- [ ] 3.11 Test: `tests/Maxkeys.Application.Tests/Fulfillment/RequestDeliveryResendTests.cs` — resend does NOT alter `DeliveredAt` or the order's keys; 409 on non-`Delivered`. Verify: `dotnet test --filter Resend`.
-- [ ] 3.12 Test: same file — `OrderDeliveryResendRequested` outbox payload contains `requestedBy` equal to the acting `adminSub`. Verify: `dotnet test --filter Resend`.
-- [ ] 3.13 Test: `tests/Maxkeys.Application.Tests/Outbox/OrderDeliveryResendHandlerTests.cs` — sends via `RecordingEmailSender`; `OrderDeliveredHandlerTests.cs` still green (unchanged behavior). Verify: `dotnet test --filter "Resend|OrderDelivered"`.
-- [ ] 3.14 Test: `tests/Maxkeys.Application.Tests/Buyers/ListBuyersTests.cs` — grouping, search, paging, no key code exposed. Verify: `dotnet test --filter Buyers`.
-- [ ] 3.15 Test: `tests/Maxkeys.Api.Tests/Admin/{AdminBuyersEndpointsTests,ResendDeliveryEndpointTests}.cs` — 401/403/200/202/409. Verify: `dotnet test --filter "Buyers|Resend"`.
+- [x] 3.1 `src/Maxkeys.Domain/Outbox/OutboxEventTypes.cs` — add `OrderDeliveryResendRequested`.
+- [x] 3.2 `src/Maxkeys.Application/Outbox/DeliveryEmailItems.cs` — extract `FromOrder(order, keyCipher)` shared item builder.
+- [x] 3.3 `src/Maxkeys.Application/Outbox/OrderDeliveredHandler.cs` — refactor to call `DeliveryEmailItems.FromOrder`; no behavior change.
+- [x] 3.4 `src/Maxkeys.Application/Fulfillment/RequestDeliveryResend.cs` — 409 unless `Status=Delivered`; writes `OrderDeliveryResendRequested{orderId, requestedBy, requestedAt}`; does not touch `DeliveredAt`/keys.
+- [x] 3.5 `src/Maxkeys.Application/Outbox/OrderDeliveryResendHandler.cs` — sends via `DeliveryEmailItems.FromOrder` + `EmailTemplates.BuyerOrderDelivered`.
+- [x] 3.6 `OutboxServiceCollectionExtensions.cs`, `Infrastructure/DependencyInjection.cs` — register handler + new use cases.
+- [x] 3.7 `src/Maxkeys.Application/Buyers/BuyersDtos.cs`, `ListBuyers.cs` — grouped-by-email, Q1 paid orders + Q2 items/keys, substring search, `Skip/Take`+count; no key codes, only `assignedKeys` count.
+- [x] 3.8 `src/Maxkeys.Api/Endpoints/AdminBuyersEndpoints.cs` — `GET /admin/buyers`, `.RequireAuthorization(AdminPolicy.Name)`.
+- [x] 3.9 `src/Maxkeys.Api/Endpoints/AdminEndpoints.cs` — add `POST /admin/orders/{id}/resend-delivery` (adminSub from `sub` claim), 202/404/409.
+- [x] 3.10 `Program.cs` — map `AdminBuyersEndpoints`.
+- [x] 3.11 Test: `tests/Maxkeys.Application.Tests/Fulfillment/RequestDeliveryResendTests.cs` — resend does NOT alter `DeliveredAt` or the order's keys; 409 on non-`Delivered`. Verify: `dotnet test --filter Resend`.
+- [x] 3.12 Test: same file — `OrderDeliveryResendRequested` outbox payload contains `requestedBy` equal to the acting `adminSub`. Verify: `dotnet test --filter Resend`.
+- [x] 3.13 Test: `tests/Maxkeys.Application.Tests/Outbox/OrderDeliveryResendHandlerTests.cs` — sends via `RecordingEmailSender`; `OrderDeliveredHandlerTests.cs` still green (unchanged behavior). Verify: `dotnet test --filter "Resend|OrderDelivered"`.
+- [x] 3.14 Test: `tests/Maxkeys.Application.Tests/Buyers/ListBuyersTests.cs` — grouping, search, paging, no key code exposed. Verify: `dotnet test --filter Buyers`.
+- [x] 3.15 Test: `tests/Maxkeys.Api.Tests/Admin/{AdminBuyersEndpointsTests,ResendDeliveryEndpointTests}.cs` — 401/403/200/202/409. Verify: `dotnet test --filter "Buyers|Resend"`.
+
+> **Slice 3 budget note (apply phase, 2026-09-14):** actual authored diff vs `feat/carousel-slides` is 900 lines (315 production + 585 tests), 0 generated. This exceeds both the tasks.md forecast (~450) and the 800-line hard cap — driven by full spec-scenario test coverage (3 Application test files covering resend audit/no-mutation/409, handler send, and buyers grouping/search/paging/no-key-code, plus 2 Api test files covering 401/403/202/404/409/no-key-code-in-JSON) per the design's Testing Strategy table and the prompt's explicit mandatory-tests list. Flagged for an explicit `size:exception` decision before PR3 is opened; not split further because Buyers+Resend (D1 outbox event + shared `DeliveryEmailItems` extraction + `RequestDeliveryResend` + handler + `ListBuyers` + both endpoints) is one cohesive, independently-revertable unit per design D7 — same pattern as the slice 2 overage.
 
 ## Phase 4: Frontend guard + catalog + carousel (`maxkeys-front` repo, PR 4 — depends on back PR1+PR2 merged/deployed)
 
