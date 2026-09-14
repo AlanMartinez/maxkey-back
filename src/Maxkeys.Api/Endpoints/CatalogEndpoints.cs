@@ -1,3 +1,4 @@
+using Maxkeys.Application.Carousel;
 using Maxkeys.Application.Catalog;
 
 namespace Maxkeys.Api.Endpoints;
@@ -22,6 +23,10 @@ public static class CatalogEndpoints
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
                 : Results.Ok(product);
         });
+
+        // Public, unauthenticated (carousel spec "Public Carousel Listing"; design D2).
+        group.MapGet("/carousel", async (GetCarousel useCase, CancellationToken cancellationToken) =>
+            Results.Ok(await useCase.ExecuteAsync(cancellationToken)));
 
         return app;
     }

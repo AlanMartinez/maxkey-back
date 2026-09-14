@@ -51,6 +51,21 @@ public static class AdminEndpoints
                 : Results.Ok(new AttachKeyResponse(result.OrderStatus.ToString(), result.Items));
         });
 
+        group.MapPost("/{id:guid}/resend-delivery", async (
+            Guid id,
+            ClaimsPrincipal user,
+            RequestDeliveryResend useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var adminSub = user.FindFirst("sub")?.Value
+                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+
+            var outboxEventId = await useCase.ExecuteAsync(id, adminSub, cancellationToken);
+            return outboxEventId is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
+                : Results.Accepted(value: new ResendDeliveryResponse(outboxEventId.Value));
+        });
+
         return app;
     }
 
@@ -66,6 +81,9 @@ public sealed record AttachKeyRequest(string Code);
 
 /// <summary>Order status and per-item progress after an attach (design section 7).</summary>
 public sealed record AttachKeyResponse(string OrderStatus, IReadOnlyList<AttachKeyToOrderItemResultItem> Items);
+
+/// <summary>Acknowledges a queued delivery-email resend (admin-buyers spec: Resend Delivery Email; design D1).</summary>
+public sealed record ResendDeliveryResponse(Guid OutboxEventId);
 
 /// <summary>One order awaiting fulfillment, with per-item progress, for the admin listing (design section 7).</summary>
 public sealed record AdminOrderResponse(

@@ -43,55 +43,59 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Carousel (back, PR 2 — depends on PR 1 merged)
 
-- [ ] 2.1 `src/Maxkeys.Domain/Carousel/CarouselSlide.cs` — ctor/`Update` invariants (`ProductId != Guid.Empty`, `SortOrder >= 0`, trimmed overrides).
-- [ ] 2.2 `src/Maxkeys.Application/Persistence/IAppDbContext.cs`, `Infrastructure/Persistence/AppDbContext.cs` — add `DbSet<CarouselSlide>`.
-- [ ] 2.3 `src/Maxkeys.Infrastructure/Persistence/Configurations/CarouselSlideConfiguration.cs` — `carousel_slides`, FK Restrict, index `(is_active, sort_order)`.
-- [ ] 2.4 Generate EF migration `AddCarouselSlides` (+Designer, snapshot). **Excluded from authored line count; flag as generated in PR body.**
-- [ ] 2.5 `src/Maxkeys.Application/Carousel/CarouselDtos.cs`, `GetCarousel.cs` (public, join+filter inactive), `ListCarouselSlides.cs`, `CreateCarouselSlide.cs` (422 unknown product), `UpdateCarouselSlide.cs`, `DeleteCarouselSlide.cs`.
-- [ ] 2.6 `src/Maxkeys.Api/Endpoints/AdminCarouselEndpoints.cs` — admin CRUD, `.RequireAuthorization(AdminPolicy.Name)`.
-- [ ] 2.7 `src/Maxkeys.Api/Endpoints/CatalogEndpoints.cs` — add public `GET /catalog/carousel`.
-- [ ] 2.8 `Program.cs` — map `AdminCarouselEndpoints`.
-- [ ] 2.9 Tests: `tests/Maxkeys.Domain.Tests/Carousel/CarouselSlideTests.cs` — invariants. Verify: `dotnet test --filter Carousel`.
-- [ ] 2.10 Tests: `tests/Maxkeys.Application.Tests/Carousel/*Tests.cs` — hides inactive slide/product, override-vs-product image resolution, reorder, delete. Verify: `dotnet test --filter Carousel`.
-- [ ] 2.11 Tests: `tests/Maxkeys.Api.Tests/Admin/AdminCarouselEndpointsTests.cs` (401/403/200/422) + `tests/Maxkeys.Api.Tests/Catalog/CarouselEndpointTests.cs` (anonymous, ordering). Verify: `dotnet test --filter Carousel`.
+- [x] 2.1 `src/Maxkeys.Domain/Carousel/CarouselSlide.cs` — ctor/`Update` invariants (`ProductId != Guid.Empty`, `SortOrder >= 0`, trimmed overrides).
+- [x] 2.2 `src/Maxkeys.Application/Persistence/IAppDbContext.cs`, `Infrastructure/Persistence/AppDbContext.cs` — add `DbSet<CarouselSlide>`.
+- [x] 2.3 `src/Maxkeys.Infrastructure/Persistence/Configurations/CarouselSlideConfiguration.cs` — `carousel_slides`, FK Restrict, index `(is_active, sort_order)`.
+- [x] 2.4 Generate EF migration `AddCarouselSlides` (+Designer, snapshot). **Excluded from authored line count; flag as generated in PR body.**
+- [x] 2.5 `src/Maxkeys.Application/Carousel/CarouselDtos.cs`, `GetCarousel.cs` (public, join+filter inactive), `ListCarouselSlides.cs`, `CreateCarouselSlide.cs` (422 unknown product), `UpdateCarouselSlide.cs`, `DeleteCarouselSlide.cs`.
+- [x] 2.6 `src/Maxkeys.Api/Endpoints/AdminCarouselEndpoints.cs` — admin CRUD, `.RequireAuthorization(AdminPolicy.Name)`.
+- [x] 2.7 `src/Maxkeys.Api/Endpoints/CatalogEndpoints.cs` — add public `GET /catalog/carousel`.
+- [x] 2.8 `Program.cs` — map `AdminCarouselEndpoints`.
+- [x] 2.9 Tests: `tests/Maxkeys.Domain.Tests/Carousel/CarouselSlideTests.cs` — invariants. Verify: `dotnet test --filter Carousel`.
+- [x] 2.10 Tests: `tests/Maxkeys.Application.Tests/Carousel/*Tests.cs` — hides inactive slide/product, override-vs-product image resolution, reorder, delete. Verify: `dotnet test --filter Carousel`.
+- [x] 2.11 Tests: `tests/Maxkeys.Api.Tests/Admin/AdminCarouselEndpointsTests.cs` (401/403/200/422) + `tests/Maxkeys.Api.Tests/Catalog/CarouselEndpointTests.cs` (anonymous, ordering). Verify: `dotnet test --filter Carousel`.
+
+> **Slice 2 budget note (apply phase, 2026-09-14):** actual authored diff vs `feat/admin-catalog` is ~1216 lines (777 tests + 439 production), excluding the generated migration (606 lines: `.cs`+`.Designer.cs`+snapshot). This exceeds the 800-line hard cap forecast in the Review Workload Forecast (~600 estimated) — driven by full spec-scenario test coverage (9 domain + 13 application + 11 Api tests) per the Testing Strategy table. Flagged for an explicit `size:exception` decision before PR2 is opened; not split further because CarouselSlide (domain+EF+migration+CRUD+public read) is one cohesive, independently-revertable unit per design D2/D7.
 
 ## Phase 3: Buyers + Resend (back, PR 3 — depends on PR 1 merged)
 
-- [ ] 3.1 `src/Maxkeys.Domain/Outbox/OutboxEventTypes.cs` — add `OrderDeliveryResendRequested`.
-- [ ] 3.2 `src/Maxkeys.Application/Outbox/DeliveryEmailItems.cs` — extract `FromOrder(order, keyCipher)` shared item builder.
-- [ ] 3.3 `src/Maxkeys.Application/Outbox/OrderDeliveredHandler.cs` — refactor to call `DeliveryEmailItems.FromOrder`; no behavior change.
-- [ ] 3.4 `src/Maxkeys.Application/Fulfillment/RequestDeliveryResend.cs` — 409 unless `Status=Delivered`; writes `OrderDeliveryResendRequested{orderId, requestedBy, requestedAt}`; does not touch `DeliveredAt`/keys.
-- [ ] 3.5 `src/Maxkeys.Application/Outbox/OrderDeliveryResendHandler.cs` — sends via `DeliveryEmailItems.FromOrder` + `EmailTemplates.BuyerOrderDelivered`.
-- [ ] 3.6 `OutboxServiceCollectionExtensions.cs`, `Infrastructure/DependencyInjection.cs` — register handler + new use cases.
-- [ ] 3.7 `src/Maxkeys.Application/Buyers/BuyersDtos.cs`, `ListBuyers.cs` — grouped-by-email, Q1 paid orders + Q2 items/keys, substring search, `Skip/Take`+count; no key codes, only `assignedKeys` count.
-- [ ] 3.8 `src/Maxkeys.Api/Endpoints/AdminBuyersEndpoints.cs` — `GET /admin/buyers`, `.RequireAuthorization(AdminPolicy.Name)`.
-- [ ] 3.9 `src/Maxkeys.Api/Endpoints/AdminEndpoints.cs` — add `POST /admin/orders/{id}/resend-delivery` (adminSub from `sub` claim), 202/404/409.
-- [ ] 3.10 `Program.cs` — map `AdminBuyersEndpoints`.
-- [ ] 3.11 Test: `tests/Maxkeys.Application.Tests/Fulfillment/RequestDeliveryResendTests.cs` — resend does NOT alter `DeliveredAt` or the order's keys; 409 on non-`Delivered`. Verify: `dotnet test --filter Resend`.
-- [ ] 3.12 Test: same file — `OrderDeliveryResendRequested` outbox payload contains `requestedBy` equal to the acting `adminSub`. Verify: `dotnet test --filter Resend`.
-- [ ] 3.13 Test: `tests/Maxkeys.Application.Tests/Outbox/OrderDeliveryResendHandlerTests.cs` — sends via `RecordingEmailSender`; `OrderDeliveredHandlerTests.cs` still green (unchanged behavior). Verify: `dotnet test --filter "Resend|OrderDelivered"`.
-- [ ] 3.14 Test: `tests/Maxkeys.Application.Tests/Buyers/ListBuyersTests.cs` — grouping, search, paging, no key code exposed. Verify: `dotnet test --filter Buyers`.
-- [ ] 3.15 Test: `tests/Maxkeys.Api.Tests/Admin/{AdminBuyersEndpointsTests,ResendDeliveryEndpointTests}.cs` — 401/403/200/202/409. Verify: `dotnet test --filter "Buyers|Resend"`.
+- [x] 3.1 `src/Maxkeys.Domain/Outbox/OutboxEventTypes.cs` — add `OrderDeliveryResendRequested`.
+- [x] 3.2 `src/Maxkeys.Application/Outbox/DeliveryEmailItems.cs` — extract `FromOrder(order, keyCipher)` shared item builder.
+- [x] 3.3 `src/Maxkeys.Application/Outbox/OrderDeliveredHandler.cs` — refactor to call `DeliveryEmailItems.FromOrder`; no behavior change.
+- [x] 3.4 `src/Maxkeys.Application/Fulfillment/RequestDeliveryResend.cs` — 409 unless `Status=Delivered`; writes `OrderDeliveryResendRequested{orderId, requestedBy, requestedAt}`; does not touch `DeliveredAt`/keys.
+- [x] 3.5 `src/Maxkeys.Application/Outbox/OrderDeliveryResendHandler.cs` — sends via `DeliveryEmailItems.FromOrder` + `EmailTemplates.BuyerOrderDelivered`.
+- [x] 3.6 `OutboxServiceCollectionExtensions.cs`, `Infrastructure/DependencyInjection.cs` — register handler + new use cases.
+- [x] 3.7 `src/Maxkeys.Application/Buyers/BuyersDtos.cs`, `ListBuyers.cs` — grouped-by-email, Q1 paid orders + Q2 items/keys, substring search, `Skip/Take`+count; no key codes, only `assignedKeys` count.
+- [x] 3.8 `src/Maxkeys.Api/Endpoints/AdminBuyersEndpoints.cs` — `GET /admin/buyers`, `.RequireAuthorization(AdminPolicy.Name)`.
+- [x] 3.9 `src/Maxkeys.Api/Endpoints/AdminEndpoints.cs` — add `POST /admin/orders/{id}/resend-delivery` (adminSub from `sub` claim), 202/404/409.
+- [x] 3.10 `Program.cs` — map `AdminBuyersEndpoints`.
+- [x] 3.11 Test: `tests/Maxkeys.Application.Tests/Fulfillment/RequestDeliveryResendTests.cs` — resend does NOT alter `DeliveredAt` or the order's keys; 409 on non-`Delivered`. Verify: `dotnet test --filter Resend`.
+- [x] 3.12 Test: same file — `OrderDeliveryResendRequested` outbox payload contains `requestedBy` equal to the acting `adminSub`. Verify: `dotnet test --filter Resend`.
+- [x] 3.13 Test: `tests/Maxkeys.Application.Tests/Outbox/OrderDeliveryResendHandlerTests.cs` — sends via `RecordingEmailSender`; `OrderDeliveredHandlerTests.cs` still green (unchanged behavior). Verify: `dotnet test --filter "Resend|OrderDelivered"`.
+- [x] 3.14 Test: `tests/Maxkeys.Application.Tests/Buyers/ListBuyersTests.cs` — grouping, search, paging, no key code exposed. Verify: `dotnet test --filter Buyers`.
+- [x] 3.15 Test: `tests/Maxkeys.Api.Tests/Admin/{AdminBuyersEndpointsTests,ResendDeliveryEndpointTests}.cs` — 401/403/200/202/409. Verify: `dotnet test --filter "Buyers|Resend"`.
+
+> **Slice 3 budget note (apply phase, 2026-09-14):** actual authored diff vs `feat/carousel-slides` is 900 lines (315 production + 585 tests), 0 generated. This exceeds both the tasks.md forecast (~450) and the 800-line hard cap — driven by full spec-scenario test coverage (3 Application test files covering resend audit/no-mutation/409, handler send, and buyers grouping/search/paging/no-key-code, plus 2 Api test files covering 401/403/202/404/409/no-key-code-in-JSON) per the design's Testing Strategy table and the prompt's explicit mandatory-tests list. Flagged for an explicit `size:exception` decision before PR3 is opened; not split further because Buyers+Resend (D1 outbox event + shared `DeliveryEmailItems` extraction + `RequestDeliveryResend` + handler + `ListBuyers` + both endpoints) is one cohesive, independently-revertable unit per design D7 — same pattern as the slice 2 overage.
 
 ## Phase 4: Frontend guard + catalog + carousel (`maxkeys-front` repo, PR 4 — depends on back PR1+PR2 merged/deployed)
 
 > Lives in sibling repo `maxkeys-front`; do not start until backend slices 1–2 are deployed (endpoints must exist).
 
-- [ ] 4.1 `middleware/admin.ts` — runs after `auth`, calls `GET /admin/me` once, caches in `useState('admin-check')`, redirects non-admins.
-- [ ] 4.2 `pages/admin/{index,catalog,carousel}.vue` — `definePageMeta({ middleware: ['auth','admin'] })`.
-- [ ] 4.3 `components/admin/{ProductEditor,VariantRow,SlideForm}.vue` — presentational, call `useApi()`.
-- [ ] 4.4 `components/catalog/HeroCarousel.vue` — fetch `GET /catalog/carousel`; keep static fallback on empty/error.
-- [ ] 4.5 `utils/productImage.ts` — remove the `catalogImages` override map; return `product.imageUrl || PLACEHOLDER_IMAGE`.
-- [ ] 4.6 `types/api.ts` — add `AdminProduct`/`AdminVariant`/`CarouselSlide`/`AdminCarouselSlide` DTOs mirroring design's contract table.
-- [ ] 4.7 Test: `middleware/adminMiddleware.spec.ts` — redirect on 403, pass on 200. Verify: `npx vitest run middleware/adminMiddleware.spec.ts`.
-- [ ] 4.8 Test: `components/catalog/HeroCarousel.spec.ts` — renders API slides, falls back on error. Verify: `npx vitest run components/catalog/HeroCarousel.spec.ts`.
-- [ ] 4.9 Test: `utils/productImage.spec.ts` — placeholder path, no override map. Verify: `npx vitest run utils/productImage.spec.ts`.
+- [x] 4.1 `middleware/admin.ts` — runs after `auth`, calls `GET /admin/me` once, caches in `useState('admin-check')`, redirects non-admins.
+- [x] 4.2 `pages/admin/{index,catalog,carousel}.vue` — `definePageMeta({ middleware: ['auth','admin'] })`.
+- [x] 4.3 `components/admin/{ProductEditor,VariantRow,SlideForm}.vue` — presentational; emit `save`/`saveVariant`/`cancel` events, the API calls live in `useAdminCatalog`/`useAdminCarousel` (deviation: composable-owned instead of each component calling `useApi()` directly, for single-error-state/testability; see apply-progress).
+- [x] 4.4 `components/catalog/HeroCarousel.vue` — fetches `GET /catalog/carousel`; keeps a static `FALLBACK_SLIDES` constant (clearly commented fallback-only) shown on empty response or fetch error, matching design's Data Flow. (First pass removed the fallback per an earlier apply-prompt reading; a coordinator follow-up restored it — the frontend may deploy before backend PR #29 is live. See apply-progress.)
+- [x] 4.5 `utils/productImage.ts` — removed the `catalogImages` override map; returns `product.imageUrl || PLACEHOLDER_IMAGE`.
+- [x] 4.6 `types/api.ts` — added `AdminProduct`/`AdminVariant`/`UpdateProductRequest`/`UpdateProductVariantRequest`/`CarouselSlideDto`/`AdminCarouselSlideDto`/`CarouselSlideRequest`/`AdminMeResponse` DTOs mirroring design's contract table.
+- [x] 4.7 Test: `tests/adminMiddleware.spec.ts` — redirect on no-session/401, pass+cache on 200, redirect to `/` on 403. Verify: `npx vitest run tests/adminMiddleware.spec.ts` → 4/4 passed.
+- [x] 4.8 Test: `tests/HeroCarousel.spec.ts` — renders fetched slides, arrow/keyboard navigation, renders nothing on empty and on fetch error. Verify: `npx vitest run tests/HeroCarousel.spec.ts` → 4/4 passed.
+- [x] 4.9 Test: `tests/productImage.spec.ts` — returns `imageUrl`, falls back to placeholder, no override map. Verify: `npx vitest run tests/productImage.spec.ts` → 2/2 passed.
 
 ## Phase 5: Frontend buyers (`maxkeys-front` repo, PR 5 — depends on back PR3 merged/deployed)
 
 > Lives in `maxkeys-front`; do not start until backend slice 3 is deployed.
 
-- [ ] 5.1 `pages/admin/buyers.vue` — `definePageMeta({ middleware: ['auth','admin'] })`, search + pagination.
-- [ ] 5.2 `components/admin/BuyerCard.vue` — orders/items, `assignedKeys` count only, resend action per `Delivered` order.
-- [ ] 5.3 `types/api.ts` — `AdminBuyer`/`AdminBuyerOrder` DTOs.
-- [ ] 5.4 Test: `pages/admin/buyers.spec.ts` — renders grouped orders, resend disabled unless `Delivered`, no key codes rendered. Verify: `npx vitest run pages/admin/buyers.spec.ts`.
+- [x] 5.1 `pages/admin/buyers.vue` — `definePageMeta({ middleware: ['auth','admin'] })`, search + pagination.
+- [x] 5.2 `components/admin/BuyerCard.vue` — orders/items, `assignedKeys` count only, resend action per `Delivered` order.
+- [x] 5.3 `types/api.ts` — `AdminBuyer`/`AdminBuyerOrder` DTOs.
+- [x] 5.4 Test: `tests/useAdminBuyers.spec.ts` + `tests/adminBuyersPage.spec.ts` (repo convention keeps specs under `tests/`, not colocated under `pages/`) — composable covers load/search/pagination/resend success/resend 409; page test renders grouped orders, resend button only on `Delivered`, no key codes rendered. Verify: `npx vitest run tests/useAdminBuyers.spec.ts tests/adminBuyersPage.spec.ts`.

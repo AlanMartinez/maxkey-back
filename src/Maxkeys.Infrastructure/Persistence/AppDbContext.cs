@@ -1,4 +1,5 @@
 using Maxkeys.Application.Persistence;
+using Maxkeys.Domain.Carousel;
 using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
@@ -22,6 +23,7 @@ public sealed class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
+    public DbSet<CarouselSlide> CarouselSlides => Set<CarouselSlide>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Key> Keys => Set<Key>();
