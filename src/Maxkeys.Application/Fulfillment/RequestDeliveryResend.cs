@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Common;
 using Maxkeys.Domain.Orders;
@@ -46,7 +47,7 @@ public sealed class RequestDeliveryResend
         var now = DateTimeOffset.UtcNow;
         var evt = new OutboxEvent(
             OutboxEventTypes.OrderDeliveryResendRequested,
-            $$"""{"orderId":"{{orderId}}","requestedBy":"{{requestedBy}}","requestedAt":"{{now:O}}"}""",
+            JsonSerializer.Serialize(new { orderId, requestedBy, requestedAt = now }),
             now);
 
         _db.OutboxEvents.Add(evt);
