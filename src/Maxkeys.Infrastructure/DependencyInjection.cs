@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using Maxkeys.Application.Buyers;
 using Maxkeys.Application.Carousel;
 using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Checkout;
@@ -71,7 +72,9 @@ public static class DependencyInjection
         services.AddScoped<GetMyOrder>();
         services.AddScoped<ListOrdersAwaitingFulfillment>();
         services.AddScoped<AttachKeyToOrderItem>();
+        services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
+        services.AddScoped<ListBuyers>();
     }
 
     /// <summary>

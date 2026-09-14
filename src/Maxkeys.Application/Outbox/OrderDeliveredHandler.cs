@@ -2,7 +2,6 @@ using System.Text.Json;
 using Maxkeys.Application.Notifications;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Application.Security;
-using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
@@ -65,15 +64,7 @@ public sealed class OrderDeliveredHandler : IOutboxHandler
                 $"OrderDelivered event references order {orderId} that is not Delivered (status: {order.Status}).");
         }
 
-        var items = order.Items
-            .Select(item => new BuyerDeliveryItem(
-                item.ProductNameSnapshot,
-                item.VariantNameSnapshot,
-                item.Keys
-                    .Where(key => key.Status == KeyStatus.Assigned)
-                    .Select(key => _keyCipher.Decrypt(key.EncryptedCode, key.KeyVersion))
-                    .ToList()))
-            .ToList();
+        var items = DeliveryEmailItems.FromOrder(order, _keyCipher);
 
         var (subject, textBody) = EmailTemplates.BuyerOrderDelivered(order, items);
         await _emailSender.SendAsync(new EmailMessage(order.BuyerEmail, subject, textBody), cancellationToken);

@@ -67,6 +67,7 @@ try
     app.MapAdminEndpoints();
     app.MapAdminCatalogEndpoints();
     app.MapAdminCarouselEndpoints();
+    app.MapAdminBuyersEndpoints();
 
     // Local demo mode (docs/local-demo.md): the fake payment page exists only in
     // Development with Payments:Mode=Fake. Read through IOptionsMonitor so test
