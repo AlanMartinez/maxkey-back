@@ -24,23 +24,67 @@ public class ProductVariantTests
         Assert.Throws<DomainException>(() => new ProductVariant(ProductId, price, "ARS"));
     }
 
-    [Fact]
-    public void Constructor_WithOldPriceNotGreaterThanPrice_Throws()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100)]
+    [InlineData(-5)]
+    [InlineData(150)]
+    public void Constructor_WithOutOfRangeDiscountPercentage_Throws(decimal discountPercentage)
     {
-        Assert.Throws<DomainException>(() => new ProductVariant(ProductId, price: 1000m, currency: "ARS", oldPrice: 900m));
+        Assert.Throws<DomainException>(() => new ProductVariant(ProductId, price: 1000m, currency: "ARS", discountPercentage: discountPercentage));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(50)]
+    [InlineData(99)]
+    public void Constructor_WithInRangeDiscountPercentage_Succeeds(decimal discountPercentage)
+    {
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS", discountPercentage: discountPercentage);
+
+        Assert.Equal(discountPercentage, variant.DiscountPercentage);
     }
 
     [Fact]
-    public void Constructor_WithOldPriceGreaterThanPrice_Succeeds()
+    public void Constructor_WithUsdCurrency_Succeeds()
     {
-        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS", oldPrice: 1200m);
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "USD");
 
-        Assert.Equal(1200m, variant.OldPrice);
+        Assert.Equal("USD", variant.Currency);
     }
 
     [Fact]
-    public void Constructor_WithNonArsCurrency_Throws()
+    public void Constructor_WithNonWhitelistedCurrency_Throws()
     {
-        Assert.Throws<DomainException>(() => new ProductVariant(ProductId, price: 1000m, currency: "USD"));
+        Assert.Throws<DomainException>(() => new ProductVariant(ProductId, price: 1000m, currency: "EUR"));
+    }
+
+    [Fact]
+    public void UpdateDetails_WithOutOfRangeDiscountPercentage_Throws()
+    {
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS");
+
+        Assert.Throws<DomainException>(
+            () => variant.UpdateDetails(1000m, discountPercentage: 100m, "ARS", region: null, edition: null, sortOrder: 0, isActive: true));
+    }
+
+    [Fact]
+    public void UpdateDetails_WithNonWhitelistedCurrency_Throws()
+    {
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS");
+
+        Assert.Throws<DomainException>(
+            () => variant.UpdateDetails(1000m, discountPercentage: null, "EUR", region: null, edition: null, sortOrder: 0, isActive: true));
+    }
+
+    [Fact]
+    public void UpdateDetails_WithInRangeDiscountPercentageAndUsdCurrency_Succeeds()
+    {
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS");
+
+        variant.UpdateDetails(1000m, discountPercentage: 25m, "USD", region: null, edition: null, sortOrder: 0, isActive: true);
+
+        Assert.Equal(25m, variant.DiscountPercentage);
+        Assert.Equal("USD", variant.Currency);
     }
 }

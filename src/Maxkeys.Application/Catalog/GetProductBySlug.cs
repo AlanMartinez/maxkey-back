@@ -47,7 +47,7 @@ public sealed class GetProductBySlug
             product.Platform,
             _imageUrlBuilder.Build(product.ImageKey),
             cheapest?.Price ?? 0m,
-            cheapest?.OldPrice,
+            cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage),
             product.Description,
             variants.Select(ToVariantDetail).ToList());
     }
@@ -59,7 +59,7 @@ public sealed class GetProductBySlug
             variant.Region,
             variant.Edition,
             variant.Price,
-            variant.OldPrice,
+            VariantPricing.ComputeOldPrice(variant.Price, variant.DiscountPercentage),
             variant.Currency);
 
     /// <summary><see cref="ProductVariant"/> has no stored display name; compose one from region/edition.</summary>

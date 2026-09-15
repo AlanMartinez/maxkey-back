@@ -8,9 +8,9 @@
       "imageKey": "products/steam-wallet-gift-card.png",
       "isActive": true,
       "variants": [
-        { "region": "AR", "edition": "USD 10", "price": 12000, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
-        { "region": "AR", "edition": "USD 25", "price": 28000, "oldPrice": 30000, "currency": "ARS", "sortOrder": 1, "isActive": true },
-        { "region": "AR", "edition": "USD 50", "price": 54000, "oldPrice": null, "currency": "ARS", "sortOrder": 2, "isActive": true }
+        { "region": "AR", "edition": "USD 10", "price": 12000, "discountPercentage": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "USD 25", "price": 28000, "discountPercentage": 6.67, "currency": "ARS", "sortOrder": 1, "isActive": true },
+        { "region": "AR", "edition": "USD 50", "price": 54000, "discountPercentage": null, "currency": "ARS", "sortOrder": 2, "isActive": true }
       ]
     },
     {
@@ -21,9 +21,9 @@
       "imageKey": "products/playstation-plus-membership.png",
       "isActive": true,
       "variants": [
-        { "region": "AR", "edition": "Essential · 1 Month", "price": 9500, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
-        { "region": "AR", "edition": "Extra · 3 Months", "price": 32000, "oldPrice": 36000, "currency": "ARS", "sortOrder": 1, "isActive": true },
-        { "region": "AR", "edition": "Premium · 12 Months", "price": 98000, "oldPrice": 110000, "currency": "ARS", "sortOrder": 2, "isActive": true }
+        { "region": "AR", "edition": "Essential · 1 Month", "price": 9500, "discountPercentage": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "Extra · 3 Months", "price": 32000, "discountPercentage": 11.11, "currency": "ARS", "sortOrder": 1, "isActive": true },
+        { "region": "AR", "edition": "Premium · 12 Months", "price": 98000, "discountPercentage": 10.91, "currency": "ARS", "sortOrder": 2, "isActive": true }
       ]
     },
     {
@@ -34,8 +34,8 @@
       "imageKey": "products/fc-25-points.png",
       "isActive": true,
       "variants": [
-        { "region": "AR", "edition": "1050 Points", "price": 15000, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
-        { "region": "AR", "edition": "2800 Points", "price": 36000, "oldPrice": null, "currency": "ARS", "sortOrder": 1, "isActive": true }
+        { "region": "AR", "edition": "1050 Points", "price": 15000, "discountPercentage": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "2800 Points", "price": 36000, "discountPercentage": null, "currency": "ARS", "sortOrder": 1, "isActive": true }
       ]
     },
     {
@@ -46,8 +46,8 @@
       "imageKey": "products/xbox-game-pass-ultimate.png",
       "isActive": true,
       "variants": [
-        { "region": "AR", "edition": "1 Month", "price": 11000, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
-        { "region": "AR", "edition": "3 Months", "price": 30000, "oldPrice": 33000, "currency": "ARS", "sortOrder": 1, "isActive": true }
+        { "region": "AR", "edition": "1 Month", "price": 11000, "discountPercentage": null, "currency": "ARS", "sortOrder": 0, "isActive": true },
+        { "region": "AR", "edition": "3 Months", "price": 30000, "discountPercentage": 9.09, "currency": "ARS", "sortOrder": 1, "isActive": true }
       ]
     }
   ]

@@ -70,7 +70,7 @@ public static class CatalogSeeder
                         product.Id,
                         seedVariant.Price,
                         seedVariant.Currency,
-                        seedVariant.OldPrice,
+                        seedVariant.DiscountPercentage,
                         seedVariant.Region,
                         seedVariant.Edition,
                         seedVariant.SortOrder,
@@ -80,7 +80,7 @@ public static class CatalogSeeder
                 {
                     existing.UpdateDetails(
                         seedVariant.Price,
-                        seedVariant.OldPrice,
+                        seedVariant.DiscountPercentage,
                         seedVariant.Currency,
                         seedVariant.Region,
                         seedVariant.Edition,
@@ -109,7 +109,7 @@ internal sealed record CatalogSeedVariant(
     string? Region,
     string? Edition,
     decimal Price,
-    decimal? OldPrice,
+    decimal? DiscountPercentage,
     string Currency,
     int SortOrder,
     bool IsActive);

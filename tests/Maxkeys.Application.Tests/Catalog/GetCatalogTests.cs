@@ -26,7 +26,7 @@ public sealed class GetCatalogTests
         await using (var seed = _fixture.CreateContext())
         {
             var active = CatalogTestData.SeedProduct(seed, platform, isActive: true);
-            CatalogTestData.SeedVariant(seed, active.Id, price: 100m, oldPrice: 150m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, active.Id, price: 100m, discountPercentage: 20m, sortOrder: 0);
             CatalogTestData.SeedVariant(seed, active.Id, price: 200m, sortOrder: 1);
 
             var inactive = CatalogTestData.SeedProduct(seed, platform, isActive: false);
@@ -45,7 +45,7 @@ public sealed class GetCatalogTests
         var summary = Assert.Single(matches);
         Assert.Equal(activeId, summary.Id);
         Assert.Equal(100m, summary.FromPrice);
-        Assert.Equal(150m, summary.OldPrice);
+        Assert.Equal(125m, summary.OldPrice);
     }
 
     [Fact]

@@ -167,7 +167,7 @@ public sealed class AdminCatalogEndpointsTests
         var putResponse = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
         {
             price = 100m,
-            oldPrice = (decimal?)null,
+            discountPercentage = (decimal?)null,
             currency = "ARS",
             region = "AR",
             edition = "Standard",
@@ -203,7 +203,7 @@ public sealed class AdminCatalogEndpointsTests
         var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
         {
             price = 150m,
-            oldPrice = (decimal?)null,
+            discountPercentage = (decimal?)null,
             currency = "ARS",
             region = "AR",
             edition = "Standard",
@@ -224,8 +224,46 @@ public sealed class AdminCatalogEndpointsTests
         var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
         {
             price = 0m,
-            oldPrice = (decimal?)null,
+            discountPercentage = (decimal?)null,
             currency = "ARS",
+            region = (string?)null,
+            edition = (string?)null,
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Out_of_range_discount_percentage_returns_422()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
+        {
+            price = 100m,
+            discountPercentage = (decimal?)100m,
+            currency = "ARS",
+            region = (string?)null,
+            edition = (string?)null,
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_whitelisted_currency_returns_422()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
+        {
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "EUR",
             region = (string?)null,
             edition = (string?)null,
             sortOrder = 0,

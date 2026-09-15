@@ -49,15 +49,6 @@ public sealed class UpdateProduct
             .OrderBy(v => v.SortOrder)
             .ToListAsync(cancellationToken);
 
-        return new AdminProduct(
-            product.Id,
-            product.Slug,
-            product.Name,
-            product.Platform,
-            product.IsActive,
-            product.ImageKey,
-            _imageUrlBuilder.Build(product.ImageKey),
-            product.Description,
-            variants.Select(v => new AdminVariant(v.Id, v.Region, v.Edition, v.Price, v.OldPrice, v.Currency, v.SortOrder, v.IsActive)).ToList());
+        return ListAdminProducts.ToAdminProduct(product, variants, _imageUrlBuilder);
     }
 }
