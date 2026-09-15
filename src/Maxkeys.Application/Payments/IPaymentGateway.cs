@@ -22,6 +22,14 @@ public interface IPaymentGateway
     /// on any gateway failure.
     /// </summary>
     Task<PaymentInfo> GetPaymentAsync(string paymentId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Looks up an approved payment by <paramref name="externalReference"/> (the order id) for
+    /// <see cref="ReconcileStalePayments"/> — covers a payment MP approved but whose webhook
+    /// notification never arrived. Returns <see langword="null"/> when no approved payment is
+    /// found. Throws <see cref="PaymentGatewayException"/> on any gateway failure.
+    /// </summary>
+    Task<PaymentInfo?> FindApprovedPaymentAsync(string externalReference, CancellationToken cancellationToken = default);
 }
 
 /// <summary>MP preference created for an order (design section 6a).</summary>

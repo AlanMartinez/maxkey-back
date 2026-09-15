@@ -54,6 +54,14 @@ public sealed class FakePaymentGateway : IPaymentGateway
         throw new PaymentGatewayException($"Fake payment '{paymentId}' has not been approved in this process.");
     }
 
+    public Task<PaymentInfo?> FindApprovedPaymentAsync(string externalReference, CancellationToken cancellationToken = default)
+    {
+        var found = Guid.TryParse(externalReference, out var orderId) && _approvedPayments.TryGetValue(orderId, out var payment)
+            ? payment
+            : null;
+        return Task.FromResult(found);
+    }
+
     /// <summary>Records an approved payment for <paramref name="orderId"/>; idempotent.</summary>
     public PaymentInfo Approve(Guid orderId, decimal amount, string currency)
     {

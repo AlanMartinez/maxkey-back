@@ -16,6 +16,16 @@ primary_region = 'ams'
   # `flyctl deploy` replaces the app's [env] wholesale, so this must stay committed here.
   Cors__AllowedOrigins__0 = 'https://maxkey-front.vercel.app'
 
+  # Mercado Pago back_urls target (design section 10) — without this, CreatePreferenceAsync
+  # sends no back_urls/auto_return at all and MP shows its own confirmation page instead of
+  # redirecting to /checkout/result. Same wholesale-replace risk as Cors above.
+  Frontend__BaseUrl = 'https://maxkey-front.vercel.app'
+
+  # Mercado Pago webhook notification target — must be this app's public HTTPS URL.
+  # <fly-app> below must match the `app` name at the top of this file once the real
+  # Fly app is provisioned.
+  Payments__NotificationUrl = 'https://maxkey-back.fly.dev/webhooks/mercadopago'
+
   # Supabase JWT validation (design section 10). Same wholesale-replace risk as
   # Cors above — must stay committed here, not set only via `fly secrets`.
   Auth__Mode = 'Jwks'
