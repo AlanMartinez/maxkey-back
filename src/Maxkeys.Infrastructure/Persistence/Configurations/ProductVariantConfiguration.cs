@@ -12,7 +12,7 @@ public sealed class ProductVariantConfiguration : IEntityTypeConfiguration<Produ
         builder.HasKey(v => v.Id);
 
         builder.Property(v => v.Price).HasColumnType("numeric(12,2)");
-        builder.Property(v => v.OldPrice).HasColumnType("numeric(12,2)");
+        builder.Property(v => v.DiscountPercentage).HasColumnType("numeric(5,2)");
         builder.Property(v => v.Currency).HasMaxLength(3).IsRequired();
         builder.Property(v => v.Region).HasMaxLength(100);
         builder.Property(v => v.Edition).HasMaxLength(100);

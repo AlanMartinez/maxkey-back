@@ -39,21 +39,23 @@ public sealed class ListAdminProducts
             .ToDictionary(g => g.Key, g => g.OrderBy(v => v.SortOrder).ToList());
 
         return products
-            .Select(p => new AdminProduct(
-                p.Id,
-                p.Slug,
-                p.Name,
-                p.Platform,
-                p.IsActive,
-                p.ImageKey,
-                _imageUrlBuilder.Build(p.ImageKey),
-                p.Description,
-                variantsByProduct.TryGetValue(p.Id, out var productVariants)
-                    ? productVariants.Select(ToAdminVariant).ToList()
-                    : []))
+            .Select(p => ToAdminProduct(p, variantsByProduct.TryGetValue(p.Id, out var productVariants) ? productVariants : [], _imageUrlBuilder))
             .ToList();
     }
 
-    private static AdminVariant ToAdminVariant(ProductVariant variant) =>
-        new(variant.Id, variant.Region, variant.Edition, variant.Price, variant.OldPrice, variant.Currency, variant.SortOrder, variant.IsActive);
+    /// <summary>Shared admin product mapper, reused by every admin catalog use case (design decision).</summary>
+    public static AdminProduct ToAdminProduct(Product product, IReadOnlyList<ProductVariant> variants, ImageUrlBuilder imageUrlBuilder) =>
+        new(
+            product.Id,
+            product.Slug,
+            product.Name,
+            product.Platform,
+            product.IsActive,
+            product.ImageKey,
+            imageUrlBuilder.Build(product.ImageKey),
+            product.Description,
+            variants.Select(ToAdminVariant).ToList());
+
+    public static AdminVariant ToAdminVariant(ProductVariant variant) =>
+        new(variant.Id, variant.Region, variant.Edition, variant.Price, VariantPricing.ComputeOldPrice(variant.Price, variant.DiscountPercentage), variant.Currency, variant.SortOrder, variant.IsActive);
 }

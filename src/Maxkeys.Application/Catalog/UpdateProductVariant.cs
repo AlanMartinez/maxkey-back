@@ -25,7 +25,7 @@ public sealed class UpdateProductVariant
     public async Task<AdminVariant?> ExecuteAsync(
         Guid id,
         decimal price,
-        decimal? oldPrice,
+        decimal? discountPercentage,
         string currency,
         string? region,
         string? edition,
@@ -39,9 +39,9 @@ public sealed class UpdateProductVariant
             return null;
         }
 
-        variant.UpdateDetails(price, oldPrice, currency, region, edition, sortOrder, isActive);
+        variant.UpdateDetails(price, discountPercentage, currency, region, edition, sortOrder, isActive);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new AdminVariant(variant.Id, variant.Region, variant.Edition, variant.Price, variant.OldPrice, variant.Currency, variant.SortOrder, variant.IsActive);
+        return ListAdminProducts.ToAdminVariant(variant);
     }
 }

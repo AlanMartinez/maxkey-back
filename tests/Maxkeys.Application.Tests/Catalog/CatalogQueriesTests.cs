@@ -92,7 +92,7 @@ public sealed class CatalogQueriesTests
               "imageKey": "products/idempotent.png",
               "isActive": true,
               "variants": [
-                { "region": "AR", "edition": "Standard", "price": {{price}}, "oldPrice": null, "currency": "ARS", "sortOrder": 0, "isActive": true }
+                { "region": "AR", "edition": "Standard", "price": {{price}}, "discountPercentage": null, "currency": "ARS", "sortOrder": 0, "isActive": true }
               ]
             }
           ]

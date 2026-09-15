@@ -63,7 +63,7 @@ public sealed class GetCatalog
                     p.Platform,
                     _imageUrlBuilder.Build(p.ImageKey),
                     cheapest?.Price ?? 0m,
-                    cheapest?.OldPrice);
+                    cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage));
             })
             .ToList();
     }

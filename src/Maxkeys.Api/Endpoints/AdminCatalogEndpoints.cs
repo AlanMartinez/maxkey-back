@@ -38,7 +38,7 @@ public static class AdminCatalogEndpoints
             CancellationToken cancellationToken) =>
         {
             var variant = await useCase.ExecuteAsync(
-                id, body.Price, body.OldPrice, body.Currency, body.Region, body.Edition, body.SortOrder, body.IsActive, cancellationToken);
+                id, body.Price, body.DiscountPercentage, body.Currency, body.Region, body.Edition, body.SortOrder, body.IsActive, cancellationToken);
             return variant is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Variant not found")
                 : Results.Ok(variant);
@@ -53,4 +53,4 @@ public sealed record UpdateProductRequest(string Name, string Platform, string? 
 
 /// <summary>Admin request body for <c>PUT /admin/catalog/variants/{id}</c> (design D3 contract table).</summary>
 public sealed record UpdateProductVariantRequest(
-    decimal Price, decimal? OldPrice, string Currency, string? Region, string? Edition, int SortOrder, bool IsActive);
+    decimal Price, decimal? DiscountPercentage, string Currency, string? Region, string? Edition, int SortOrder, bool IsActive);

@@ -27,7 +27,7 @@ public sealed class GetProductBySlugTests
         {
             var product = CatalogTestData.SeedProduct(seed, platform, isActive: true, slug: slug);
             CatalogTestData.SeedVariant(seed, product.Id, price: 300m, sortOrder: 1, region: "AR", edition: "Deluxe");
-            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, oldPrice: 150m, sortOrder: 0, region: "AR", edition: "Standard");
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, discountPercentage: 20m, sortOrder: 0, region: "AR", edition: "Standard");
             CatalogTestData.SeedVariant(seed, product.Id, price: 999m, sortOrder: 2, isActive: false);
             await seed.SaveChangesAsync();
         }
@@ -40,7 +40,7 @@ public sealed class GetProductBySlugTests
         Assert.NotNull(detail);
         Assert.Equal(2, detail!.Variants.Count);
         Assert.Equal(100m, detail.FromPrice);
-        Assert.Equal(150m, detail.OldPrice);
+        Assert.Equal(125m, detail.OldPrice);
         Assert.Equal("AR · Standard", detail.Variants[0].Name);
         Assert.Equal("AR · Deluxe", detail.Variants[1].Name);
     }

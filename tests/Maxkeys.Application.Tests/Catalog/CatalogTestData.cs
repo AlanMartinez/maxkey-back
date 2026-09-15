@@ -27,13 +27,13 @@ internal static class CatalogTestData
         AppDbContext context,
         Guid productId,
         decimal price,
-        decimal? oldPrice = null,
+        decimal? discountPercentage = null,
         int sortOrder = 0,
         string? region = null,
         string? edition = null,
         bool isActive = true)
     {
         context.ProductVariants.Add(
-            new ProductVariant(productId, price, "ARS", oldPrice, region, edition, sortOrder, isActive));
+            new ProductVariant(productId, price, "ARS", discountPercentage, region, edition, sortOrder, isActive));
     }
 }

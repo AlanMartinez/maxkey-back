@@ -4,16 +4,21 @@ namespace Maxkeys.Domain.Catalog;
 
 /// <summary>
 /// A purchasable variant of a <see cref="Product"/> (region/edition/tier),
-/// each with its own ARS price. Variants are seed-managed (design section 4.1);
-/// <see cref="UpdateDetails"/> is the one mutation method, added in PR12 so
-/// <c>CatalogSeeder</c> (ADR-12) can upsert an existing row instead of only
-/// inserting.
+/// each with its own ARS/USD price. Variants are seed-managed (design section
+/// 4.1); <see cref="UpdateDetails"/> is the one mutation method, added in PR12
+/// so <c>CatalogSeeder</c> (ADR-12) can upsert an existing row instead of only
+/// inserting. <see cref="DiscountPercentage"/> is the sole discount input
+/// (admin-catalog spec "Variant Discount Percentage Pricing"); the display
+/// <c>OldPrice</c> is a read-time computation (<c>VariantPricing.ComputeOldPrice</c>),
+/// not persisted state.
 /// </summary>
 public sealed class ProductVariant : Entity
 {
+    private static readonly string[] SupportedCurrencies = ["ARS", "USD"];
+
     public Guid ProductId { get; private set; }
     public decimal Price { get; private set; }
-    public decimal? OldPrice { get; private set; }
+    public decimal? DiscountPercentage { get; private set; }
     public string Currency { get; private set; }
     public string? Region { get; private set; }
     public string? Edition { get; private set; }
@@ -24,30 +29,17 @@ public sealed class ProductVariant : Entity
         Guid productId,
         decimal price,
         string currency,
-        decimal? oldPrice = null,
+        decimal? discountPercentage = null,
         string? region = null,
         string? edition = null,
         int sortOrder = 0,
         bool isActive = true)
     {
-        if (price <= 0)
-        {
-            throw new DomainException("Variant price must be greater than zero.");
-        }
-
-        if (oldPrice is not null && oldPrice <= price)
-        {
-            throw new DomainException("Variant old price must be greater than the current price.");
-        }
-
-        if (currency != "ARS")
-        {
-            throw new DomainException("Variant currency must be ARS.");
-        }
+        Validate(price, discountPercentage, currency);
 
         ProductId = productId;
         Price = price;
-        OldPrice = oldPrice;
+        DiscountPercentage = discountPercentage;
         Currency = currency;
         Region = region;
         Edition = edition;
@@ -58,34 +50,40 @@ public sealed class ProductVariant : Entity
     /// <summary>Updates all mutable fields in place. Shares the same invariants as the constructor.</summary>
     public void UpdateDetails(
         decimal price,
-        decimal? oldPrice,
+        decimal? discountPercentage,
         string currency,
         string? region,
         string? edition,
         int sortOrder,
         bool isActive)
     {
-        if (price <= 0)
-        {
-            throw new DomainException("Variant price must be greater than zero.");
-        }
-
-        if (oldPrice is not null && oldPrice <= price)
-        {
-            throw new DomainException("Variant old price must be greater than the current price.");
-        }
-
-        if (currency != "ARS")
-        {
-            throw new DomainException("Variant currency must be ARS.");
-        }
+        Validate(price, discountPercentage, currency);
 
         Price = price;
-        OldPrice = oldPrice;
+        DiscountPercentage = discountPercentage;
         Currency = currency;
         Region = region;
         Edition = edition;
         SortOrder = sortOrder;
         IsActive = isActive;
+    }
+
+    /// <summary>Shared invariants for the constructor and <see cref="UpdateDetails"/> (design D2).</summary>
+    private static void Validate(decimal price, decimal? discountPercentage, string currency)
+    {
+        if (price <= 0)
+        {
+            throw new DomainException("Variant price must be greater than zero.");
+        }
+
+        if (discountPercentage is not null && (discountPercentage <= 0 || discountPercentage >= 100))
+        {
+            throw new DomainException("Variant discount percentage must be between 0 and 100, exclusive.");
+        }
+
+        if (!SupportedCurrencies.Contains(currency))
+        {
+            throw new DomainException("Variant currency must be ARS or USD.");
+        }
     }
 }

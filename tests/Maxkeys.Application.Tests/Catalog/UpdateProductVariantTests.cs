@@ -31,7 +31,7 @@ public sealed class UpdateProductVariantTests
         var sut = new UpdateProductVariant(context);
 
         var updated = await sut.ExecuteAsync(
-            variantId, price: 250m, oldPrice: null, currency: "ARS", region: "AR", edition: "Deluxe", sortOrder: 1, isActive: false);
+            variantId, price: 250m, discountPercentage: null, currency: "ARS", region: "AR", edition: "Deluxe", sortOrder: 1, isActive: false);
 
         Assert.NotNull(updated);
         Assert.Equal(250m, updated!.Price);
@@ -55,7 +55,7 @@ public sealed class UpdateProductVariantTests
         var sut = new UpdateProductVariant(context);
 
         await Assert.ThrowsAsync<DomainException>(
-            () => sut.ExecuteAsync(variantId, price: 0m, oldPrice: null, currency: "ARS", region: null, edition: null, sortOrder: 0, isActive: true));
+            () => sut.ExecuteAsync(variantId, price: 0m, discountPercentage: null, currency: "ARS", region: null, edition: null, sortOrder: 0, isActive: true));
 
         await using var verify = _fixture.CreateContext();
         var reloaded = await verify.ProductVariants.FindAsync(variantId);
@@ -69,7 +69,7 @@ public sealed class UpdateProductVariantTests
         var sut = new UpdateProductVariant(context);
 
         var updated = await sut.ExecuteAsync(
-            Guid.NewGuid(), price: 100m, oldPrice: null, currency: "ARS", region: null, edition: null, sortOrder: 0, isActive: true);
+            Guid.NewGuid(), price: 100m, discountPercentage: null, currency: "ARS", region: null, edition: null, sortOrder: 0, isActive: true);
 
         Assert.Null(updated);
     }
