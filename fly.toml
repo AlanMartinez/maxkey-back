@@ -8,6 +8,10 @@ primary_region = 'ams'
 
 [build]
 
+[env]
+  # TODO(tech-debt): R2 Public Development URL, not a Custom Domain (see deploy/fly.toml).
+  Storage__R2PublicBaseUrl = 'https://pub-d26599ecfc0f4b1092350d82115c5398.r2.dev'
+
 [http_service]
   internal_port = 8080
   force_https = true
