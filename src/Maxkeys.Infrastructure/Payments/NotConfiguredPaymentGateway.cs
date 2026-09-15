@@ -21,4 +21,7 @@ public sealed class NotConfiguredPaymentGateway : IPaymentGateway
 
     public Task<PaymentInfo> GetPaymentAsync(string paymentId, CancellationToken cancellationToken = default) =>
         throw new PaymentGatewayException(Message);
+
+    public Task<PaymentInfo?> FindApprovedPaymentAsync(string externalReference, CancellationToken cancellationToken = default) =>
+        throw new PaymentGatewayException(Message);
 }

@@ -14,10 +14,15 @@ public sealed class FakePaymentGateway : IPaymentGateway
 
     public List<string> GetPaymentCalls { get; } = [];
 
+    public List<string> FindApprovedPaymentCalls { get; } = [];
+
     public PaymentPreference PreferenceToReturn { get; set; } =
         new("fake-preference-id", "https://mp.test/checkout/fake-preference-id");
 
     public PaymentInfo? PaymentToReturn { get; set; }
+
+    /// <summary>Result for <see cref="FindApprovedPaymentAsync"/>; <see langword="null"/> means "not found" (not "not configured").</summary>
+    public PaymentInfo? ApprovedPaymentToReturn { get; set; }
 
     /// <summary>When set, both methods throw this instead of returning.</summary>
     public Exception? ExceptionToThrow { get; set; }
@@ -50,5 +55,17 @@ public sealed class FakePaymentGateway : IPaymentGateway
         }
 
         return Task.FromResult(PaymentToReturn);
+    }
+
+    public Task<PaymentInfo?> FindApprovedPaymentAsync(string externalReference, CancellationToken cancellationToken = default)
+    {
+        FindApprovedPaymentCalls.Add(externalReference);
+
+        if (ExceptionToThrow is not null)
+        {
+            throw ExceptionToThrow;
+        }
+
+        return Task.FromResult(ApprovedPaymentToReturn);
     }
 }

@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddOutboxProcessor(configuration);
 
         AddPaymentGateway(services, configuration);
+        services.AddPaymentReconciliation(configuration);
         AddUseCases(services);
 
         return services;
@@ -126,6 +127,7 @@ public static class DependencyInjection
     private static void AddPaymentGateway(IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<MercadoPagoOptions>().Bind(configuration.GetSection(MercadoPagoOptions.SectionName));
+        services.AddOptions<FrontendOptions>().Bind(configuration.GetSection(FrontendOptions.SectionName));
         services.AddSingleton<MercadoPagoSignatureValidator>();
 
         services.AddScoped<NotConfiguredPaymentGateway>();

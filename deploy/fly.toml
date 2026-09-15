@@ -47,6 +47,11 @@ primary_region = "eze"  # <placeholder> Fly region code (eze = Buenos Aires)
 
   # --- CORS (task 18a.3) — never a wildcard; one explicit origin per entry ---
   Cors__AllowedOrigins__0 = "https://<your-vercel-project>.vercel.app"  # Vercel production origin
+
+  # --- Frontend (design section 10) — Mercado Pago back_urls target. Without this,
+  # CreatePreferenceAsync sends no back_urls/auto_return and MP shows its own
+  # confirmation page instead of redirecting to /checkout/result. Same origin as CORS above.
+  Frontend__BaseUrl = "https://<your-vercel-project>.vercel.app"
   # Add one more Cors__AllowedOrigins__<n> per Vercel preview origin that needs API
   # access (PR18b README note); preview origins follow the pattern
   # https://<project>-<hash>-<team>.vercel.app and change per deploy.
