@@ -273,6 +273,256 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Admin_can_create_a_product()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "New Product",
+            platform = UniquePlatform(),
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.Equal(slug, created!.Slug);
+        Assert.Equal("New Product", created.Name);
+    }
+
+    [Fact]
+    public async Task Creating_a_product_with_a_duplicate_slug_returns_409()
+    {
+        var existingSlug = $"p-{Guid.NewGuid():N}";
+        await Seed(async db =>
+        {
+            db.Products.Add(new Product(existingSlug, "Original Product", UniquePlatform()));
+            await db.SaveChangesAsync();
+        });
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug = existingSlug,
+            name = "Duplicate Slug Product",
+            platform = UniquePlatform(),
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Creating_a_product_with_an_empty_name_returns_422()
+    {
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug = $"p-{Guid.NewGuid():N}",
+            name = "",
+            platform = UniquePlatform(),
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_create_product_is_rejected()
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug = $"p-{Guid.NewGuid():N}",
+            name = "Name",
+            platform = UniquePlatform(),
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_creating_product()
+    {
+        var response = await AdminClient(NonAdminSub).PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug = $"p-{Guid.NewGuid():N}",
+            name = "Name",
+            platform = UniquePlatform(),
+            description = (string?)null,
+            imageKey = (string?)null,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_soft_delete_a_product()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{productId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var deleted = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.False(deleted!.IsActive);
+    }
+
+    [Fact]
+    public async Task Deleting_an_unknown_product_returns_404()
+    {
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_delete_product_is_rejected()
+    {
+        var response = await _factory.CreateClient().DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_deleting_product()
+    {
+        var response = await AdminClient(NonAdminSub).DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_create_a_variant_for_an_existing_product()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PostAsJsonAsync($"/admin/catalog/products/{productId}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<AdminVariant>();
+        Assert.Equal(100m, created!.Price);
+    }
+
+    [Fact]
+    public async Task Creating_a_variant_with_a_non_positive_price_returns_422()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PostAsJsonAsync($"/admin/catalog/products/{productId}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 0m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Creating_a_variant_for_an_unknown_product_returns_404()
+    {
+        var response = await AdminClient().PostAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_create_variant_is_rejected()
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_creating_variant()
+    {
+        var response = await AdminClient(NonAdminSub).PostAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_soft_delete_a_variant()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/variants/{variantId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var deleted = await response.Content.ReadFromJsonAsync<AdminVariant>();
+        Assert.False(deleted!.IsActive);
+    }
+
+    [Fact]
+    public async Task Deleting_an_unknown_variant_returns_404()
+    {
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/variants/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_delete_variant_is_rejected()
+    {
+        var response = await _factory.CreateClient().DeleteAsync($"/admin/catalog/variants/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_deleting_variant()
+    {
+        var response = await AdminClient(NonAdminSub).DeleteAsync($"/admin/catalog/variants/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private static string UniquePlatform() => $"platform-{Guid.NewGuid():N}";
 
     private async Task<Guid> SeedProductAsync()

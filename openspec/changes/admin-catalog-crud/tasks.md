@@ -57,11 +57,11 @@ Rationale: `OldPrice` removal from `ProductVariant` is a hard compile-time depen
 
 ## Phase 5: API endpoints (new routes)
 
-- [ ] 5.1 `AdminCatalogEndpoints.cs`: add `CreateProductRequest`, `CreateProductVariantRequest`
-- [ ] 5.2 `POST /admin/catalog/products` → 201 Created / 409 duplicate slug / 422 invalid fields, under `AdminPolicy`
-- [ ] 5.3 `DELETE /admin/catalog/products/{id}` → 200 with updated DTO / 404, under `AdminPolicy`
-- [ ] 5.4 `POST /admin/catalog/products/{productId}/variants` → 201 / 404 parent / 422 invariant, under `AdminPolicy`
-- [ ] 5.5 `DELETE /admin/catalog/variants/{id}` → 200 with updated DTO / 404, under `AdminPolicy`
+- [x] 5.1 `AdminCatalogEndpoints.cs`: add `CreateProductRequest`, `CreateProductVariantRequest`
+- [x] 5.2 `POST /admin/catalog/products` → 201 Created / 409 duplicate slug / 422 invalid fields, under `AdminPolicy`
+- [x] 5.3 `DELETE /admin/catalog/products/{id}` → 200 with updated DTO / 404, under `AdminPolicy`
+- [x] 5.4 `POST /admin/catalog/products/{productId}/variants` → 201 / 404 parent / 422 invariant, under `AdminPolicy`
+- [x] 5.5 `DELETE /admin/catalog/variants/{id}` → 200 with updated DTO / 404, under `AdminPolicy`
 
 ## Phase 6: Seeder + seed data
 
@@ -74,9 +74,9 @@ Rationale: `OldPrice` removal from `ProductVariant` is a hard compile-time depen
 - [x] 7.1 Update existing Application/API tests asserting on `OldPrice` write input to assert `DiscountPercentage` instead (PR1 scope only — covers Phase 1/2/3/6 changes)
 - [x] 7.2 Application tests: `CreateProduct` (created / duplicate slug → null / invalid → exception), `DeleteProduct` (soft-delete, sibling fields preserved) — deferred to PR2
 - [x] 7.3 Application tests: `CreateProductVariant` (created / unknown parent → null / invalid invariant), `DeleteProductVariant` (soft-delete, refs preserved) — deferred to PR2
-- [ ] 7.4 API tests: 201/409/422 for `POST products`, 200/404 for `DELETE products/{id}` — deferred to PR3
-- [ ] 7.5 API tests: 201/404/422 for `POST variants`, 200/404 for `DELETE variants/{id}` — deferred to PR3
-- [ ] 7.6 API tests: 401/403 for all 4 new routes under `AdminPolicy` (spec scenario "New endpoints enforce the same policy") — deferred to PR3
+- [x] 7.4 API tests: 201/409/422 for `POST products`, 200/404 for `DELETE products/{id}` — deferred to PR3
+- [x] 7.5 API tests: 201/404/422 for `POST variants`, 200/404 for `DELETE variants/{id}` — deferred to PR3
+- [x] 7.6 API tests: 401/403 for all 4 new routes under `AdminPolicy` (spec scenario "New endpoints enforce the same policy") — deferred to PR3
 
 ## Key Learnings
 
