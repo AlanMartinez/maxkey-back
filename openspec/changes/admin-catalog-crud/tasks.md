@@ -49,11 +49,11 @@ Rationale: `OldPrice` removal from `ProductVariant` is a hard compile-time depen
 
 ## Phase 4: Application — new use cases (additive)
 
-- [ ] 4.1 `CreateProduct.cs` (new): slug pre-check → `null` = 409; returns `AdminProduct`
-- [ ] 4.2 `DeleteProduct.cs` (new): soft-delete via `UpdateCatalogInfo(..., isActive:false)`
-- [ ] 4.3 `CreateProductVariant.cs` (new): parent lookup → `null` = 404
-- [ ] 4.4 `DeleteProductVariant.cs` (new): soft-delete via `UpdateDetails(..., isActive:false)`
-- [ ] 4.5 `src/Maxkeys.Infrastructure/DependencyInjection.cs`: register the 4 new use cases in `AddUseCases`
+- [x] 4.1 `CreateProduct.cs` (new): slug pre-check → `null` = 409; returns `AdminProduct`
+- [x] 4.2 `DeleteProduct.cs` (new): soft-delete via `UpdateCatalogInfo(..., isActive:false)`
+- [x] 4.3 `CreateProductVariant.cs` (new): parent lookup → `null` = 404
+- [x] 4.4 `DeleteProductVariant.cs` (new): soft-delete via `UpdateDetails(..., isActive:false)`
+- [x] 4.5 `src/Maxkeys.Infrastructure/DependencyInjection.cs`: register the 4 new use cases in `AddUseCases`
 
 ## Phase 5: API endpoints (new routes)
 
@@ -72,8 +72,8 @@ Rationale: `OldPrice` removal from `ProductVariant` is a hard compile-time depen
 ## Phase 7: Tests
 
 - [x] 7.1 Update existing Application/API tests asserting on `OldPrice` write input to assert `DiscountPercentage` instead (PR1 scope only — covers Phase 1/2/3/6 changes)
-- [ ] 7.2 Application tests: `CreateProduct` (created / duplicate slug → null / invalid → exception), `DeleteProduct` (soft-delete, sibling fields preserved) — deferred to PR2
-- [ ] 7.3 Application tests: `CreateProductVariant` (created / unknown parent → null / invalid invariant), `DeleteProductVariant` (soft-delete, refs preserved) — deferred to PR2
+- [x] 7.2 Application tests: `CreateProduct` (created / duplicate slug → null / invalid → exception), `DeleteProduct` (soft-delete, sibling fields preserved) — deferred to PR2
+- [x] 7.3 Application tests: `CreateProductVariant` (created / unknown parent → null / invalid invariant), `DeleteProductVariant` (soft-delete, refs preserved) — deferred to PR2
 - [ ] 7.4 API tests: 201/409/422 for `POST products`, 200/404 for `DELETE products/{id}` — deferred to PR3
 - [ ] 7.5 API tests: 201/404/422 for `POST variants`, 200/404 for `DELETE variants/{id}` — deferred to PR3
 - [ ] 7.6 API tests: 401/403 for all 4 new routes under `AdminPolicy` (spec scenario "New endpoints enforce the same policy") — deferred to PR3
