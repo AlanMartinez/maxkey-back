@@ -52,7 +52,10 @@ primary_region = "eze"  # <placeholder> Fly region code (eze = Buenos Aires)
   # https://<project>-<hash>-<team>.vercel.app and change per deploy.
 
   # --- Storage (Cloudflare R2 — URL builder only, ADR-12) ---
-  Storage__R2PublicBaseUrl = "https://<bucket>.r2.dev"
+  # TODO(tech-debt): using the R2 Public Development URL, not a Custom Domain.
+  # Cloudflare flags this as not recommended for prod (no custom caching/TLS
+  # control). Swap for a Custom Domain when one is set up — env-var-only change.
+  Storage__R2PublicBaseUrl = "https://pub-d26599ecfc0f4b1092350d82115c5398.r2.dev"
 
   # --- Email (ADR-08) ---
   Email__Sender = "Smtp"
