@@ -22,9 +22,7 @@ primary_region = 'ams'
   Frontend__BaseUrl = 'https://maxkey-front.vercel.app'
 
   # Mercado Pago webhook notification target — must be this app's public HTTPS URL.
-  # <fly-app> below must match the `app` name at the top of this file once the real
-  # Fly app is provisioned.
-  Payments__NotificationUrl = 'https://maxkey-back.fly.dev/webhooks/mercadopago'
+  Payments__NotificationUrl = 'https://maxkeys.fly.dev/webhooks/mercadopago'
 
   # Supabase JWT validation (design section 10). Same wholesale-replace risk as
   # Cors above — must stay committed here, not set only via `fly secrets`.
