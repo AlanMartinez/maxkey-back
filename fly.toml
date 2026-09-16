@@ -15,6 +15,7 @@ primary_region = 'ams'
   # Vercel production origin (ADR-18: frontend is a separate origin, CORS is mandatory).
   # `flyctl deploy` replaces the app's [env] wholesale, so this must stay committed here.
   Cors__AllowedOrigins__0 = 'https://maxkey-front.vercel.app'
+  Cors__AllowedOrigins__1 = 'https://www.chekeys.com'
 
   # Mercado Pago back_urls target (design section 10) — without this, CreatePreferenceAsync
   # sends no back_urls/auto_return at all and MP shows its own confirmation page instead of
