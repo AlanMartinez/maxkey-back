@@ -8,6 +8,11 @@ primary_region = 'ams'
 
 [build]
 
+[deploy]
+  # ADR-13 / task 18a.2: runs `Maxkeys.Api --migrate` once per release, before
+  # new instances receive traffic.
+  release_command = 'dotnet Maxkeys.Api.dll --migrate'
+
 [env]
   # TODO(tech-debt): R2 Public Development URL, not a Custom Domain (see deploy/fly.toml).
   Storage__R2PublicBaseUrl = 'https://pub-d26599ecfc0f4b1092350d82115c5398.r2.dev'
