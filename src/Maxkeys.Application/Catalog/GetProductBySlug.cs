@@ -46,6 +46,7 @@ public sealed class GetProductBySlug
             product.Name,
             product.Platform,
             _imageUrlBuilder.Build(product.ImageKey),
+            _imageUrlBuilder.Build(product.DetailImageKey),
             cheapest?.Price ?? 0m,
             cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage),
             product.Description,

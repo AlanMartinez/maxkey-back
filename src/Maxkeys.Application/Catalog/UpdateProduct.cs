@@ -32,6 +32,7 @@ public sealed class UpdateProduct
         string platform,
         string? description,
         string? imageKey,
+        string? detailImageKey,
         bool isActive,
         CancellationToken cancellationToken = default)
     {
@@ -41,7 +42,7 @@ public sealed class UpdateProduct
             return null;
         }
 
-        product.UpdateCatalogInfo(name, platform, description, imageKey, isActive);
+        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive);
         await _db.SaveChangesAsync(cancellationToken);
 
         var variants = await _db.ProductVariants

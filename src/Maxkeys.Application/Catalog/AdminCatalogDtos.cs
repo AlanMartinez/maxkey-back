@@ -30,5 +30,7 @@ public sealed record AdminProduct(
     bool IsActive,
     string? ImageKey,
     string ImageUrl,
+    string? DetailImageKey,
+    string DetailImageUrl,
     string Description,
     IReadOnlyList<AdminVariant> Variants);

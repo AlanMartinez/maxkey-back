@@ -33,12 +33,13 @@ public sealed class UpdateProductTests
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
         var updated = await sut.ExecuteAsync(
-            productId, "New Name", "PSN", "New description", "products/new.png", isActive: true);
+            productId, "New Name", "PSN", "New description", "products/new.png", "products/new-detail.png", isActive: true);
 
         Assert.NotNull(updated);
         Assert.Equal("New Name", updated!.Name);
         Assert.Equal("New description", updated.Description);
         Assert.Equal("products/new.png", updated.ImageKey);
+        Assert.Equal("products/new-detail.png", updated.DetailImageKey);
     }
 
     [Fact]
@@ -56,7 +57,7 @@ public sealed class UpdateProductTests
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
         await Assert.ThrowsAsync<DomainException>(
-            () => sut.ExecuteAsync(productId, string.Empty, "PSN", null, null, isActive: true));
+            () => sut.ExecuteAsync(productId, string.Empty, "PSN", null, null, null, isActive: true));
 
         await using var verify = _fixture.CreateContext();
         var reloaded = await verify.Products.FindAsync(productId);
@@ -69,7 +70,7 @@ public sealed class UpdateProductTests
         await using var context = _fixture.CreateContext();
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
-        var updated = await sut.ExecuteAsync(Guid.NewGuid(), "Name", "PSN", null, null, isActive: true);
+        var updated = await sut.ExecuteAsync(Guid.NewGuid(), "Name", "PSN", null, null, null, isActive: true);
 
         Assert.Null(updated);
     }
@@ -89,7 +90,7 @@ public sealed class UpdateProductTests
         await using var context = _fixture.CreateContext();
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
-        var updated = await sut.ExecuteAsync(productId, "Name", "PSN", null, null, isActive: false);
+        var updated = await sut.ExecuteAsync(productId, "Name", "PSN", null, null, null, isActive: false);
 
         Assert.NotNull(updated);
         Assert.False(updated!.IsActive);

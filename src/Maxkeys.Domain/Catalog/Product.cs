@@ -16,6 +16,7 @@ public sealed class Product : Entity
     public string Platform { get; private set; }
     public bool IsActive { get; private set; }
     public string? ImageKey { get; private set; }
+    public string? DetailImageKey { get; private set; }
     public string Description { get; private set; }
 
     public Product(
@@ -24,7 +25,8 @@ public sealed class Product : Entity
         string platform,
         bool isActive = true,
         string? imageKey = null,
-        string? description = null)
+        string? description = null,
+        string? detailImageKey = null)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
@@ -51,6 +53,7 @@ public sealed class Product : Entity
         Platform = platform;
         IsActive = isActive;
         ImageKey = imageKey;
+        DetailImageKey = detailImageKey;
         Description = description ?? string.Empty;
     }
 
@@ -59,7 +62,8 @@ public sealed class Product : Entity
     /// <see cref="Slug"/> is the seeder's upsert key and is never changed here.
     /// Shares the same non-empty invariants as the constructor.
     /// </summary>
-    public void UpdateCatalogInfo(string name, string platform, string? description, string? imageKey, bool isActive)
+    public void UpdateCatalogInfo(
+        string name, string platform, string? description, string? imageKey, string? detailImageKey, bool isActive)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -75,6 +79,7 @@ public sealed class Product : Entity
         Platform = platform;
         Description = description ?? string.Empty;
         ImageKey = imageKey;
+        DetailImageKey = detailImageKey;
         IsActive = isActive;
     }
 }

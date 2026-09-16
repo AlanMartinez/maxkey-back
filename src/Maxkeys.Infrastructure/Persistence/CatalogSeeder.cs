@@ -42,7 +42,8 @@ public static class CatalogSeeder
                     seedProduct.Platform,
                     seedProduct.IsActive,
                     seedProduct.ImageKey,
-                    seedProduct.Description);
+                    seedProduct.Description,
+                    seedProduct.DetailImageKey);
                 db.Products.Add(product);
             }
             else
@@ -52,6 +53,7 @@ public static class CatalogSeeder
                     seedProduct.Platform,
                     seedProduct.Description,
                     seedProduct.ImageKey,
+                    seedProduct.DetailImageKey,
                     seedProduct.IsActive);
             }
 
@@ -102,6 +104,7 @@ internal sealed record CatalogSeedProduct(
     string Platform,
     [property: JsonPropertyName("description")] string? Description,
     [property: JsonPropertyName("imageKey")] string? ImageKey,
+    [property: JsonPropertyName("detailImageKey")] string? DetailImageKey,
     bool IsActive,
     List<CatalogSeedVariant> Variants);
 
