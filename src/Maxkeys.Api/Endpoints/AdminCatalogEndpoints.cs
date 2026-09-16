@@ -25,7 +25,7 @@ public static class AdminCatalogEndpoints
             CancellationToken cancellationToken) =>
         {
             var product = await useCase.ExecuteAsync(
-                id, body.Name, body.Platform, body.Description, body.ImageKey, body.IsActive, cancellationToken);
+                id, body.Name, body.Platform, body.Description, body.ImageKey, body.DetailImageKey, body.IsActive, cancellationToken);
             return product is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
                 : Results.Ok(product);
@@ -49,7 +49,8 @@ public static class AdminCatalogEndpoints
 }
 
 /// <summary>Admin request body for <c>PUT /admin/catalog/products/{id}</c> (design D3 contract table).</summary>
-public sealed record UpdateProductRequest(string Name, string Platform, string? Description, string? ImageKey, bool IsActive);
+public sealed record UpdateProductRequest(
+    string Name, string Platform, string? Description, string? ImageKey, string? DetailImageKey, bool IsActive);
 
 /// <summary>Admin request body for <c>PUT /admin/catalog/variants/{id}</c> (design D3 contract table).</summary>
 public sealed record UpdateProductVariantRequest(

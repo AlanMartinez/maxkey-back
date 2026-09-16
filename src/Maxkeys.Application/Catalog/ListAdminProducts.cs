@@ -53,6 +53,8 @@ public sealed class ListAdminProducts
             product.IsActive,
             product.ImageKey,
             imageUrlBuilder.Build(product.ImageKey),
+            product.DetailImageKey,
+            imageUrlBuilder.Build(product.DetailImageKey),
             product.Description,
             variants.Select(ToAdminVariant).ToList());
 

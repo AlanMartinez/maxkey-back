@@ -47,6 +47,7 @@ public sealed record ProductDetail(
     string Name,
     string Platform,
     string ImageUrl,
+    string DetailImageUrl,
     decimal FromPrice,
     decimal? OldPrice,
     string Description,
