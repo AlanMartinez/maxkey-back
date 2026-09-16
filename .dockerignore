@@ -1,0 +1,40 @@
+# flyctl launch added from .codegraph/.gitignore
+# CodeGraph data files — local to each machine, not for committing.
+# Ignore everything in .codegraph/ except this file itself, so transient
+# files (the database, daemon.pid, sockets, logs) never show up in git.
+.codegraph/**/*
+!.codegraph/**/.gitignore
+
+# flyctl launch added from .gitignore
+# dotnet
+**/bin
+**/obj
+**/TestResults
+**/*.user
+
+# node / nuxt
+**/node_modules
+**/dist
+**/.nuxt
+**/.output
+
+# secrets
+**/.env
+**/.env.*
+**/appsettings.*.local.json
+
+# IDE
+**/.vs
+**/.idea
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Gentle AI skill registry cache
+**/.atl/.skill-registry.cache.json
+
+# CodeGraph index (per checkout)
+**/.codegraph
+**/openspec/changes/*/.gentle-ai-instance
+fly.toml
