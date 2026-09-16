@@ -254,6 +254,27 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
+    /// <summary>Admin catalog UX: hard-delete removes the variant row outright, unlike the isActive toggle.</summary>
+    [Fact]
+    public async Task Admin_can_hard_delete_a_variant()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/variants/{variantId}");
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<AdminProduct>>();
+        Assert.DoesNotContain(products!.SelectMany(p => p.Variants), v => v.Id == variantId);
+    }
+
+    [Fact]
+    public async Task Deleting_unknown_variant_returns_404()
+    {
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/variants/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task Non_whitelisted_currency_returns_422()
     {
