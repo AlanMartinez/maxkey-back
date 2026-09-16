@@ -44,6 +44,17 @@ public static class AdminCatalogEndpoints
                 : Results.Ok(variant);
         });
 
+        group.MapDelete("/variants/{id:guid}", async (
+            Guid id,
+            DeleteProductVariant useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var deleted = await useCase.ExecuteAsync(id, cancellationToken);
+            return deleted
+                ? Results.NoContent()
+                : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Variant not found");
+        });
+
         return app;
     }
 }
