@@ -45,6 +45,23 @@ public sealed class GetMyOrdersTests
     }
 
     [Fact]
+    public async Task GetMyOrders_excludes_pending_and_cancelled_orders()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var seedContext = _fixture.CreateContext();
+        await SeedOrderAsync(seedContext, userId);
+        await SeedPendingOrderAsync(seedContext, userId);
+        await SeedCancelledOrderAsync(seedContext, userId);
+
+        await using var context = _fixture.CreateContext();
+        var result = await new GetMyOrders(context).ExecuteAsync(userId);
+
+        Assert.Single(result);
+        Assert.Equal(OrderStatus.AwaitingFulfillment, result[0].Status);
+    }
+
+    [Fact]
     public async Task GetMyOrder_returns_null_for_a_non_owner()
     {
         var owner = Guid.NewGuid();
@@ -102,5 +119,24 @@ public sealed class GetMyOrdersTests
         context.Orders.Add(order);
         await context.SaveChangesAsync();
         return order.Id;
+    }
+
+    private static async Task SeedPendingOrderAsync(Infrastructure.Persistence.AppDbContext context, Guid userId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var order = Order.Create(userId, $"buyer-{Guid.NewGuid():N}@example.com", [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], now);
+
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task SeedCancelledOrderAsync(Infrastructure.Persistence.AppDbContext context, Guid userId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var order = Order.Create(userId, $"buyer-{Guid.NewGuid():N}@example.com", [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], now);
+        order.Cancel(now);
+
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
     }
 }
