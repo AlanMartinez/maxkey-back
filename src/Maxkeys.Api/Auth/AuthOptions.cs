@@ -36,4 +36,16 @@ public sealed class AuthOptions
     /// spec "Admin Authorization Policy"). Empty MUST deny every caller.
     /// </summary>
     public string[] AdminSubs { get; set; } = [];
+
+    /// <summary>
+    /// Local-only escape hatch so a developer without a real Supabase admin
+    /// account can exercise admin endpoints (e.g. seeding test catalog data)
+    /// without logging in. Defaults to <see langword="false"/> and MUST only
+    /// ever be set via `dotnet user-secrets` — never in an appsettings*.json
+    /// file, so it can't accidentally ship. <see cref="AdminAuthorizationHandler"/>
+    /// additionally requires <c>IHostEnvironment.IsDevelopment()</c> before
+    /// honoring this flag, so a stray `true` is inert outside local dev even if
+    /// it ever leaked into a committed file.
+    /// </summary>
+    public bool DevBypassAdmin { get; set; }
 }
