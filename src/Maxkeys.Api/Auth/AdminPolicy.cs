@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Api.Auth;
@@ -26,14 +27,24 @@ public sealed class AdminRequirement : IAuthorizationRequirement;
 public sealed class AdminAuthorizationHandler : AuthorizationHandler<AdminRequirement>
 {
     private readonly IOptionsMonitor<AuthOptions> _options;
+    private readonly IHostEnvironment _environment;
 
-    public AdminAuthorizationHandler(IOptionsMonitor<AuthOptions> options)
+    public AdminAuthorizationHandler(IOptionsMonitor<AuthOptions> options, IHostEnvironment environment)
     {
         _options = options;
+        _environment = environment;
     }
 
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, AdminRequirement requirement)
     {
+        // Both conditions are required, deliberately: a bare environment-name check would also fire for
+        // WebApplicationFactory-hosted tests, which default to "Development" too (see AdminCatalogEndpointsTests).
+        if (_environment.IsDevelopment() && _options.CurrentValue.DevBypassAdmin)
+        {
+            context.Succeed(requirement);
+            return Task.CompletedTask;
+        }
+
         var sub = context.User.FindFirst("sub")?.Value;
         var adminSubs = _options.CurrentValue.AdminSubs;
 
