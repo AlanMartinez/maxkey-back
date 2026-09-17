@@ -17,6 +17,7 @@ public sealed class Product : Entity
     public string Name { get; private set; }
     public string Platform { get; private set; }
     public bool IsActive { get; private set; }
+    public bool VaultEnabled { get; private set; }
     public string? ImageKey { get; private set; }
     public string? DetailImageKey { get; private set; }
     public string Description { get; private set; }
@@ -58,6 +59,7 @@ public sealed class Product : Entity
         Name = name;
         Platform = platform;
         IsActive = isActive;
+        VaultEnabled = false;
         ImageKey = imageKey;
         DetailImageKey = detailImageKey;
         Description = description ?? string.Empty;
@@ -119,5 +121,15 @@ public sealed class Product : Entity
         }
 
         Slug = slug;
+    }
+
+    /// <summary>
+    /// Enables or disables vault auto-fulfillment for this product (vault
+    /// spec: Per-Product Vault Toggle). Applies uniformly to every variant of
+    /// this product — there is no per-variant override.
+    /// </summary>
+    public void SetVaultEnabled(bool enabled)
+    {
+        VaultEnabled = enabled;
     }
 }

@@ -39,4 +39,33 @@ public class ProductTests
     {
         Assert.Throws<DomainException>(() => new Product("fc-points", "FC Points", ""));
     }
+
+    [Fact]
+    public void Constructor_WithValidData_CreatesProductWithVaultDisabled()
+    {
+        var product = new Product("fc-points", "FC Points", "PS5");
+
+        Assert.False(product.VaultEnabled);
+    }
+
+    [Fact]
+    public void SetVaultEnabled_True_EnablesVault()
+    {
+        var product = new Product("fc-points", "FC Points", "PS5");
+
+        product.SetVaultEnabled(true);
+
+        Assert.True(product.VaultEnabled);
+    }
+
+    [Fact]
+    public void SetVaultEnabled_False_DisablesVault()
+    {
+        var product = new Product("fc-points", "FC Points", "PS5");
+        product.SetVaultEnabled(true);
+
+        product.SetVaultEnabled(false);
+
+        Assert.False(product.VaultEnabled);
+    }
 }
