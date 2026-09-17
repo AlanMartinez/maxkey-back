@@ -49,6 +49,7 @@ public static class AdminCatalogEndpoints
         {
             var product = await useCase.ExecuteAsync(
                 id,
+                body.Slug,
                 body.Name,
                 body.Platform,
                 body.Description,
@@ -92,7 +93,7 @@ public static class AdminCatalogEndpoints
     }
 }
 
-/// <summary>Admin request body for <c>POST /admin/catalog/products</c>. Unlike <see cref="UpdateProductRequest"/>, carries <c>Slug</c> — immutable once created.</summary>
+/// <summary>Admin request body for <c>POST /admin/catalog/products</c>.</summary>
 public sealed record CreateProductRequest(
     string Slug,
     string Name,
@@ -107,6 +108,7 @@ public sealed record CreateProductRequest(
 
 /// <summary>Admin request body for <c>PUT /admin/catalog/products/{id}</c> (design D3 contract table).</summary>
 public sealed record UpdateProductRequest(
+    string Slug,
     string Name,
     string Platform,
     string? Description,

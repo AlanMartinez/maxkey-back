@@ -100,6 +100,29 @@ public sealed class GetProductBySlugTests
     }
 
     [Fact]
+    public async Task Prepends_the_catalog_image_before_gallery_images()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(
+                seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug, imageKey: "products/main.png");
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m);
+            seed.ProductImages.Add(new Domain.Catalog.ProductImage(product.Id, "products/gallery/1.png", sortOrder: 0));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Equal(["https://img.test/products/main.png", "https://img.test/products/gallery/1.png"], detail!.Images);
+    }
+
+    [Fact]
     public async Task Returns_null_for_unknown_slug()
     {
         await using var context = _fixture.CreateContext();

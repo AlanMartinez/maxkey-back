@@ -45,18 +45,29 @@ public sealed class GetProductBySlug
             .OrderBy(i => i.SortOrder)
             .ToListAsync(cancellationToken);
 
+        var mainImageUrl = _imageUrlBuilder.Build(product.ImageKey);
+        // Gallery carousel: catalog image first, then admin-uploaded gallery images in order
+        // (admin-catalog spec). `ProductImages` never includes the main key, so it must be
+        // prepended here or a product with any gallery images loses its catalog image entirely.
+        var galleryUrls = new List<string>();
+        if (!string.IsNullOrEmpty(mainImageUrl))
+        {
+            galleryUrls.Add(mainImageUrl);
+        }
+        galleryUrls.AddRange(images.Select(i => _imageUrlBuilder.Build(i.ImageKey)));
+
         return new ProductDetail(
             product.Id,
             product.Slug,
             product.Name,
             product.Platform,
-            _imageUrlBuilder.Build(product.ImageKey),
+            mainImageUrl,
             _imageUrlBuilder.Build(product.DetailImageKey),
             cheapest?.Price ?? 0m,
             cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage),
             product.Description,
             variants.Select(ToVariantDetail).ToList(),
-            images.Select(i => _imageUrlBuilder.Build(i.ImageKey)).ToList(),
+            galleryUrls,
             product.ActivationGuideUrl,
             product.ActivationType);
     }
