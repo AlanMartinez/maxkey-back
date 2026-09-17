@@ -1,5 +1,6 @@
 using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Tests.Fixtures;
+using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Common;
 using Microsoft.Extensions.Options;
 
@@ -73,6 +74,39 @@ public sealed class UpdateProductTests
         var updated = await sut.ExecuteAsync(Guid.NewGuid(), "Name", "PSN", null, null, null, isActive: true);
 
         Assert.Null(updated);
+    }
+
+    [Fact]
+    public async Task Replaces_image_gallery_and_activation_fields()
+    {
+        Guid productId;
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
+            productId = product.Id;
+            seed.ProductImages.Add(new ProductImage(productId, "products/gallery/old.png", sortOrder: 0));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new UpdateProduct(context, _imageUrlBuilder);
+
+        var updated = await sut.ExecuteAsync(
+            productId, "Name", "PSN", null, null, null, isActive: true,
+            imageKeys: ["products/gallery/new-1.png", "products/gallery/new-2.png"],
+            activationGuideUrl: "https://maxkeys.example/guides/activation",
+            activationType: "Clave de activación");
+
+        Assert.NotNull(updated);
+        Assert.Equal(["products/gallery/new-1.png", "products/gallery/new-2.png"], updated!.ImageKeys);
+        Assert.Equal("https://img.test/products/gallery/new-1.png", updated.Images[0]);
+        Assert.Equal("https://maxkeys.example/guides/activation", updated.ActivationGuideUrl);
+        Assert.Equal("Clave de activación", updated.ActivationType);
+
+        await using var verify = _fixture.CreateContext();
+        var reloadedImages = verify.ProductImages.Where(i => i.ProductId == productId).OrderBy(i => i.SortOrder).ToList();
+        Assert.Single(reloadedImages, i => i.ImageKey == "products/gallery/new-1.png");
+        Assert.Single(reloadedImages, i => i.ImageKey == "products/gallery/new-2.png");
     }
 
     /// <summary>Admin Product Activation Toggle — deactivation persists `IsActive = false`.</summary>

@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<GetCatalog>();
         services.AddScoped<GetProductBySlug>();
         services.AddScoped<ListAdminProducts>();
+        services.AddScoped<CreateProduct>();
         services.AddScoped<UpdateProduct>();
         services.AddScoped<UpdateProductVariant>();
         services.AddScoped<DeleteProductVariant>();

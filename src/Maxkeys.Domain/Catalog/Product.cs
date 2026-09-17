@@ -4,8 +4,10 @@ namespace Maxkeys.Domain.Catalog;
 
 /// <summary>
 /// A sellable product (e.g. a gift card family). Variants (region/edition/tier)
-/// are added by the catalog seeder, not by domain methods — the catalog is
-/// seed-managed in the MVP (design section 4.1). <see cref="UpdateCatalogInfo"/>
+/// are still added by the catalog seeder only — no admin variant creation.
+/// Products themselves were seed-only through the MVP (design section 4.1);
+/// <c>Maxkeys.Application.Catalog.CreateProduct</c> later added an admin path
+/// that also constructs a <see cref="Product"/> directly. <see cref="UpdateCatalogInfo"/>
 /// is the one mutation method, added in PR12 so <c>CatalogSeeder</c> (ADR-12)
 /// can upsert an existing row by <see cref="Slug"/> instead of only inserting.
 /// </summary>
@@ -18,6 +20,8 @@ public sealed class Product : Entity
     public string? ImageKey { get; private set; }
     public string? DetailImageKey { get; private set; }
     public string Description { get; private set; }
+    public string? ActivationGuideUrl { get; private set; }
+    public string? ActivationType { get; private set; }
 
     public Product(
         string slug,
@@ -26,7 +30,9 @@ public sealed class Product : Entity
         bool isActive = true,
         string? imageKey = null,
         string? description = null,
-        string? detailImageKey = null)
+        string? detailImageKey = null,
+        string? activationGuideUrl = null,
+        string? activationType = null)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
@@ -55,6 +61,8 @@ public sealed class Product : Entity
         ImageKey = imageKey;
         DetailImageKey = detailImageKey;
         Description = description ?? string.Empty;
+        ActivationGuideUrl = activationGuideUrl;
+        ActivationType = activationType;
     }
 
     /// <summary>
@@ -63,7 +71,14 @@ public sealed class Product : Entity
     /// Shares the same non-empty invariants as the constructor.
     /// </summary>
     public void UpdateCatalogInfo(
-        string name, string platform, string? description, string? imageKey, string? detailImageKey, bool isActive)
+        string name,
+        string platform,
+        string? description,
+        string? imageKey,
+        string? detailImageKey,
+        bool isActive,
+        string? activationGuideUrl,
+        string? activationType)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -81,5 +96,7 @@ public sealed class Product : Entity
         ImageKey = imageKey;
         DetailImageKey = detailImageKey;
         IsActive = isActive;
+        ActivationGuideUrl = activationGuideUrl;
+        ActivationType = activationType;
     }
 }

@@ -1,4 +1,5 @@
 using Maxkeys.Application.Persistence;
+using Maxkeys.Domain.Catalog;
 using Microsoft.EntityFrameworkCore;
 
 namespace Maxkeys.Application.Catalog;
@@ -34,6 +35,9 @@ public sealed class UpdateProduct
         string? imageKey,
         string? detailImageKey,
         bool isActive,
+        IReadOnlyList<string>? imageKeys = null,
+        string? activationGuideUrl = null,
+        string? activationType = null,
         CancellationToken cancellationToken = default)
     {
         var product = await _db.Products.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
@@ -42,7 +46,15 @@ public sealed class UpdateProduct
             return null;
         }
 
-        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive);
+        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive, activationGuideUrl, activationType);
+
+        var existingImages = await _db.ProductImages.Where(i => i.ProductId == id).ToListAsync(cancellationToken);
+        _db.ProductImages.RemoveRange(existingImages);
+        var newImages = (imageKeys ?? [])
+            .Select((key, index) => new ProductImage(id, key, index))
+            .ToList();
+        await _db.ProductImages.AddRangeAsync(newImages, cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         var variants = await _db.ProductVariants
@@ -50,6 +62,6 @@ public sealed class UpdateProduct
             .OrderBy(v => v.SortOrder)
             .ToListAsync(cancellationToken);
 
-        return ListAdminProducts.ToAdminProduct(product, variants, _imageUrlBuilder);
+        return ListAdminProducts.ToAdminProduct(product, variants, newImages.OrderBy(i => i.SortOrder).ToList(), _imageUrlBuilder);
     }
 }

@@ -59,6 +59,72 @@ public sealed class AdminCatalogEndpointsTests
     }
 
     [Fact]
+    public async Task Anonymous_request_to_create_is_rejected()
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug = $"p-{Guid.NewGuid():N}",
+            name = "Name",
+            platform = "PSN",
+            isActive = true,
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_create_a_product_with_gallery_and_activation_fields()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "New Product",
+            platform = UniquePlatform(),
+            description = "A brand new product",
+            imageKey = "products/new.png",
+            detailImageKey = "products/new-detail.png",
+            isActive = true,
+            imageKeys = new[] { "products/gallery/1.png", "products/gallery/2.png" },
+            activationGuideUrl = "https://maxkeys.example/guides/activation",
+            activationType = "Clave de activación",
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.Equal(slug, created!.Slug);
+        Assert.Equal("New Product", created.Name);
+        Assert.Equal(["products/gallery/1.png", "products/gallery/2.png"], created.ImageKeys);
+        Assert.Equal("https://maxkeys.example/guides/activation", created.ActivationGuideUrl);
+        Assert.Equal("Clave de activación", created.ActivationType);
+
+        var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<AdminProduct>>();
+        Assert.Contains(products!, p => p.Slug == slug);
+    }
+
+    [Fact]
+    public async Task Creating_a_product_with_a_duplicate_slug_returns_409()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+        await Seed(async db =>
+        {
+            db.Products.Add(new Product(slug, "Existing Product", UniquePlatform()));
+            await db.SaveChangesAsync();
+        });
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "Duplicate Slug Product",
+            platform = UniquePlatform(),
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_can_update_product_description_and_image_key()
     {
         var productId = await SeedProductAsync();

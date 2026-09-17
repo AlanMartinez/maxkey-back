@@ -40,6 +40,11 @@ public sealed class GetProductBySlug
 
         var cheapest = variants.OrderBy(v => v.Price).FirstOrDefault();
 
+        var images = await _db.ProductImages
+            .Where(i => i.ProductId == product.Id)
+            .OrderBy(i => i.SortOrder)
+            .ToListAsync(cancellationToken);
+
         return new ProductDetail(
             product.Id,
             product.Slug,
@@ -50,7 +55,10 @@ public sealed class GetProductBySlug
             cheapest?.Price ?? 0m,
             cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage),
             product.Description,
-            variants.Select(ToVariantDetail).ToList());
+            variants.Select(ToVariantDetail).ToList(),
+            images.Select(i => _imageUrlBuilder.Build(i.ImageKey)).ToList(),
+            product.ActivationGuideUrl,
+            product.ActivationType);
     }
 
     private static ProductVariantDetail ToVariantDetail(ProductVariant variant) =>

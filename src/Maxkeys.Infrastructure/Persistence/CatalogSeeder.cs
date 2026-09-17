@@ -43,7 +43,9 @@ public static class CatalogSeeder
                     seedProduct.IsActive,
                     seedProduct.ImageKey,
                     seedProduct.Description,
-                    seedProduct.DetailImageKey);
+                    seedProduct.DetailImageKey,
+                    seedProduct.ActivationGuideUrl,
+                    seedProduct.ActivationType);
                 db.Products.Add(product);
             }
             else
@@ -54,7 +56,9 @@ public static class CatalogSeeder
                     seedProduct.Description,
                     seedProduct.ImageKey,
                     seedProduct.DetailImageKey,
-                    seedProduct.IsActive);
+                    seedProduct.IsActive,
+                    seedProduct.ActivationGuideUrl,
+                    seedProduct.ActivationType);
             }
 
             var existingVariants = await db.ProductVariants
@@ -106,7 +110,9 @@ internal sealed record CatalogSeedProduct(
     [property: JsonPropertyName("imageKey")] string? ImageKey,
     [property: JsonPropertyName("detailImageKey")] string? DetailImageKey,
     bool IsActive,
-    List<CatalogSeedVariant> Variants);
+    List<CatalogSeedVariant> Variants,
+    [property: JsonPropertyName("activationGuideUrl")] string? ActivationGuideUrl = null,
+    [property: JsonPropertyName("activationType")] string? ActivationType = null);
 
 internal sealed record CatalogSeedVariant(
     string? Region,

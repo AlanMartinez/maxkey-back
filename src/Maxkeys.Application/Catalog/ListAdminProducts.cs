@@ -38,13 +38,26 @@ public sealed class ListAdminProducts
             .GroupBy(v => v.ProductId)
             .ToDictionary(g => g.Key, g => g.OrderBy(v => v.SortOrder).ToList());
 
+        var images = await _db.ProductImages
+            .Where(i => productIds.Contains(i.ProductId))
+            .ToListAsync(cancellationToken);
+
+        var imagesByProduct = images
+            .GroupBy(i => i.ProductId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(i => i.SortOrder).ToList());
+
         return products
-            .Select(p => ToAdminProduct(p, variantsByProduct.TryGetValue(p.Id, out var productVariants) ? productVariants : [], _imageUrlBuilder))
+            .Select(p => ToAdminProduct(
+                p,
+                variantsByProduct.TryGetValue(p.Id, out var productVariants) ? productVariants : [],
+                imagesByProduct.TryGetValue(p.Id, out var productImages) ? productImages : [],
+                _imageUrlBuilder))
             .ToList();
     }
 
     /// <summary>Shared admin product mapper, reused by every admin catalog use case (design decision).</summary>
-    public static AdminProduct ToAdminProduct(Product product, IReadOnlyList<ProductVariant> variants, ImageUrlBuilder imageUrlBuilder) =>
+    public static AdminProduct ToAdminProduct(
+        Product product, IReadOnlyList<ProductVariant> variants, IReadOnlyList<ProductImage> images, ImageUrlBuilder imageUrlBuilder) =>
         new(
             product.Id,
             product.Slug,
@@ -56,7 +69,11 @@ public sealed class ListAdminProducts
             product.DetailImageKey,
             imageUrlBuilder.Build(product.DetailImageKey),
             product.Description,
-            variants.Select(ToAdminVariant).ToList());
+            variants.Select(ToAdminVariant).ToList(),
+            images.Select(i => i.ImageKey).ToList(),
+            images.Select(i => imageUrlBuilder.Build(i.ImageKey)).ToList(),
+            product.ActivationGuideUrl,
+            product.ActivationType);
 
     public static AdminVariant ToAdminVariant(ProductVariant variant) =>
         new(variant.Id, variant.Region, variant.Edition, variant.Price, VariantPricing.ComputeOldPrice(variant.Price, variant.DiscountPercentage), variant.Currency, variant.SortOrder, variant.IsActive);

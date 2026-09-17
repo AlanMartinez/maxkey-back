@@ -4,7 +4,7 @@
       "slug": "steam-wallet-gift-card",
       "name": "Steam Wallet Gift Card",
       "platform": "Steam",
-      "description": "Add funds to your Steam Wallet to buy games, DLC, and in-game items.",
+      "description": "Add funds to your Steam Wallet to buy games, DLC, and in-game items. Whether you're chasing the latest AAA release, filling out your backlog during a seasonal sale, or picking up cosmetic items and trading cards for your favorite titles, Steam Wallet credit gives you the flexibility to spend exactly how and when you want. Codes are delivered instantly after purchase and never expire, so you can top up now and redeem later without worrying about deadlines. Works on any Steam account, on any device where Steam is installed, including desktop, mobile, and Steam Deck.",
       "imageKey": "products/steam-wallet-gift-card.png",
       "isActive": true,
       "variants": [
@@ -17,7 +17,7 @@
       "slug": "playstation-plus-membership",
       "name": "PlayStation Plus Membership",
       "platform": "PS5",
-      "description": "Online multiplayer, monthly games, and exclusive discounts on the PlayStation Store.",
+      "description": "Online multiplayer, monthly games, and exclusive discounts on the PlayStation Store. PlayStation Plus unlocks online play for every multiplayer title in your library, a rotating catalog of monthly games you keep for as long as you're subscribed, and members-only discounts during every major sale. Higher tiers add a huge on-demand game catalog, cloud streaming, and game trials so you can test a title before committing to a full purchase. Perfect for anyone who plays online regularly or wants to stretch their gaming budget further without buying every game at full price. Redeem the code directly on your PSN account from any region-matched store.",
       "imageKey": "products/playstation-plus-membership.png",
       "isActive": true,
       "variants": [
@@ -30,7 +30,7 @@
       "slug": "fc-25-points",
       "name": "FC 25 Points",
       "platform": "Cross-platform",
-      "description": "In-game currency for FC 25 Ultimate Team packs and squad building.",
+      "description": "In-game currency for FC 25 Ultimate Team packs and squad building. Points let you open player packs, enter Draft mode, and speed up your path to a competitive Ultimate Team squad without grinding matches for coins. Use them to chase high-rated cards during promo weekends, complete Squad Building Challenges that need specific players, or simply top up before a big content drop so you're ready the moment new items go live. Delivered as a redeemable code that works across every platform FC 25 supports — PlayStation, Xbox, and PC — tied to your EA account.",
       "imageKey": "products/fc-25-points.png",
       "isActive": true,
       "variants": [
