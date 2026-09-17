@@ -72,6 +72,34 @@ public sealed class GetProductBySlugTests
     }
 
     [Fact]
+    public async Task Returns_gallery_images_ordered_and_activation_fields()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m);
+            seed.ProductImages.Add(new Domain.Catalog.ProductImage(product.Id, "products/gallery/2.png", sortOrder: 1));
+            seed.ProductImages.Add(new Domain.Catalog.ProductImage(product.Id, "products/gallery/1.png", sortOrder: 0));
+            product.UpdateCatalogInfo(
+                product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, product.IsActive,
+                activationGuideUrl: "https://maxkeys.example/guides/activation", activationType: "Enlace de activación");
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Equal(["https://img.test/products/gallery/1.png", "https://img.test/products/gallery/2.png"], detail!.Images);
+        Assert.Equal("https://maxkeys.example/guides/activation", detail.ActivationGuideUrl);
+        Assert.Equal("Enlace de activación", detail.ActivationType);
+    }
+
+    [Fact]
     public async Task Returns_null_for_unknown_slug()
     {
         await using var context = _fixture.CreateContext();

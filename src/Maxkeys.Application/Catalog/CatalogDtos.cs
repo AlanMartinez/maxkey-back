@@ -51,4 +51,7 @@ public sealed record ProductDetail(
     decimal FromPrice,
     decimal? OldPrice,
     string Description,
-    IReadOnlyList<ProductVariantDetail> Variants);
+    IReadOnlyList<ProductVariantDetail> Variants,
+    IReadOnlyList<string> Images,
+    string? ActivationGuideUrl,
+    string? ActivationType);

@@ -33,4 +33,8 @@ public sealed record AdminProduct(
     string? DetailImageKey,
     string DetailImageUrl,
     string Description,
-    IReadOnlyList<AdminVariant> Variants);
+    IReadOnlyList<AdminVariant> Variants,
+    IReadOnlyList<string> ImageKeys,
+    IReadOnlyList<string> Images,
+    string? ActivationGuideUrl,
+    string? ActivationType);
