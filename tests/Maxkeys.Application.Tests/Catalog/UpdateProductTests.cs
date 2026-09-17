@@ -23,10 +23,12 @@ public sealed class UpdateProductTests
     public async Task Updates_description_and_image_key()
     {
         Guid productId;
+        string slug;
         await using (var seed = _fixture.CreateContext())
         {
             var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, imageKey: "products/old.png");
             productId = product.Id;
+            slug = product.Slug;
             await seed.SaveChangesAsync();
         }
 
@@ -34,7 +36,7 @@ public sealed class UpdateProductTests
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
         var updated = await sut.ExecuteAsync(
-            productId, "New Name", "PSN", "New description", "products/new.png", "products/new-detail.png", isActive: true);
+            productId, slug, "New Name", "PSN", "New description", "products/new.png", "products/new-detail.png", isActive: true);
 
         Assert.NotNull(updated);
         Assert.Equal("New Name", updated!.Name);
@@ -47,10 +49,12 @@ public sealed class UpdateProductTests
     public async Task Empty_required_field_throws_domain_exception_and_leaves_product_unchanged()
     {
         Guid productId;
+        string slug;
         await using (var seed = _fixture.CreateContext())
         {
             var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, name: "Original Name");
             productId = product.Id;
+            slug = product.Slug;
             await seed.SaveChangesAsync();
         }
 
@@ -58,7 +62,7 @@ public sealed class UpdateProductTests
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
         await Assert.ThrowsAsync<DomainException>(
-            () => sut.ExecuteAsync(productId, string.Empty, "PSN", null, null, null, isActive: true));
+            () => sut.ExecuteAsync(productId, slug, string.Empty, "PSN", null, null, null, isActive: true));
 
         await using var verify = _fixture.CreateContext();
         var reloaded = await verify.Products.FindAsync(productId);
@@ -71,7 +75,7 @@ public sealed class UpdateProductTests
         await using var context = _fixture.CreateContext();
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
-        var updated = await sut.ExecuteAsync(Guid.NewGuid(), "Name", "PSN", null, null, null, isActive: true);
+        var updated = await sut.ExecuteAsync(Guid.NewGuid(), $"slug-{Guid.NewGuid():N}", "Name", "PSN", null, null, null, isActive: true);
 
         Assert.Null(updated);
     }
@@ -80,10 +84,12 @@ public sealed class UpdateProductTests
     public async Task Replaces_image_gallery_and_activation_fields()
     {
         Guid productId;
+        string slug;
         await using (var seed = _fixture.CreateContext())
         {
             var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
             productId = product.Id;
+            slug = product.Slug;
             seed.ProductImages.Add(new ProductImage(productId, "products/gallery/old.png", sortOrder: 0));
             await seed.SaveChangesAsync();
         }
@@ -92,7 +98,7 @@ public sealed class UpdateProductTests
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
         var updated = await sut.ExecuteAsync(
-            productId, "Name", "PSN", null, null, null, isActive: true,
+            productId, slug, "Name", "PSN", null, null, null, isActive: true,
             imageKeys: ["products/gallery/new-1.png", "products/gallery/new-2.png"],
             activationGuideUrl: "https://maxkeys.example/guides/activation",
             activationType: "Clave de activación");
@@ -114,6 +120,33 @@ public sealed class UpdateProductTests
     public async Task Deactivating_a_product_persists_is_active_false()
     {
         Guid productId;
+        string slug;
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
+            productId = product.Id;
+            slug = product.Slug;
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new UpdateProduct(context, _imageUrlBuilder);
+
+        var updated = await sut.ExecuteAsync(productId, slug, "Name", "PSN", null, null, null, isActive: false);
+
+        Assert.NotNull(updated);
+        Assert.False(updated!.IsActive);
+
+        await using var verify = _fixture.CreateContext();
+        var reloaded = await verify.Products.FindAsync(productId);
+        Assert.False(reloaded!.IsActive);
+    }
+
+    [Fact]
+    public async Task Renames_the_slug()
+    {
+        Guid productId;
+        var newSlug = $"slug-{Guid.NewGuid():N}";
         await using (var seed = _fixture.CreateContext())
         {
             var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
@@ -124,13 +157,41 @@ public sealed class UpdateProductTests
         await using var context = _fixture.CreateContext();
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
-        var updated = await sut.ExecuteAsync(productId, "Name", "PSN", null, null, null, isActive: false);
+        var updated = await sut.ExecuteAsync(productId, newSlug, "Name", "PSN", null, null, null, isActive: true);
 
         Assert.NotNull(updated);
-        Assert.False(updated!.IsActive);
+        Assert.Equal(newSlug, updated!.Slug);
 
         await using var verify = _fixture.CreateContext();
         var reloaded = await verify.Products.FindAsync(productId);
-        Assert.False(reloaded!.IsActive);
+        Assert.Equal(newSlug, reloaded!.Slug);
+    }
+
+    [Fact]
+    public async Task Renaming_to_another_products_slug_throws_conflict_and_leaves_it_unchanged()
+    {
+        Guid productId;
+        string originalSlug;
+        string takenSlug;
+        await using (var seed = _fixture.CreateContext())
+        {
+            var platform = CatalogTestData.UniquePlatform();
+            var other = CatalogTestData.SeedProduct(seed, platform, isActive: true);
+            var product = CatalogTestData.SeedProduct(seed, platform, isActive: true);
+            productId = product.Id;
+            originalSlug = product.Slug;
+            takenSlug = other.Slug;
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new UpdateProduct(context, _imageUrlBuilder);
+
+        await Assert.ThrowsAsync<DomainConflictException>(
+            () => sut.ExecuteAsync(productId, takenSlug, "Name", "PSN", null, null, null, isActive: true));
+
+        await using var verify = _fixture.CreateContext();
+        var reloaded = await verify.Products.FindAsync(productId);
+        Assert.Equal(originalSlug, reloaded!.Slug);
     }
 }

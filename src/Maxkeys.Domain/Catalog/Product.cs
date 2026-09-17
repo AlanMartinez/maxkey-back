@@ -99,4 +99,25 @@ public sealed class Product : Entity
         ActivationGuideUrl = activationGuideUrl;
         ActivationType = activationType;
     }
+
+    /// <summary>
+    /// Admin-only slug rename — kept separate from <see cref="UpdateCatalogInfo"/> so
+    /// <c>CatalogSeeder</c>'s upsert-by-slug call path stays untouched by construction, not by
+    /// convention. Same lowercase/non-empty invariant as the constructor; uniqueness against
+    /// other products is the caller's responsibility (see <c>UpdateProduct</c>).
+    /// </summary>
+    public void RenameSlug(string slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            throw new DomainException("Product slug must not be empty.");
+        }
+
+        if (slug != slug.ToLowerInvariant())
+        {
+            throw new DomainException("Product slug must be lowercase.");
+        }
+
+        Slug = slug;
+    }
 }
