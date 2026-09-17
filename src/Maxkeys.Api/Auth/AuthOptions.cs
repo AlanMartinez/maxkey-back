@@ -36,4 +36,15 @@ public sealed class AuthOptions
     /// spec "Admin Authorization Policy"). Empty MUST deny every caller.
     /// </summary>
     public string[] AdminSubs { get; set; } = [];
+
+    /// <summary>
+    /// Explicit opt-in that skips <see cref="AdminSubs"/>/JWT validation entirely
+    /// for <see cref="Api.Auth.AdminPolicy"/> — local dev convenience so admin
+    /// endpoints work without a real Supabase login. Defaults to <see langword="false"/>
+    /// (fail-closed); set only in <c>appsettings.Development.json</c>, never in
+    /// <c>appsettings.json</c> or a deployed environment's config/secrets. Test
+    /// fixtures never set this key, so it stays <see langword="false"/> there even
+    /// though the test host also runs as <c>Development</c>.
+    /// </summary>
+    public bool DevBypassAdmin { get; set; }
 }

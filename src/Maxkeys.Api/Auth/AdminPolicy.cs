@@ -21,7 +21,11 @@ public sealed class AdminRequirement : IAuthorizationRequirement;
 /// Succeeds only when the caller's <c>sub</c> claim is present in the
 /// currently configured <see cref="AuthOptions.AdminSubs"/> allowlist. Never
 /// succeeds for an empty allowlist (auth spec "Empty allowlist denies
-/// everyone").
+/// everyone") — except the explicit <see cref="AuthOptions.DevBypassAdmin"/>
+/// opt-in, which succeeds unconditionally, including for a request with no
+/// <c>Authorization</c> header at all (the requirement still runs against an
+/// unauthenticated principal; calling <see cref="AuthorizationHandlerContext.Succeed"/>
+/// here turns what would otherwise be a 401 challenge into success).
 /// </summary>
 public sealed class AdminAuthorizationHandler : AuthorizationHandler<AdminRequirement>
 {
@@ -34,6 +38,12 @@ public sealed class AdminAuthorizationHandler : AuthorizationHandler<AdminRequir
 
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, AdminRequirement requirement)
     {
+        if (_options.CurrentValue.DevBypassAdmin)
+        {
+            context.Succeed(requirement);
+            return Task.CompletedTask;
+        }
+
         var sub = context.User.FindFirst("sub")?.Value;
         var adminSubs = _options.CurrentValue.AdminSubs;
 
