@@ -19,5 +19,7 @@ public sealed class KeyConfiguration : IEntityTypeConfiguration<Key>
         builder.Property(k => k.Status).HasConversion<string>().HasMaxLength(32);
 
         builder.HasIndex(k => new { k.ProductVariantId, k.Status });
+
+        builder.Property<uint>("xmin").IsRowVersion();
     }
 }
