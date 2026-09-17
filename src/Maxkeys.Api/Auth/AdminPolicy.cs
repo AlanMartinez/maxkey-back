@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Api.Auth;
@@ -21,24 +22,24 @@ public sealed class AdminRequirement : IAuthorizationRequirement;
 /// Succeeds only when the caller's <c>sub</c> claim is present in the
 /// currently configured <see cref="AuthOptions.AdminSubs"/> allowlist. Never
 /// succeeds for an empty allowlist (auth spec "Empty allowlist denies
-/// everyone") — except the explicit <see cref="AuthOptions.DevBypassAdmin"/>
-/// opt-in, which succeeds unconditionally, including for a request with no
-/// <c>Authorization</c> header at all (the requirement still runs against an
-/// unauthenticated principal; calling <see cref="AuthorizationHandlerContext.Succeed"/>
-/// here turns what would otherwise be a 401 challenge into success).
+/// everyone").
 /// </summary>
 public sealed class AdminAuthorizationHandler : AuthorizationHandler<AdminRequirement>
 {
     private readonly IOptionsMonitor<AuthOptions> _options;
+    private readonly IHostEnvironment _environment;
 
-    public AdminAuthorizationHandler(IOptionsMonitor<AuthOptions> options)
+    public AdminAuthorizationHandler(IOptionsMonitor<AuthOptions> options, IHostEnvironment environment)
     {
         _options = options;
+        _environment = environment;
     }
 
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, AdminRequirement requirement)
     {
-        if (_options.CurrentValue.DevBypassAdmin)
+        // Both conditions are required, deliberately: a bare environment-name check would also fire for
+        // WebApplicationFactory-hosted tests, which default to "Development" too (see AdminCatalogEndpointsTests).
+        if (_environment.IsDevelopment() && _options.CurrentValue.DevBypassAdmin)
         {
             context.Succeed(requirement);
             return Task.CompletedTask;

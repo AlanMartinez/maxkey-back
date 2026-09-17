@@ -41,35 +41,6 @@ try
         return;
     }
 
-    // Dev-only convenience: mints a Bearer token that satisfies AdminPolicy locally,
-    // without a real Supabase login. Refuses outside Development so it can never mint
-    // a usable token against a deployed instance's real Auth config.
-    if (args.Contains("--print-dev-admin-token"))
-    {
-        if (!app.Environment.IsDevelopment())
-        {
-            Console.Error.WriteLine("--print-dev-admin-token is only available in the Development environment.");
-            return;
-        }
-
-        var authOptions = app.Services.GetRequiredService<IOptions<AuthOptions>>().Value;
-        if (authOptions.Mode != AuthMode.Hs256 || string.IsNullOrEmpty(authOptions.Hs256Secret))
-        {
-            Console.Error.WriteLine("Auth:Mode must be Hs256 with a Hs256Secret set (see appsettings.Development.json) to mint a dev token.");
-            return;
-        }
-
-        var devSub = authOptions.AdminSubs.FirstOrDefault();
-        if (devSub is null)
-        {
-            Console.Error.WriteLine("Auth:AdminSubs is empty — add a dev sub to appsettings.Development.json first.");
-            return;
-        }
-
-        Console.WriteLine(DevTokenMinter.CreateHs256(devSub, authOptions.Issuer, authOptions.Audience, authOptions.Hs256Secret, TimeSpan.FromHours(12)));
-        return;
-    }
-
     var seedCatalogPath = GetSeedCatalogPath(args);
     if (seedCatalogPath is not null)
     {
