@@ -168,8 +168,11 @@ public sealed class Order : Entity
     /// <summary>
     /// Assigns <paramref name="key"/> to <paramref name="orderItemId"/> (fulfillment
     /// spec: Key Attachment). Once every item is complete the order transitions to
-    /// <see cref="OrderStatus.Delivered"/> and this method returns <c>true</c>
-    /// (fulfillment spec: All-or-Nothing Delivery Derivation); otherwise <c>false</c>.
+    /// <see cref="OrderStatus.KeysAssigned"/> and this method returns <c>true</c>
+    /// (fulfillment spec: All-or-Nothing Delivery Derivation; admin-key-delivery-gate
+    /// spec: decision 1 — MODIFIED, no longer reaches <see cref="OrderStatus.Delivered"/>
+    /// on its own). An admin must call <see cref="MarkDelivered"/> to release the
+    /// order to its buyer. Otherwise returns <c>false</c>.
     /// </summary>
     public bool AttachKey(Guid orderItemId, Key key, DateTimeOffset now)
     {
@@ -203,8 +206,23 @@ public sealed class Order : Entity
             return false;
         }
 
+        Status = OrderStatus.KeysAssigned;
+        return true;
+    }
+
+    /// <summary>
+    /// Admin action that releases an order's keys to its buyer (admin-key-delivery-gate
+    /// spec: decision 1/3, "Entregar"). Valid only from <see cref="OrderStatus.KeysAssigned"/>.
+    /// </summary>
+    public void MarkDelivered(DateTimeOffset now)
+    {
+        if (Status != OrderStatus.KeysAssigned)
+        {
+            throw new DomainConflictException("Cannot deliver an order unless every item has its keys assigned.");
+        }
+
         Status = OrderStatus.Delivered;
         DeliveredAt = now;
-        return true;
+        UpdatedAt = now;
     }
 }
