@@ -6,7 +6,7 @@ public enum OrderStatus
     Pending,
     Paid,
     AwaitingFulfillment,
-    KeysAssigned,
     Delivered,
-    Cancelled
+    Cancelled,
+    KeysAssigned
 }

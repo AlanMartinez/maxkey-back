@@ -33,15 +33,34 @@ public sealed class RevealOrderItemKeys
 
     public async Task<IReadOnlyList<string>?> ExecuteAsync(Guid orderId, Guid itemId, Guid userId, CancellationToken cancellationToken = default)
     {
-        var order = await _db.Orders
-            .Include(o => o.Items).ThenInclude(i => i.Keys)
-            .SingleOrDefaultAsync(o => o.Id == orderId, cancellationToken);
-
+        var order = await LoadOrderAsync(orderId, cancellationToken);
         if (order is null || order.UserId != userId)
         {
             return null;
         }
 
+        try
+        {
+            return await RevealAsync(order, itemId, userId, orderId, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            ClearTracker();
+
+            // Reveal is idempotent — a concurrent reveal of the same item (e.g. a double-clicked
+            // button) may have already flipped these keys to Revealed between our read and write;
+            // reloading and retrying once returns the same codes either way, matching
+            // AttachKeyToOrderItem's concurrency-retry pattern.
+            order = await LoadOrderAsync(orderId, cancellationToken)
+                ?? throw new DomainConflictException("Order no longer exists.");
+
+            return await RevealAsync(order, itemId, userId, orderId, cancellationToken);
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> RevealAsync(
+        Order order, Guid itemId, Guid userId, Guid orderId, CancellationToken cancellationToken)
+    {
         if (order.Status != OrderStatus.Delivered)
         {
             throw new DomainConflictException("Cannot reveal keys unless the order is Delivered.");
@@ -51,7 +70,11 @@ public sealed class RevealOrderItemKeys
             ?? throw new DomainException("Order item does not belong to this order.");
 
         var now = DateTimeOffset.UtcNow;
-        var keys = item.Keys.Where(k => k.Status is KeyStatus.Assigned or KeyStatus.Revealed).ToList();
+        var keys = item.Keys
+            .Where(k => k.Status is KeyStatus.Assigned or KeyStatus.Revealed)
+            .OrderBy(k => k.AssignedAt)
+            .ToList();
+
         var revealedCount = 0;
         foreach (var key in keys.Where(k => k.Status == KeyStatus.Assigned))
         {
@@ -67,5 +90,18 @@ public sealed class RevealOrderItemKeys
         }
 
         return keys.Select(k => _keyCipher.Decrypt(k.EncryptedCode, k.KeyVersion)).ToList();
+    }
+
+    private Task<Order?> LoadOrderAsync(Guid orderId, CancellationToken cancellationToken) =>
+        _db.Orders
+            .Include(o => o.Items).ThenInclude(i => i.Keys)
+            .SingleOrDefaultAsync(o => o.Id == orderId, cancellationToken);
+
+    private void ClearTracker()
+    {
+        if (_db is DbContext dbContext)
+        {
+            dbContext.ChangeTracker.Clear();
+        }
     }
 }

@@ -99,6 +99,27 @@ public sealed class RevealOrderItemKeysTests
         await Assert.ThrowsAsync<DomainException>(() => CreateSut(context).ExecuteAsync(orderId, otherItemId, userId));
     }
 
+    [Fact]
+    public async Task Concurrent_reveal_of_the_same_item_never_throws_and_both_calls_return_the_same_codes()
+    {
+        var userId = Guid.NewGuid();
+        var (orderId, itemId) = await SeedDeliveredOrderAsync(userId, quantity: 2, codes: ["CODE-A", "CODE-B"]);
+
+        await using var contextA = _fixture.CreateContext();
+        await using var contextB = _fixture.CreateContext();
+        var sutA = CreateSut(contextA);
+        var sutB = CreateSut(contextB);
+
+        var results = await Task.WhenAll(
+            sutA.ExecuteAsync(orderId, itemId, userId),
+            sutB.ExecuteAsync(orderId, itemId, userId));
+
+        Assert.NotNull(results[0]);
+        Assert.NotNull(results[1]);
+        Assert.Equal(results[0]!.OrderBy(c => c), results[1]!.OrderBy(c => c));
+        Assert.Equal(new[] { "CODE-A", "CODE-B" }, results[0]!.OrderBy(c => c));
+    }
+
     private static RevealOrderItemKeys CreateSut(Infrastructure.Persistence.AppDbContext context) =>
         new(context, new KeyCipher(Options.Create(new KeyCipherOptions { EncryptionKey = ValidKeyBase64, CurrentVersion = 1 })), NullLogger<RevealOrderItemKeys>.Instance);
 

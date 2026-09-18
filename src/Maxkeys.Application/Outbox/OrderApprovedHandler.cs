@@ -59,48 +59,63 @@ public sealed class OrderApprovedHandler : IOutboxHandler
             throw new InvalidOperationException($"OrderApproved event references unknown order {orderId}.");
         }
 
-        if (IsPastApproval(order.Status))
+        if (IsFullyResolved(order.Status))
         {
             _logger.LogInformation(
                 "Order {OrderId} is already {Status}; OrderApproved handling is a no-op.", orderId, order.Status);
             return;
         }
 
-        try
+        if (order.Status == OrderStatus.Paid)
         {
-            order.MarkAwaitingFulfillment(now);
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            DetachHandlerState();
-
-            order = await LoadOrderAsync(orderId, cancellationToken)
-                ?? throw new InvalidOperationException($"OrderApproved event references unknown order {orderId}.");
-
-            if (IsPastApproval(order.Status))
+            try
             {
-                _logger.LogInformation(
-                    "Order {OrderId} is already {Status} after a concurrent update; OrderApproved handling is a no-op.",
-                    orderId, order.Status);
-                return;
+                order.MarkAwaitingFulfillment(now);
+                await _db.SaveChangesAsync(cancellationToken);
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                DetachHandlerState();
 
-            order.MarkAwaitingFulfillment(now);
-            await _db.SaveChangesAsync(cancellationToken);
+                order = await LoadOrderAsync(orderId, cancellationToken)
+                    ?? throw new InvalidOperationException($"OrderApproved event references unknown order {orderId}.");
+
+                if (IsFullyResolved(order.Status))
+                {
+                    _logger.LogInformation(
+                        "Order {OrderId} is already {Status} after a concurrent update; OrderApproved handling is a no-op.",
+                        orderId, order.Status);
+                    return;
+                }
+
+                if (order.Status == OrderStatus.Paid)
+                {
+                    order.MarkAwaitingFulfillment(now);
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
         }
 
+        // order.Status is now AwaitingFulfillment — either just transitioned above, or already was on a
+        // resumed retry after a prior attempt's assign step failed past this point. Re-attempting the
+        // assign + operator email here is safe: AssignVaultKeysToOrder is idempotent (it only touches
+        // items that are still incomplete), and retrying here is what makes a failed assign attempt
+        // recoverable via the outbox processor's normal retry/backoff instead of silently stranding the
+        // order (whole-branch review finding, Important #2).
         var assignResult = await _assignVaultKeysToOrder.ExecuteAsync(orderId, cancellationToken);
         _logger.LogInformation(
             "Vault auto-assign for order {OrderId}: all items complete = {AllComplete}.",
             orderId, assignResult?.AllItemsComplete ?? false);
 
+        // `order` may be a stale (detached) reference if AssignVaultKeysToOrder's own concurrency retry
+        // ran against the same shared DbContext — safe here regardless, since the operator email only
+        // reads already-materialized scalar fields and the item collection, never lazy-loaded state.
         var (subject, textBody) = EmailTemplates.OperatorOrderAwaitingFulfillment(order);
         await _emailSender.SendAsync(new EmailMessage(_emailOptions.Value.OperatorTo, subject, textBody), cancellationToken);
     }
 
-    private static bool IsPastApproval(OrderStatus status) =>
-        status is OrderStatus.AwaitingFulfillment or OrderStatus.KeysAssigned or OrderStatus.Delivered;
+    private static bool IsFullyResolved(OrderStatus status) =>
+        status is OrderStatus.KeysAssigned or OrderStatus.Delivered;
 
     private Task<Order?> LoadOrderAsync(Guid orderId, CancellationToken cancellationToken) =>
         _db.Orders
