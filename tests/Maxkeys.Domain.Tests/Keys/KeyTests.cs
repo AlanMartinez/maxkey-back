@@ -50,4 +50,32 @@ public class KeyTests
         key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
         Assert.Throws<DomainConflictException>(() => key.AssignTo(Guid.NewGuid(), Now.AddMinutes(2)));
     }
+
+    [Fact]
+    public void Reveal_WhenAssigned_SetsRevealedAndTimestamp()
+    {
+        var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
+        key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
+
+        key.Reveal(Now.AddMinutes(2));
+
+        Assert.Equal(KeyStatus.Revealed, key.Status);
+        Assert.Equal(Now.AddMinutes(2), key.RevealedAt);
+    }
+
+    [Fact]
+    public void Reveal_WhenAvailable_Throws()
+    {
+        var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
+        Assert.Throws<DomainConflictException>(() => key.Reveal(Now.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void Reveal_WhenAlreadyRevealed_Throws()
+    {
+        var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
+        key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
+        key.Reveal(Now.AddMinutes(2));
+        Assert.Throws<DomainConflictException>(() => key.Reveal(Now.AddMinutes(3)));
+    }
 }

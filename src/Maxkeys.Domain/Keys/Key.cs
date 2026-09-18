@@ -19,6 +19,7 @@ public sealed class Key : Entity
     public string LoadedBy { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? AssignedAt { get; private set; }
+    public DateTimeOffset? RevealedAt { get; private set; }
 
     /// <summary>EF Core materialization constructor (ADR-01) — properties are set by the ORM via their private setters.</summary>
     private Key()
@@ -63,5 +64,17 @@ public sealed class Key : Entity
         OrderItemId = orderItemId;
         Status = KeyStatus.Assigned;
         AssignedAt = now;
+    }
+
+    /// <summary>Reveals this key to its buyer (admin-key-delivery-gate spec: decision 2, buyer "revelar key"). Valid only from Assigned.</summary>
+    public void Reveal(DateTimeOffset now)
+    {
+        if (Status != KeyStatus.Assigned)
+        {
+            throw new DomainConflictException("Cannot reveal a key that is not assigned.");
+        }
+
+        Status = KeyStatus.Revealed;
+        RevealedAt = now;
     }
 }
