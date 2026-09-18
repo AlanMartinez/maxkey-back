@@ -40,7 +40,8 @@ public static class EmailTemplates
     /// <summary>
     /// Buyer delivery email sent once per <see cref="OrderStatus.AwaitingFulfillment"/> →
     /// <see cref="OrderStatus.Delivered"/> transition (fulfillment spec: One-Time Delivery
-    /// Email; outbox-processing spec, <c>OrderDeliveredHandler</c>). <paramref name="items"/>
+    /// Email — MODIFIED, admin-key-delivery-gate spec: now sent only via the admin-triggered
+    /// <c>OrderDeliveryResendHandler</c>). <paramref name="items"/>
     /// carry already-decrypted key codes — this template never touches <c>KeyCipher</c>.
     /// </summary>
     public static (string Subject, string TextBody) BuyerOrderDelivered(Order order, IReadOnlyList<BuyerDeliveryItem> items)

@@ -6,9 +6,9 @@ using Maxkeys.Domain.Orders;
 namespace Maxkeys.Application.Outbox;
 
 /// <summary>
-/// Builds the per-item, decrypted-key content shared by the original delivery
-/// email (<see cref="OrderDeliveredHandler"/>) and its admin-triggered resend
-/// (<see cref="OrderDeliveryResendHandler"/>) (design D1). Decrypts each
+/// Builds the per-item, decrypted-key content for the admin-triggered delivery
+/// resend (<see cref="OrderDeliveryResendHandler"/>) (design D1; admin-key-delivery-gate
+/// spec: decision 4 — the only remaining sender, delivery no longer auto-emails). Decrypts each
 /// assigned key in memory only — the caller must not persist the result.
 /// </summary>
 public static class DeliveryEmailItems

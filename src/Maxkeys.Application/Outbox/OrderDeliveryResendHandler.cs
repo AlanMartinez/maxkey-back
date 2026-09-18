@@ -9,9 +9,10 @@ namespace Maxkeys.Application.Outbox;
 
 /// <summary>
 /// Handles <see cref="OutboxEventTypes.OrderDeliveryResendRequested"/>
-/// (admin-buyers spec: Resend Delivery Email; design D1) — sends the same
-/// delivery email content as <see cref="OrderDeliveredHandler"/>, built from
-/// the shared <see cref="DeliveryEmailItems.FromOrder"/>, without altering
+/// (admin-buyers spec: Resend Delivery Email; design D1; admin-key-delivery-gate
+/// spec: decision 4 — the only remaining sender now that delivery no longer
+/// auto-emails) — builds the delivery email from the shared
+/// <see cref="DeliveryEmailItems.FromOrder"/>, without altering
 /// <c>DeliveredAt</c> or any <c>Key</c> row (fulfillment spec, One-Time
 /// Delivery Email — MODIFIED).
 /// </summary>

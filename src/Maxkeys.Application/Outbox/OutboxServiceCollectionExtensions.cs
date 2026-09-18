@@ -13,7 +13,6 @@ public static class OutboxServiceCollectionExtensions
     public static IServiceCollection AddOutboxHandlers(this IServiceCollection services)
     {
         services.AddScoped<IOutboxHandler, OrderApprovedHandler>();
-        services.AddScoped<IOutboxHandler, OrderDeliveredHandler>();
         services.AddScoped<IOutboxHandler, OrderDeliveryResendHandler>();
 
         return services;
