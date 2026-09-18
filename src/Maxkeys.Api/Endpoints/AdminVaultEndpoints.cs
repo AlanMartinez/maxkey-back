@@ -18,6 +18,17 @@ public static class AdminVaultEndpoints
         group.MapGet("/products", async (ListVaultStock useCase, CancellationToken cancellationToken) =>
             Results.Ok(await useCase.ExecuteAsync(cancellationToken)));
 
+        group.MapGet("/variants/{id:guid}/keys", async (
+            Guid id,
+            ListVariantKeys useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var keys = await useCase.ExecuteAsync(id, cancellationToken);
+            return keys is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product variant not found")
+                : Results.Ok(keys);
+        });
+
         group.MapPost("/variants/{id:guid}/keys", async (
             Guid id,
             LoadVaultKeysRequest body,

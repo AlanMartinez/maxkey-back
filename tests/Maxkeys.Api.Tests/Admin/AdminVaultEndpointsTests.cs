@@ -73,6 +73,61 @@ public sealed class AdminVaultEndpointsTests
     }
 
     [Fact]
+    public async Task Anonymous_request_to_list_variant_keys_is_rejected()
+    {
+        var response = await _factory.CreateClient().GetAsync($"/admin/vault/variants/{Guid.NewGuid()}/keys");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_list_variant_keys()
+    {
+        var response = await AdminClient(NonAdminSub).GetAsync($"/admin/vault/variants/{Guid.NewGuid()}/keys");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Admin_can_list_keys_for_a_variant_with_loaded_stock()
+    {
+        var (_, variantId) = await SeedProductWithVariantAsync();
+        var loadResponse = await AdminClient().PostAsJsonAsync(
+            $"/admin/vault/variants/{variantId}/keys", new { codes = new[] { "CODE-1", "CODE-2" } });
+        Assert.Equal(HttpStatusCode.OK, loadResponse.StatusCode);
+
+        var response = await AdminClient().GetAsync($"/admin/vault/variants/{variantId}/keys");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var rawBody = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("encryptedcode", rawBody, StringComparison.OrdinalIgnoreCase);
+
+        var keys = await response.Content.ReadFromJsonAsync<List<VaultKeySummary>>();
+        Assert.Equal(2, keys!.Count);
+        Assert.All(keys, k => Assert.Equal("Available", k.Status));
+        Assert.All(keys, k => Assert.False(string.IsNullOrWhiteSpace(k.LoadedBy)));
+        Assert.All(keys, k => Assert.Null(k.AssignedAt));
+        Assert.All(keys, k => Assert.Null(k.OrderItemId));
+    }
+
+    [Fact]
+    public async Task Listing_keys_for_a_variant_with_no_stock_returns_an_empty_list()
+    {
+        var (_, variantId) = await SeedProductWithVariantAsync();
+
+        var response = await AdminClient().GetAsync($"/admin/vault/variants/{variantId}/keys");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var keys = await response.Content.ReadFromJsonAsync<List<VaultKeySummary>>();
+        Assert.Empty(keys!);
+    }
+
+    [Fact]
+    public async Task Listing_keys_for_an_unknown_variant_returns_404()
+    {
+        var response = await AdminClient().GetAsync($"/admin/vault/variants/{Guid.NewGuid()}/keys");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Admin_can_toggle_a_products_vault()
     {
         var (productId, _) = await SeedProductWithVariantAsync();

@@ -78,6 +78,7 @@ public static class DependencyInjection
         services.AddScoped<LoadVaultKeys>();
         services.AddScoped<ToggleProductVault>();
         services.AddScoped<ListVaultStock>();
+        services.AddScoped<ListVariantKeys>();
         services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
         services.AddScoped<ListBuyers>();
