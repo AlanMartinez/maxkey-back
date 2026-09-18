@@ -84,6 +84,7 @@ public sealed class AppDbContextTests
             var key = new Key(variantId, encryptedCode, 3, "operator@example.com", now);
             var delivered = order.AttachKey(order.Items[0].Id, key, now);
             Assert.True(delivered);
+            order.MarkDelivered(now);
 
             orderId = order.Id;
             context.Orders.Add(order);

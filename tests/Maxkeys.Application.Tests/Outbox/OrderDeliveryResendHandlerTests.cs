@@ -78,6 +78,7 @@ public sealed class OrderDeliveryResendHandlerTests
             order.AttachKey(item.Id, key, now);
         }
 
+        order.MarkDelivered(now);
         await context.SaveChangesAsync();
         Assert.Equal(OrderStatus.Delivered, order.Status);
 

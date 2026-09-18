@@ -107,6 +107,7 @@ public sealed class RequestDeliveryResendTests
         var key = new Maxkeys.Domain.Keys.Key(item.ProductVariantId, blob, version, "seed-admin", now);
         context.Keys.Add(key); // client-generated Id — must be added explicitly (see AttachKeyToOrderItem)
         order.AttachKey(item.Id, key, now);
+        order.MarkDelivered(now);
         await context.SaveChangesAsync();
 
         Assert.Equal(OrderStatus.Delivered, order.Status);
