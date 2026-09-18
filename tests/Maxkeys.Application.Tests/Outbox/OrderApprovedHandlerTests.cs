@@ -263,9 +263,9 @@ public sealed class OrderApprovedHandlerTests
         await sut.HandleAsync(OrderApprovedEvent(orderId), CancellationToken.None);
 
         // Retry succeeded transparently — no exception escaped HandleAsync. Verify through a FRESH
-        // context (not the `order` reference captured above): that instance already had
+        // context rather than an in-memory reference: the tracked order already had
         // MarkAwaitingFulfillment applied in-memory during the FIRST, failed attempt, so asserting
-        // against it wouldn't prove the retry's SaveChangesAsync actually persisted anything.
+        // against an in-memory instance wouldn't prove the retry's SaveChangesAsync actually persisted anything.
         await using (var verifyOrderContext = _fixture.CreateContext())
         {
             var persistedOrder = await verifyOrderContext.Orders.SingleAsync(o => o.Id == orderId);
