@@ -86,7 +86,7 @@ public sealed class OrderApprovedHandlerTests
     }
 
     [Fact]
-    public async Task Vault_enabled_with_full_stock_auto_delivers_and_skips_the_operator_email()
+    public async Task Vault_enabled_with_full_stock_reaches_keys_assigned_and_still_sends_the_operator_email()
     {
         var (orderId, variantId) = await SeedPaidOrderWithVaultProductAsync(quantity: 2, vaultEnabled: true);
         await LoadVaultKeysAsync(variantId, "CODE-1", "CODE-2");
@@ -98,13 +98,10 @@ public sealed class OrderApprovedHandlerTests
         await sut.HandleAsync(OrderApprovedEvent(orderId), CancellationToken.None);
 
         var order = await context.Orders.Include(o => o.Items).ThenInclude(i => i.Keys).SingleAsync(o => o.Id == orderId);
-        Assert.Equal(OrderStatus.Delivered, order.Status);
-        Assert.NotNull(order.DeliveredAt);
+        Assert.Equal(OrderStatus.KeysAssigned, order.Status);
+        Assert.Null(order.DeliveredAt);
         Assert.All(order.Items.Single().Keys, k => Assert.Equal(KeyStatus.Assigned, k.Status));
-        Assert.Empty(emailSender.SentMessages);
-
-        var deliveredEvents = await context.OutboxEvents.Where(e => e.Type == OutboxEventTypes.OrderDelivered).ToListAsync();
-        Assert.Single(deliveredEvents, e => e.Payload.Contains(orderId.ToString()));
+        Assert.Single(emailSender.SentMessages);
     }
 
     [Fact]
@@ -191,7 +188,7 @@ public sealed class OrderApprovedHandlerTests
     private static OrderApprovedHandler CreateHandler(AppDbContext context, RecordingEmailSender emailSender)
     {
         var options = Options.Create(new EmailOptions { OperatorTo = OperatorAddress });
-        return new OrderApprovedHandler(context, emailSender, options, NullLogger<OrderApprovedHandler>.Instance);
+        return new OrderApprovedHandler(context, new AssignVaultKeysToOrder(context), emailSender, options, NullLogger<OrderApprovedHandler>.Instance);
     }
 
     private static OutboxEvent OrderApprovedEvent(Guid orderId) =>
