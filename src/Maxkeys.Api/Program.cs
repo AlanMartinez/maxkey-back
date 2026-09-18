@@ -66,6 +66,7 @@ try
     app.MapMeEndpoints();
     app.MapAdminEndpoints();
     app.MapAdminCatalogEndpoints();
+    app.MapAdminVaultEndpoints();
     app.MapAdminCarouselEndpoints();
     app.MapAdminBuyersEndpoints();
 
