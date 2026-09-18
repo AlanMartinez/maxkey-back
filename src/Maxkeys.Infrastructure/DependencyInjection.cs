@@ -75,6 +75,9 @@ public static class DependencyInjection
         services.AddScoped<GetMyOrder>();
         services.AddScoped<ListOrdersAwaitingFulfillment>();
         services.AddScoped<AttachKeyToOrderItem>();
+        services.AddScoped<LoadVaultKeys>();
+        services.AddScoped<ToggleProductVault>();
+        services.AddScoped<ListVaultStock>();
         services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
         services.AddScoped<ListBuyers>();
