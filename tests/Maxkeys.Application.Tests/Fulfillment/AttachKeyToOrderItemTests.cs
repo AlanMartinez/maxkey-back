@@ -3,7 +3,6 @@ using Maxkeys.Application.Security;
 using Maxkeys.Application.Tests.Fixtures;
 using Maxkeys.Domain.Common;
 using Maxkeys.Domain.Orders;
-using Maxkeys.Domain.Outbox;
 using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -68,11 +67,11 @@ public sealed class AttachKeyToOrderItemTests
 
         await using var readContext = _fixture.CreateContext();
         var order = await readContext.Orders.SingleAsync(o => o.Id == orderId);
-        Assert.Equal(OrderStatus.Delivered, order.Status);
+        Assert.Equal(OrderStatus.KeysAssigned, order.Status);
     }
 
     [Fact]
-    public async Task Last_key_completes_delivery_and_inserts_exactly_one_order_delivered_event()
+    public async Task Last_key_completes_delivery_and_reaches_keys_assigned()
     {
         var (orderId, itemId, _) = await SeedAwaitingFulfillmentOrderAsync(completeQuantity: null, incompleteQuantity: 1);
 
@@ -82,17 +81,11 @@ public sealed class AttachKeyToOrderItemTests
         var result = await sut.ExecuteAsync(orderId, itemId, "FINAL-CODE", "admin@maxkeys.test");
 
         Assert.NotNull(result);
-        Assert.Equal(OrderStatus.Delivered, result!.OrderStatus);
+        Assert.Equal(OrderStatus.KeysAssigned, result!.OrderStatus);
 
         var order = await context.Orders.SingleAsync(o => o.Id == orderId);
-        Assert.Equal(OrderStatus.Delivered, order.Status);
-        Assert.NotNull(order.DeliveredAt);
-
-        // jsonb has no LIKE operator, so filter the (small) candidate set by type in SQL and match the payload in memory.
-        var candidateEvents = await context.OutboxEvents
-            .Where(e => e.Type == OutboxEventTypes.OrderDelivered)
-            .ToListAsync();
-        Assert.Single(candidateEvents, e => e.Payload.Contains(orderId.ToString()));
+        Assert.Equal(OrderStatus.KeysAssigned, order.Status);
+        Assert.Null(order.DeliveredAt);
     }
 
     [Fact]
