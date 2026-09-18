@@ -59,7 +59,7 @@ public sealed class GetMyOrdersTests
         var result = await new GetMyOrders(context).ExecuteAsync(userId);
 
         Assert.Single(result);
-        Assert.Equal(OrderStatus.AwaitingFulfillment, result[0].Status);
+        Assert.Equal(nameof(OrderStatus.AwaitingFulfillment), result[0].Status);
     }
 
     [Fact]

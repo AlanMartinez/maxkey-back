@@ -49,6 +49,6 @@ public sealed class GetMyOrder
                 order.Status == OrderStatus.Delivered && item.Keys.Any(key => key.Status == KeyStatus.Assigned)))
             .ToList();
 
-        return new MyOrderDetail(order.Id, order.Status, order.TotalAmount, order.Currency, order.CreatedAt, items);
+        return new MyOrderDetail(order.Id, order.Status.ToString(), order.TotalAmount, order.Currency, order.CreatedAt, items);
     }
 }
