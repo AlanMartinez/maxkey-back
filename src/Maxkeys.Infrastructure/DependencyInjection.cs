@@ -84,6 +84,7 @@ public static class DependencyInjection
         services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
         services.AddScoped<ListBuyers>();
+        services.AddScoped<RevealOrderItemKeys>();
     }
 
     /// <summary>
