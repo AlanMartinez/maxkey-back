@@ -89,6 +89,7 @@ public sealed class ListBuyers
                 item.ProductNameSnapshot,
                 item.VariantNameSnapshot,
                 item.Quantity,
-                item.Keys.Count(k => k.Status == KeyStatus.Assigned)))
+                item.Keys.Count(k => k.Status == KeyStatus.Assigned),
+                item.Keys.Count(k => k.Status == KeyStatus.Revealed)))
             .ToList());
 }
