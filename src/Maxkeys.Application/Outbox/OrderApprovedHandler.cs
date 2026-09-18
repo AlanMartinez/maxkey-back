@@ -69,7 +69,7 @@ public sealed class OrderApprovedHandler : IOutboxHandler
         }
         catch (DbUpdateConcurrencyException)
         {
-            ClearTracker();
+            DetachHandlerState();
 
             // Same reload-and-retry-once pattern as AttachKeyToOrderItem: a concurrent auto-assign
             // for another order may have consumed the same vault keys between our read and write.
@@ -176,11 +176,36 @@ public sealed class OrderApprovedHandler : IOutboxHandler
             .Include(o => o.Items).ThenInclude(i => i.Keys)
             .SingleOrDefaultAsync(o => o.Id == orderId, cancellationToken);
 
-    private void ClearTracker()
+    /// <summary>
+    /// Detaches only what THIS handler's failed attempt added to the change
+    /// tracker, on a <see cref="DbUpdateConcurrencyException"/> retry. Unlike
+    /// <c>AttachKeyToOrderItem</c>'s <c>ClearTracker</c> (safe there because it
+    /// runs in a single-purpose per-HTTP-request scope), this handler runs
+    /// inside <c>OutboxProcessor.ProcessOnceAsync</c>'s shared batch
+    /// <see cref="DbContext"/> (design section 6; <c>OutboxProcessor.cs</c>),
+    /// where other claimed <see cref="OutboxEvent"/> rows are also tracked and
+    /// still need their <c>MarkProcessed</c>/<c>MarkFailedAttempt</c> mutations
+    /// to persist later in the same pass. A full <c>ChangeTracker.Clear()</c>
+    /// would detach those too, silently dropping their status updates.
+    /// </summary>
+    private void DetachHandlerState()
     {
-        if (_db is DbContext dbContext)
+        if (_db is not DbContext dbContext)
         {
-            dbContext.ChangeTracker.Clear();
+            return;
+        }
+
+        foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+        {
+            // The outbox processor shares this scoped DbContext across the whole claimed batch and
+            // needs its other OutboxEvent rows to stay tracked so their MarkProcessed/MarkFailedAttempt
+            // calls persist later in the same pass — only detach what THIS handler's failed attempt added.
+            if (entry.Entity is OutboxEvent && entry.State != EntityState.Added)
+            {
+                continue;
+            }
+
+            entry.State = EntityState.Detached;
         }
     }
 

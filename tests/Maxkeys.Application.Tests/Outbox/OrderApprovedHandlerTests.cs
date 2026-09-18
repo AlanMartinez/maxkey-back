@@ -210,4 +210,78 @@ public sealed class OrderApprovedHandlerTests
         await context.SaveChangesAsync();
         return order.Id;
     }
+
+    /// <summary>
+    /// Regression test for the whole-branch review finding: <c>OrderApprovedHandler</c>'s
+    /// concurrency retry used to call a full <c>ChangeTracker.Clear()</c>
+    /// (<c>ClearTracker</c>, now <c>DetachHandlerState</c>), which — because
+    /// <c>OutboxProcessor.ProcessOnceAsync</c> shares ONE <see cref="AppDbContext"/> across a
+    /// whole claimed batch (<c>OutboxProcessor.cs:62-72</c>) — detached every other claimed
+    /// <see cref="OutboxEvent"/> row too, silently dropping their later
+    /// <c>MarkProcessed</c>/<c>MarkFailedAttempt</c> writes.
+    ///
+    /// Forces a genuine <see cref="DbUpdateConcurrencyException"/> deterministically (no real
+    /// threading) by racing a second, separate <see cref="AppDbContext"/> that bumps the
+    /// target order's row (and therefore its <c>xmin</c> token) between the handler's read and
+    /// write. Then replays what <see cref="Infrastructure.Outbox.OutboxProcessor.DispatchAsync"/>
+    /// would do next in the same pass for a sibling event, on the SAME shared context the
+    /// handler used, and asserts that sibling's status mutation actually persisted.
+    /// </summary>
+    [Fact]
+    public async Task Concurrency_retry_does_not_lose_a_sibling_outbox_events_status_update()
+    {
+        var orderId = await SeedPaidOrderAsync();
+
+        Guid siblingEventId;
+        await using (var seedContext = _fixture.CreateContext())
+        {
+            var seededSiblingEvent = new OutboxEvent(OutboxEventTypes.OrderApproved, $$"""{"orderId":"{{Guid.NewGuid()}}"}""", DateTimeOffset.UtcNow);
+            seedContext.OutboxEvents.Add(seededSiblingEvent);
+            await seedContext.SaveChangesAsync();
+            siblingEventId = seededSiblingEvent.Id;
+        }
+
+        var emailSender = new RecordingEmailSender();
+
+        // `db` stands in for OutboxProcessor.ProcessOnceAsync's single shared batch AppDbContext:
+        // both the target order and the sibling event get tracked through it, exactly as
+        // OutboxClaimQuery.ClaimBatchAsync would have loaded them for a real claimed batch.
+        await using var db = _fixture.CreateContext();
+        await db.Orders.Include(o => o.Items).ThenInclude(i => i.Keys).SingleAsync(o => o.Id == orderId);
+        var siblingEvent = await db.OutboxEvents.SingleAsync(e => e.Id == siblingEventId);
+
+        // A separate context bumps the same order row (and therefore its xmin) without going
+        // through `db`'s identity map, leaving `db`'s tracked copy of the order with a now-stale
+        // xmin token — this is what makes the handler's own SaveChangesAsync throw
+        // DbUpdateConcurrencyException on its first attempt below.
+        await using (var racer = _fixture.CreateContext())
+        {
+            await racer.Database.ExecuteSqlInterpolatedAsync($"UPDATE orders SET updated_at = now() WHERE id = {orderId}");
+        }
+
+        var sut = CreateHandler(db, emailSender);
+        await sut.HandleAsync(OrderApprovedEvent(orderId), CancellationToken.None);
+
+        // Retry succeeded transparently — no exception escaped HandleAsync. Verify through a FRESH
+        // context (not the `order` reference captured above): that instance already had
+        // MarkAwaitingFulfillment applied in-memory during the FIRST, failed attempt, so asserting
+        // against it wouldn't prove the retry's SaveChangesAsync actually persisted anything.
+        await using (var verifyOrderContext = _fixture.CreateContext())
+        {
+            var persistedOrder = await verifyOrderContext.Orders.SingleAsync(o => o.Id == orderId);
+            Assert.Equal(OrderStatus.AwaitingFulfillment, persistedOrder.Status);
+        }
+
+        // Replay what OutboxProcessor.DispatchAsync (OutboxProcessor.cs:87-98) does next in the
+        // same pass for the sibling event, on the SAME shared `db` — this is the assertion that
+        // fails before the fix: DetachHandlerState (formerly ClearTracker) used to detach
+        // `siblingEvent` as a side effect of the order's retry, so this SaveChangesAsync would
+        // silently persist nothing for it.
+        siblingEvent.MarkProcessed(DateTimeOffset.UtcNow);
+        await db.SaveChangesAsync(CancellationToken.None);
+
+        await using var verifyContext = _fixture.CreateContext();
+        var persistedSibling = await verifyContext.OutboxEvents.SingleAsync(e => e.Id == siblingEventId);
+        Assert.Equal(OutboxEventStatus.Processed, persistedSibling.Status);
+    }
 }
