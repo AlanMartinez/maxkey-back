@@ -3,7 +3,6 @@ using Maxkeys.Application.Security;
 using Maxkeys.Domain.Common;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
-using Maxkeys.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
 
 namespace Maxkeys.Application.Fulfillment;
@@ -11,12 +10,14 @@ namespace Maxkeys.Application.Fulfillment;
 /// <summary>
 /// Attaches exactly one key code to an order item (fulfillment spec: Key
 /// Attachment, All-or-Nothing Delivery Derivation, Key Encryption at Rest;
-/// design section 6d). Encrypts the plaintext code immediately, then persists
-/// the key and the order's derived status in a single <c>SaveChangesAsync</c> —
-/// when the attached key completes the order, the <see cref="OutboxEventTypes.OrderDelivered"/>
-/// row is inserted in that same transaction so the event exists exactly once
-/// (ADR-04). Returns <see langword="null"/> for an unknown order so the API
-/// layer can map it to 404, matching <c>GetOrderStatus</c>/<c>GetProductBySlug</c>.
+/// design section 6d; admin-key-delivery-gate spec: decision 1 — MODIFIED).
+/// Encrypts the plaintext code immediately, then persists the key and the
+/// order's derived status in a single <c>SaveChangesAsync</c>. Completing
+/// every item stops at <see cref="OrderStatus.KeysAssigned"/> — an admin must
+/// separately call <c>DeliverOrder</c> to release the order to its buyer, so
+/// no outbox event is inserted here any more. Returns <see langword="null"/>
+/// for an unknown order so the API layer can map it to 404, matching
+/// <c>GetOrderStatus</c>/<c>GetProductBySlug</c>.
 /// </summary>
 public sealed class AttachKeyToOrderItem
 {
@@ -92,12 +93,7 @@ public sealed class AttachKeyToOrderItem
         // same way OutboxEvent rows are (ProcessPaymentNotification), or EF issues an UPDATE
         // instead of an INSERT and a spurious DbUpdateConcurrencyException follows.
         _db.Keys.Add(key);
-        var delivered = order.AttachKey(orderItemId, key, now);
-
-        if (delivered)
-        {
-            _db.OutboxEvents.Add(new OutboxEvent(OutboxEventTypes.OrderDelivered, $$"""{"orderId":"{{order.Id}}"}""", now));
-        }
+        order.AttachKey(orderItemId, key, now);
 
         await _db.SaveChangesAsync(cancellationToken);
 

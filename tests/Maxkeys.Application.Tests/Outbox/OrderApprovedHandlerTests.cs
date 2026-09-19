@@ -18,7 +18,10 @@ namespace Maxkeys.Application.Tests.Outbox;
 /// <summary>
 /// Covers <see cref="OrderApprovedHandler"/> (outbox-processing spec:
 /// OrderApproved Handler; tasks.md 7.6): <c>Paid</c> → <c>AwaitingFulfillment</c>
-/// with exactly one operator email; already-transitioned orders are a no-op;
+/// with an operator email; an order already <c>KeysAssigned</c>/<c>Delivered</c> is a
+/// no-op, but one still at <c>AwaitingFulfillment</c> re-attempts the assign step and
+/// email (whole-branch review fix, Important #2 — see
+/// <see cref="Already_awaiting_fulfillment_re_attempts_assign_and_resends_the_operator_email"/>);
 /// an unknown order throws so the outbox processor can retry/dead-letter.
 /// </summary>
 [Collection(PostgresCollection.Name)]
@@ -54,8 +57,17 @@ public sealed class OrderApprovedHandlerTests
         Assert.DoesNotContain("nonce", email.TextBody, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Updated for the whole-branch review fix (Important #2): an order still sitting at
+    /// <see cref="OrderStatus.AwaitingFulfillment"/> is no longer treated as fully resolved, because
+    /// that status is also what a handler retry (after a prior attempt's assign step threw) resumes
+    /// from — treating it as a no-op would permanently strand such an order with no keys and no
+    /// notification. So a second delivery of the same event re-attempts the (idempotent)
+    /// assign step and re-sends the operator email; only <see cref="OrderStatus.KeysAssigned"/> and
+    /// <see cref="OrderStatus.Delivered"/> are treated as fully resolved no-ops.
+    /// </summary>
     [Fact]
-    public async Task Already_awaiting_fulfillment_is_a_noop_with_no_email()
+    public async Task Already_awaiting_fulfillment_re_attempts_assign_and_resends_the_operator_email()
     {
         var orderId = await SeedPaidOrderAsync();
         var emailSender = new RecordingEmailSender();
@@ -69,7 +81,7 @@ public sealed class OrderApprovedHandlerTests
 
         var order = await secondContext.Orders.SingleAsync(o => o.Id == orderId);
         Assert.Equal(OrderStatus.AwaitingFulfillment, order.Status);
-        Assert.Single(emailSender.SentMessages);
+        Assert.Equal(2, emailSender.SentMessages.Count);
     }
 
     [Fact]
@@ -86,7 +98,7 @@ public sealed class OrderApprovedHandlerTests
     }
 
     [Fact]
-    public async Task Vault_enabled_with_full_stock_auto_delivers_and_skips_the_operator_email()
+    public async Task Vault_enabled_with_full_stock_reaches_keys_assigned_and_still_sends_the_operator_email()
     {
         var (orderId, variantId) = await SeedPaidOrderWithVaultProductAsync(quantity: 2, vaultEnabled: true);
         await LoadVaultKeysAsync(variantId, "CODE-1", "CODE-2");
@@ -98,13 +110,10 @@ public sealed class OrderApprovedHandlerTests
         await sut.HandleAsync(OrderApprovedEvent(orderId), CancellationToken.None);
 
         var order = await context.Orders.Include(o => o.Items).ThenInclude(i => i.Keys).SingleAsync(o => o.Id == orderId);
-        Assert.Equal(OrderStatus.Delivered, order.Status);
-        Assert.NotNull(order.DeliveredAt);
+        Assert.Equal(OrderStatus.KeysAssigned, order.Status);
+        Assert.Null(order.DeliveredAt);
         Assert.All(order.Items.Single().Keys, k => Assert.Equal(KeyStatus.Assigned, k.Status));
-        Assert.Empty(emailSender.SentMessages);
-
-        var deliveredEvents = await context.OutboxEvents.Where(e => e.Type == OutboxEventTypes.OrderDelivered).ToListAsync();
-        Assert.Single(deliveredEvents, e => e.Payload.Contains(orderId.ToString()));
+        Assert.Single(emailSender.SentMessages);
     }
 
     [Fact]
@@ -191,7 +200,7 @@ public sealed class OrderApprovedHandlerTests
     private static OrderApprovedHandler CreateHandler(AppDbContext context, RecordingEmailSender emailSender)
     {
         var options = Options.Create(new EmailOptions { OperatorTo = OperatorAddress });
-        return new OrderApprovedHandler(context, emailSender, options, NullLogger<OrderApprovedHandler>.Instance);
+        return new OrderApprovedHandler(context, new AssignVaultKeysToOrder(context), emailSender, options, NullLogger<OrderApprovedHandler>.Instance);
     }
 
     private static OutboxEvent OrderApprovedEvent(Guid orderId) =>

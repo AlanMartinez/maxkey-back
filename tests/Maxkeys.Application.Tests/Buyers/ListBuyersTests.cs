@@ -94,6 +94,21 @@ public sealed class ListBuyersTests
         Assert.Equal(1, item.AssignedKeys);
     }
 
+    [Fact]
+    public async Task Order_item_exposes_the_revealed_key_count_once_revealed()
+    {
+        var buyerEmail = $"buyer-{Guid.NewGuid():N}@example.com";
+        var orderId = await SeedPaidOrderWithRevealedKeyAsync(buyerEmail);
+
+        await using var context = _fixture.CreateContext();
+        var result = await CreateSut(context).ExecuteAsync(email: buyerEmail, page: 1, pageSize: 20);
+
+        var order = Assert.Single(result.Items).Orders.Single(o => o.Id == orderId);
+        var item = Assert.Single(order.Items);
+        Assert.Equal(0, item.AssignedKeys);
+        Assert.Equal(1, item.RevealedKeys);
+    }
+
     private static ListBuyers CreateSut(AppDbContext context) => new(context);
 
     private async Task SeedPaidOrderAsync(string buyerEmail)
@@ -135,6 +150,30 @@ public sealed class ListBuyersTests
         var key = new Maxkeys.Domain.Keys.Key(item.ProductVariantId, blob, version, "seed-admin", now);
         context.Keys.Add(key); // client-generated Id — must be added explicitly (see AttachKeyToOrderItem)
         order.AttachKey(item.Id, key, now);
+        await context.SaveChangesAsync();
+
+        return order.Id;
+    }
+
+    private async Task<Guid> SeedPaidOrderWithRevealedKeyAsync(string buyerEmail)
+    {
+        var cipher = new KeyCipher(Options.Create(new KeyCipherOptions { EncryptionKey = ValidKeyBase64, CurrentVersion = 1 }));
+        var now = DateTimeOffset.UtcNow;
+
+        await using var context = _fixture.CreateContext();
+        var order = Order.Create(
+            null, buyerEmail, [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], now);
+        order.MarkPaid($"pay-{Guid.NewGuid():N}", now);
+        order.MarkAwaitingFulfillment(now);
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+
+        var item = order.Items.Single();
+        var (blob, version) = cipher.Encrypt("CODE-ONE");
+        var key = new Maxkeys.Domain.Keys.Key(item.ProductVariantId, blob, version, "seed-admin", now);
+        context.Keys.Add(key);
+        order.AttachKey(item.Id, key, now);
+        key.Reveal(now);
         await context.SaveChangesAsync();
 
         return order.Id;

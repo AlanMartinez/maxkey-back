@@ -1,7 +1,7 @@
 using System.Text.Json;
+using Maxkeys.Application.Fulfillment;
 using Maxkeys.Application.Notifications;
 using Maxkeys.Application.Persistence;
-using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
@@ -12,21 +12,22 @@ namespace Maxkeys.Application.Outbox;
 
 /// <summary>
 /// Handles <see cref="OutboxEventTypes.OrderApproved"/> (outbox-processing
-/// spec: OrderApproved Handler; design section 6c; vault spec: Vault
-/// Auto-Assignment On Approval). Transitions the order
+/// spec: OrderApproved Handler; design section 6c; admin-key-delivery-gate
+/// spec: decision 3 — MODIFIED). Transitions the order
 /// <see cref="OrderStatus.Paid"/> → <see cref="OrderStatus.AwaitingFulfillment"/>,
-/// then attempts to auto-assign vault stock to every item whose product has
-/// vault auto-fulfillment enabled (all-or-nothing per item — see
-/// <see cref="AutoAssignVaultKeysAsync"/>). Sends the operator notification
-/// only if the order is not fully <see cref="OrderStatus.Delivered"/>
-/// afterwards. Idempotent: an order already past <see cref="OrderStatus.Paid"/>
-/// is a logged no-op with no email; an order that does not exist is a bug in
-/// the producer, so this throws to let the outbox processor retry/dead-letter
-/// rather than silently drop the event.
+/// then delegates vault auto-assignment to <see cref="AssignVaultKeysToOrder"/>
+/// (shared with the admin "Asignar" action). Always emails the operator
+/// afterwards — this handler never reaches <see cref="OrderStatus.Delivered"/>
+/// on its own any more, an admin always reviews before delivery. Idempotent:
+/// an order already past <see cref="OrderStatus.Paid"/> is a logged no-op with
+/// no email; an order that does not exist is a bug in the producer, so this
+/// throws to let the outbox processor retry/dead-letter rather than silently
+/// drop the event.
 /// </summary>
 public sealed class OrderApprovedHandler : IOutboxHandler
 {
     private readonly IAppDbContext _db;
+    private readonly AssignVaultKeysToOrder _assignVaultKeysToOrder;
     private readonly IEmailSender _emailSender;
     private readonly IOptions<EmailOptions> _emailOptions;
     private readonly ILogger<OrderApprovedHandler> _logger;
@@ -35,11 +36,13 @@ public sealed class OrderApprovedHandler : IOutboxHandler
 
     public OrderApprovedHandler(
         IAppDbContext db,
+        AssignVaultKeysToOrder assignVaultKeysToOrder,
         IEmailSender emailSender,
         IOptions<EmailOptions> emailOptions,
         ILogger<OrderApprovedHandler> logger)
     {
         _db = db;
+        _assignVaultKeysToOrder = assignVaultKeysToOrder;
         _emailSender = emailSender;
         _emailOptions = emailOptions;
         _logger = logger;
@@ -56,120 +59,63 @@ public sealed class OrderApprovedHandler : IOutboxHandler
             throw new InvalidOperationException($"OrderApproved event references unknown order {orderId}.");
         }
 
-        if (order.Status is OrderStatus.AwaitingFulfillment or OrderStatus.Delivered)
+        if (IsFullyResolved(order.Status))
         {
             _logger.LogInformation(
                 "Order {OrderId} is already {Status}; OrderApproved handling is a no-op.", orderId, order.Status);
             return;
         }
 
-        try
+        if (order.Status == OrderStatus.Paid)
         {
-            await ApproveAsync(order, now, cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            DetachHandlerState();
-
-            // Same reload-and-retry-once pattern as AttachKeyToOrderItem: a concurrent auto-assign
-            // for another order may have consumed the same vault keys between our read and write.
-            order = await LoadOrderAsync(orderId, cancellationToken)
-                ?? throw new InvalidOperationException($"OrderApproved event references unknown order {orderId}.");
-
-            if (order.Status is OrderStatus.AwaitingFulfillment or OrderStatus.Delivered)
+            try
             {
-                _logger.LogInformation(
-                    "Order {OrderId} is already {Status} after a concurrent update; OrderApproved handling is a no-op.",
-                    orderId, order.Status);
-                return;
+                order.MarkAwaitingFulfillment(now);
+                await _db.SaveChangesAsync(cancellationToken);
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                DetachHandlerState();
 
-            await ApproveAsync(order, now, cancellationToken);
+                order = await LoadOrderAsync(orderId, cancellationToken)
+                    ?? throw new InvalidOperationException($"OrderApproved event references unknown order {orderId}.");
+
+                if (IsFullyResolved(order.Status))
+                {
+                    _logger.LogInformation(
+                        "Order {OrderId} is already {Status} after a concurrent update; OrderApproved handling is a no-op.",
+                        orderId, order.Status);
+                    return;
+                }
+
+                if (order.Status == OrderStatus.Paid)
+                {
+                    order.MarkAwaitingFulfillment(now);
+                    await _db.SaveChangesAsync(cancellationToken);
+                }
+            }
         }
 
-        if (order.Status != OrderStatus.Delivered)
-        {
-            var (subject, textBody) = EmailTemplates.OperatorOrderAwaitingFulfillment(order);
-            await _emailSender.SendAsync(new EmailMessage(_emailOptions.Value.OperatorTo, subject, textBody), cancellationToken);
-        }
+        // order.Status is now AwaitingFulfillment — either just transitioned above, or already was on a
+        // resumed retry after a prior attempt's assign step failed past this point. Re-attempting the
+        // assign + operator email here is safe: AssignVaultKeysToOrder is idempotent (it only touches
+        // items that are still incomplete), and retrying here is what makes a failed assign attempt
+        // recoverable via the outbox processor's normal retry/backoff instead of silently stranding the
+        // order (whole-branch review finding, Important #2).
+        var assignResult = await _assignVaultKeysToOrder.ExecuteAsync(orderId, cancellationToken);
+        _logger.LogInformation(
+            "Vault auto-assign for order {OrderId}: all items complete = {AllComplete}.",
+            orderId, assignResult?.AllItemsComplete ?? false);
+
+        // `order` may be a stale (detached) reference if AssignVaultKeysToOrder's own concurrency retry
+        // ran against the same shared DbContext — safe here regardless, since the operator email only
+        // reads already-materialized scalar fields and the item collection, never lazy-loaded state.
+        var (subject, textBody) = EmailTemplates.OperatorOrderAwaitingFulfillment(order);
+        await _emailSender.SendAsync(new EmailMessage(_emailOptions.Value.OperatorTo, subject, textBody), cancellationToken);
     }
 
-    private async Task ApproveAsync(Order order, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        order.MarkAwaitingFulfillment(now);
-        await AutoAssignVaultKeysAsync(order, now, cancellationToken);
-        await _db.SaveChangesAsync(cancellationToken);
-    }
-
-    /// <summary>
-    /// Attempts to auto-assign vault stock to every incomplete item whose
-    /// product has <see cref="Domain.Catalog.Product.VaultEnabled"/> set
-    /// (vault spec: Vault Auto-Assignment On Approval). Per item, all-or-nothing:
-    /// if available stock is less than the item's remaining quantity, that item
-    /// is skipped entirely and left for the existing manual flow. Reuses
-    /// <see cref="Order.AttachKey"/> unchanged, so the same completeness/status
-    /// derivation applies. Inserts the <see cref="OutboxEventTypes.OrderDelivered"/>
-    /// row itself if this pass completes the order — <see cref="Order.AttachKey"/>
-    /// only returns whether it did, it does not touch the outbox.
-    /// </summary>
-    private async Task AutoAssignVaultKeysAsync(Order order, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        var incompleteItems = order.Items.Where(i => !i.IsComplete).ToList();
-        if (incompleteItems.Count == 0)
-        {
-            return;
-        }
-
-        var variantIds = incompleteItems.Select(i => i.ProductVariantId).Distinct().ToList();
-        var variantProductIds = await _db.ProductVariants
-            .Where(v => variantIds.Contains(v.Id))
-            .Select(v => new { v.Id, v.ProductId })
-            .ToListAsync(cancellationToken);
-        var productIdByVariant = variantProductIds.ToDictionary(v => v.Id, v => v.ProductId);
-
-        var productIds = productIdByVariant.Values.Distinct().ToList();
-        var vaultEnabledByProduct = await _db.Products
-            .Where(p => productIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.VaultEnabled })
-            .ToDictionaryAsync(p => p.Id, p => p.VaultEnabled, cancellationToken);
-
-        foreach (var item in incompleteItems)
-        {
-            if (!productIdByVariant.TryGetValue(item.ProductVariantId, out var productId) ||
-                !vaultEnabledByProduct.TryGetValue(productId, out var vaultEnabled) ||
-                !vaultEnabled)
-            {
-                continue;
-            }
-
-            var remaining = item.Quantity - item.Keys.Count(k => k.Status == KeyStatus.Assigned);
-            if (remaining <= 0)
-            {
-                continue;
-            }
-
-            var availableKeys = await _db.Keys
-                .Where(k => k.ProductVariantId == item.ProductVariantId && k.Status == KeyStatus.Available)
-                .OrderBy(k => k.CreatedAt)
-                .Take(remaining)
-                .ToListAsync(cancellationToken);
-
-            if (availableKeys.Count < remaining)
-            {
-                continue; // all-or-nothing: leave this item for the manual flow
-            }
-
-            foreach (var key in availableKeys)
-            {
-                order.AttachKey(item.Id, key, now);
-            }
-        }
-
-        if (order.Status == OrderStatus.Delivered)
-        {
-            _db.OutboxEvents.Add(new OutboxEvent(OutboxEventTypes.OrderDelivered, $$"""{"orderId":"{{order.Id}}"}""", now));
-        }
-    }
+    private static bool IsFullyResolved(OrderStatus status) =>
+        status is OrderStatus.KeysAssigned or OrderStatus.Delivered;
 
     private Task<Order?> LoadOrderAsync(Guid orderId, CancellationToken cancellationToken) =>
         _db.Orders
@@ -197,9 +143,6 @@ public sealed class OrderApprovedHandler : IOutboxHandler
 
         foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
         {
-            // The outbox processor shares this scoped DbContext across the whole claimed batch and
-            // needs its other OutboxEvent rows to stay tracked so their MarkProcessed/MarkFailedAttempt
-            // calls persist later in the same pass — only detach what THIS handler's failed attempt added.
             if (entry.Entity is OutboxEvent && entry.State != EntityState.Added)
             {
                 continue;

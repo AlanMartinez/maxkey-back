@@ -192,7 +192,7 @@ public class OrderTests
     }
 
     [Fact]
-    public void AttachKey_AllOrNothing_DeliversOnlyWhenEveryItemComplete()
+    public void AttachKey_AllOrNothing_ReachesKeysAssignedOnlyWhenEveryItemComplete()
     {
         var order = CreateAwaitingFulfillmentOrder();
         var qty2Item = order.Items.Single(i => i.Quantity == 2);
@@ -207,7 +207,45 @@ public class OrderTests
         Assert.Null(order.DeliveredAt);
 
         Assert.True(order.AttachKey(qty2Item.Id, AvailableKey(qty2Item.ProductVariantId), Now.AddMinutes(5)));
+        Assert.Equal(OrderStatus.KeysAssigned, order.Status);
+        Assert.Null(order.DeliveredAt);
+    }
+
+    [Fact]
+    public void MarkDelivered_WhenKeysAssigned_SetsDeliveredStatusAndTimestamp()
+    {
+        var order = CreateAwaitingFulfillmentOrder();
+        var qty2Item = order.Items.Single(i => i.Quantity == 2);
+        var qty1Item = order.Items.Single(i => i.Quantity == 1);
+        order.AttachKey(qty2Item.Id, AvailableKey(qty2Item.ProductVariantId), Now.AddMinutes(3));
+        order.AttachKey(qty1Item.Id, AvailableKey(qty1Item.ProductVariantId), Now.AddMinutes(4));
+        order.AttachKey(qty2Item.Id, AvailableKey(qty2Item.ProductVariantId), Now.AddMinutes(5));
+        Assert.Equal(OrderStatus.KeysAssigned, order.Status);
+
+        order.MarkDelivered(Now.AddMinutes(6));
+
         Assert.Equal(OrderStatus.Delivered, order.Status);
-        Assert.Equal(Now.AddMinutes(5), order.DeliveredAt);
+        Assert.Equal(Now.AddMinutes(6), order.DeliveredAt);
+    }
+
+    [Fact]
+    public void MarkDelivered_WhenNotKeysAssigned_Throws()
+    {
+        var order = CreateAwaitingFulfillmentOrder();
+        Assert.Throws<DomainConflictException>(() => order.MarkDelivered(Now.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void MarkDelivered_WhenAlreadyDelivered_Throws()
+    {
+        var order = CreateAwaitingFulfillmentOrder();
+        var qty2Item = order.Items.Single(i => i.Quantity == 2);
+        var qty1Item = order.Items.Single(i => i.Quantity == 1);
+        order.AttachKey(qty2Item.Id, AvailableKey(qty2Item.ProductVariantId), Now.AddMinutes(3));
+        order.AttachKey(qty1Item.Id, AvailableKey(qty1Item.ProductVariantId), Now.AddMinutes(4));
+        order.AttachKey(qty2Item.Id, AvailableKey(qty2Item.ProductVariantId), Now.AddMinutes(5));
+        order.MarkDelivered(Now.AddMinutes(6));
+
+        Assert.Throws<DomainConflictException>(() => order.MarkDelivered(Now.AddMinutes(7)));
     }
 }

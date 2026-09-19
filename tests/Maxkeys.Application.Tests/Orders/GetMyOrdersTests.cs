@@ -2,6 +2,7 @@ using Maxkeys.Application.Orders;
 using Maxkeys.Application.Security;
 using Maxkeys.Application.Tests.Fixtures;
 using Maxkeys.Domain.Orders;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Application.Tests.Orders;
@@ -58,7 +59,7 @@ public sealed class GetMyOrdersTests
         var result = await new GetMyOrders(context).ExecuteAsync(userId);
 
         Assert.Single(result);
-        Assert.Equal(OrderStatus.AwaitingFulfillment, result[0].Status);
+        Assert.Equal(nameof(OrderStatus.AwaitingFulfillment), result[0].Status);
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public sealed class GetMyOrdersTests
     }
 
     [Fact]
-    public async Task GetMyOrder_hides_keys_when_not_delivered_and_reveals_them_when_delivered()
+    public async Task GetMyOrder_keeps_keys_hidden_until_explicitly_revealed_even_after_delivered()
     {
         var userId = Guid.NewGuid();
 
@@ -92,10 +93,44 @@ public sealed class GetMyOrdersTests
         var delivered = await sut.ExecuteAsync(deliveredOrderId, userId);
 
         Assert.NotNull(awaiting);
-        Assert.All(awaiting!.Items, item => Assert.Null(item.Keys));
+        Assert.All(awaiting!.Items, item =>
+        {
+            Assert.Empty(item.Keys);
+            Assert.False(item.Revealable);
+        });
 
         Assert.NotNull(delivered);
-        Assert.All(delivered!.Items, item => Assert.NotEmpty(item.Keys!));
+        Assert.All(delivered!.Items, item =>
+        {
+            Assert.Empty(item.Keys); // assigned, not yet revealed
+            Assert.True(item.Revealable);
+        });
+    }
+
+    [Fact]
+    public async Task GetMyOrder_shows_a_revealed_keys_code_on_later_calls()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var seedContext = _fixture.CreateContext();
+        var orderId = await SeedOrderAsync(seedContext, userId, deliver: true);
+
+        await using (var revealContext = _fixture.CreateContext())
+        {
+            var order = await revealContext.Orders.Include(o => o.Items).ThenInclude(i => i.Keys).SingleAsync(o => o.Id == orderId);
+            var key = order.Items.Single().Keys.Single();
+            key.Reveal(DateTimeOffset.UtcNow);
+            await revealContext.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var result = await CreateSut(context).ExecuteAsync(orderId, userId);
+
+        Assert.NotNull(result);
+        var item = result!.Items.Single();
+        Assert.Single(item.Keys);
+        Assert.Equal("SEED-CODE", item.Keys[0]);
+        Assert.False(item.Revealable); // nothing left to reveal
     }
 
     private static GetMyOrder CreateSut(Infrastructure.Persistence.AppDbContext context) =>
@@ -114,6 +149,7 @@ public sealed class GetMyOrdersTests
             var cipher = new KeyCipher(Options.Create(new KeyCipherOptions { EncryptionKey = ValidKeyBase64, CurrentVersion = 1 }));
             var (blob, version) = cipher.Encrypt("SEED-CODE");
             order.AttachKey(item.Id, new Maxkeys.Domain.Keys.Key(item.ProductVariantId, blob, version, "seed-admin", now), now);
+            order.MarkDelivered(now.AddSeconds(1));
         }
 
         context.Orders.Add(order);

@@ -33,6 +33,19 @@ public static class MeEndpoints
                 : Results.Ok(order);
         });
 
+        group.MapPost("/{id:guid}/items/{itemId:guid}/keys/reveal", async (
+            Guid id,
+            Guid itemId,
+            ClaimsPrincipal user,
+            RevealOrderItemKeys useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var codes = await useCase.ExecuteAsync(id, itemId, RequireUserId(user), cancellationToken);
+            return codes is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
+                : Results.Ok(new RevealOrderItemKeysResponse(codes));
+        });
+
         return app;
     }
 
@@ -45,3 +58,6 @@ public static class MeEndpoints
             : throw new InvalidOperationException("Authenticated principal is missing a valid 'sub' claim.");
     }
 }
+
+/// <summary>Response for <c>POST /me/orders/{id}/items/{itemId}/keys/reveal</c>.</summary>
+public sealed record RevealOrderItemKeysResponse(IReadOnlyList<string> Codes);

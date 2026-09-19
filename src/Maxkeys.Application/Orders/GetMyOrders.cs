@@ -21,12 +21,20 @@ public sealed class GetMyOrders
 
     public async Task<IReadOnlyList<OrderSummary>> ExecuteAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        return await _db.Orders
+        // Projects to an anonymous type first (server-translated) and stringifies the enum
+        // client-side afterward — HasConversion<string>() only guarantees a clean translation
+        // for filtering/ordering by the enum itself, not for calling .ToString() on it inside
+        // the SQL-translated Select.
+        var orders = await _db.Orders
             .Where(order => order.UserId == userId
                 && order.Status != OrderStatus.Pending
                 && order.Status != OrderStatus.Cancelled)
             .OrderByDescending(order => order.CreatedAt)
-            .Select(order => new OrderSummary(order.Id, order.Status, order.TotalAmount, order.Currency, order.CreatedAt, order.Items.Count))
+            .Select(order => new { order.Id, order.Status, order.TotalAmount, order.Currency, order.CreatedAt, ItemCount = order.Items.Count })
             .ToListAsync(cancellationToken);
+
+        return orders
+            .Select(o => new OrderSummary(o.Id, o.Status.ToString(), o.TotalAmount, o.Currency, o.CreatedAt, o.ItemCount))
+            .ToList();
     }
 }
