@@ -1,12 +1,14 @@
 using System.Security.Claims;
 using Maxkeys.Api.Auth;
+using Maxkeys.Application.Buyers;
 using Maxkeys.Application.Fulfillment;
 
 namespace Maxkeys.Api.Endpoints;
 
 /// <summary>
 /// Admin-only fulfillment endpoints (design section 7; fulfillment spec:
-/// Admin Order Listing, Key Attachment, Admin Authorization). Every route
+/// Admin Order Listing, Key Attachment, Admin Authorization; admin-buyers
+/// spec: Order Detail via <c>GET /admin/orders/{id}</c>). Every route
 /// requires the <see cref="AdminPolicy.Name"/> policy.
 /// </summary>
 public static class AdminEndpoints
@@ -32,6 +34,19 @@ public static class AdminEndpoints
         {
             var orders = await useCase.ExecuteAsync(cancellationToken);
             return Results.Ok(orders.Select(ToResponse).ToList());
+        });
+
+        // Full order detail for the admin buyers modal — key ids/status only, never a
+        // key code (admin-buyers spec: Order Detail, Key Exposure in Buyer View).
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            GetAdminOrderDetail useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var detail = await useCase.ExecuteAsync(id, cancellationToken);
+            return detail is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
+                : Results.Ok(detail);
         });
 
         group.MapPost("/{id:guid}/items/{itemId:guid}/keys", async (
