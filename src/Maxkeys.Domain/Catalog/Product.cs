@@ -4,7 +4,8 @@ namespace Maxkeys.Domain.Catalog;
 
 /// <summary>
 /// A sellable product (e.g. a gift card family). Variants (region/edition/tier)
-/// are still added by the catalog seeder only — no admin variant creation.
+/// are added by the catalog seeder or by the admin path
+/// <c>Maxkeys.Application.Catalog.CreateProductVariant</c>.
 /// Products themselves were seed-only through the MVP (design section 4.1);
 /// <c>Maxkeys.Application.Catalog.CreateProduct</c> later added an admin path
 /// that also constructs a <see cref="Product"/> directly. <see cref="UpdateCatalogInfo"/>

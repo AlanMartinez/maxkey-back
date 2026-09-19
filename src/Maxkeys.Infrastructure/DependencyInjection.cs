@@ -63,6 +63,8 @@ public static class DependencyInjection
         services.AddScoped<ListAdminProducts>();
         services.AddScoped<CreateProduct>();
         services.AddScoped<UpdateProduct>();
+        services.AddScoped<DeleteProduct>();
+        services.AddScoped<CreateProductVariant>();
         services.AddScoped<UpdateProductVariant>();
         services.AddScoped<DeleteProductVariant>();
         services.AddScoped<GetCarousel>();

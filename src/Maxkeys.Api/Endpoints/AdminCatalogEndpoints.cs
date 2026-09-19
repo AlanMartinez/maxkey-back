@@ -8,9 +8,11 @@ namespace Maxkeys.Api.Endpoints;
 /// route requires the <see cref="AdminPolicy.Name"/> policy. <c>PUT</c> takes
 /// the full editable record — no <c>PATCH</c>, no separate toggle endpoint;
 /// the UI re-sends the record with <c>isActive</c> flipped (design D3).
-/// <c>POST /products</c> (<see cref="CreateProduct"/>) is the one way to insert
-/// a product outside <c>CatalogSeeder</c> — variants remain seed/PUT-only, no
-/// <c>POST /variants</c>.
+/// <c>POST /products</c> (<see cref="CreateProduct"/>) and
+/// <c>POST /products/{productId}/variants</c> (<see cref="CreateProductVariant"/>)
+/// are the admin insert paths outside <c>CatalogSeeder</c>. <c>DELETE /products/{id}</c>
+/// is a soft delete (<see cref="DeleteProduct"/>, returns the deactivated record),
+/// whereas <c>DELETE /variants/{id}</c> hard-deletes the row (<see cref="DeleteProductVariant"/>).
 /// </summary>
 public static class AdminCatalogEndpoints
 {
@@ -63,6 +65,30 @@ public static class AdminCatalogEndpoints
             return product is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
                 : Results.Ok(product);
+        });
+
+        group.MapDelete("/products/{id:guid}", async (
+            Guid id,
+            DeleteProduct useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var product = await useCase.ExecuteAsync(id, cancellationToken);
+            return product is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
+                : Results.Ok(product);
+        });
+
+        group.MapPost("/products/{productId:guid}/variants", async (
+            Guid productId,
+            CreateProductVariantRequest body,
+            CreateProductVariant useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var variant = await useCase.ExecuteAsync(
+                productId, body.Region, body.Edition, body.Price, body.DiscountPercentage, body.Currency, body.SortOrder, body.IsActive, cancellationToken);
+            return variant is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
+                : Results.Created($"/admin/catalog/variants/{variant.Id}", variant);
         });
 
         group.MapPut("/variants/{id:guid}", async (
@@ -127,6 +153,10 @@ public sealed record UpdateProductRequest(
     IReadOnlyList<string>? ImageKeys,
     string? ActivationGuideUrl,
     string? ActivationType);
+
+/// <summary>Admin request body for <c>POST /admin/catalog/products/{productId}/variants</c> (design D3 contract table).</summary>
+public sealed record CreateProductVariantRequest(
+    string? Region, string? Edition, decimal Price, decimal? DiscountPercentage, string Currency, int SortOrder, bool IsActive);
 
 /// <summary>
 /// Admin request body for <c>PUT /admin/catalog/variants/{id}</c> (design D3 contract
