@@ -239,6 +239,7 @@ public sealed class AdminCatalogEndpointsTests
             edition = "Standard",
             sortOrder = 0,
             isActive = false,
+            isRecommended = false,
         });
         Assert.Equal(HttpStatusCode.OK, putResponse.StatusCode);
 
@@ -275,11 +276,34 @@ public sealed class AdminCatalogEndpointsTests
             edition = "Standard",
             sortOrder = 0,
             isActive = false,
+            isRecommended = false,
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var updated = await response.Content.ReadFromJsonAsync<AdminVariant>();
         Assert.False(updated!.IsActive);
+    }
+
+    [Fact]
+    public async Task Admin_can_mark_a_variant_as_recommended()
+    {
+        var variantId = await SeedVariantAsync();
+
+        var response = await AdminClient().PutAsJsonAsync($"/admin/catalog/variants/{variantId}", new
+        {
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            region = "AR",
+            edition = "Standard",
+            sortOrder = 0,
+            isActive = true,
+            isRecommended = true,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<AdminVariant>();
+        Assert.True(updated!.IsRecommended);
     }
 
     [Fact]
@@ -296,6 +320,7 @@ public sealed class AdminCatalogEndpointsTests
             edition = (string?)null,
             sortOrder = 0,
             isActive = true,
+            isRecommended = false,
         });
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
@@ -315,6 +340,7 @@ public sealed class AdminCatalogEndpointsTests
             edition = (string?)null,
             sortOrder = 0,
             isActive = true,
+            isRecommended = false,
         });
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
@@ -355,6 +381,7 @@ public sealed class AdminCatalogEndpointsTests
             edition = (string?)null,
             sortOrder = 0,
             isActive = true,
+            isRecommended = false,
         });
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);

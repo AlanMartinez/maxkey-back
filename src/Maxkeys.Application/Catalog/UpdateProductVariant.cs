@@ -11,7 +11,11 @@ namespace Maxkeys.Application.Catalog;
 /// unknown id so the endpoint can map it to 404. Domain validation failures
 /// surface as <c>DomainException</c>, mapped to 422 by
 /// <c>ProblemDetailsExceptionHandler</c> — the variant stays unchanged because
-/// the throw happens before <c>SaveChangesAsync</c>.
+/// the throw happens before <c>SaveChangesAsync</c>. The recommended flag is
+/// exclusive per product: marking a variant recommended clears the flag on every
+/// sibling of the same <c>ProductId</c> in the same <c>SaveChangesAsync</c>, so
+/// the DB partial unique index (<c>ix_product_variants_product_id_is_recommended</c>)
+/// is never violated; passing <see langword="false"/> simply un-marks the variant.
 /// </summary>
 public sealed class UpdateProductVariant
 {
@@ -31,6 +35,7 @@ public sealed class UpdateProductVariant
         string? edition,
         int sortOrder,
         bool isActive,
+        bool isRecommended,
         CancellationToken cancellationToken = default)
     {
         var variant = await _db.ProductVariants.SingleOrDefaultAsync(v => v.Id == id, cancellationToken);
@@ -40,6 +45,20 @@ public sealed class UpdateProductVariant
         }
 
         variant.UpdateDetails(price, discountPercentage, currency, region, edition, sortOrder, isActive);
+
+        if (isRecommended)
+        {
+            var recommendedSiblings = await _db.ProductVariants
+                .Where(v => v.ProductId == variant.ProductId && v.IsRecommended && v.Id != id)
+                .ToListAsync(cancellationToken);
+
+            foreach (var sibling in recommendedSiblings)
+            {
+                sibling.SetRecommended(false);
+            }
+        }
+
+        variant.SetRecommended(isRecommended);
         await _db.SaveChangesAsync(cancellationToken);
 
         return ListAdminProducts.ToAdminVariant(variant);

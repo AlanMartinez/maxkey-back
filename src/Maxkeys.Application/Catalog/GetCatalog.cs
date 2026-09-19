@@ -7,7 +7,9 @@ namespace Maxkeys.Application.Catalog;
 /// Lists active products for the public catalog (catalog spec "Product
 /// Listing"), optionally filtered by an exact <paramref name="platform"/>
 /// match and a case-insensitive substring search on the product name. Results
-/// are ordered by name. One class per use case (ADR-02).
+/// are ordered by name; the card price comes from the recommended active
+/// variant, falling back to the cheapest (<see cref="VariantPricing.PickDisplayVariant"/>).
+/// One class per use case (ADR-02).
 /// </summary>
 public sealed class GetCatalog
 {
@@ -48,22 +50,22 @@ public sealed class GetCatalog
             .Where(v => v.IsActive && productIds.Contains(v.ProductId))
             .ToListAsync(cancellationToken);
 
-        var cheapestByProduct = activeVariants
+        var displayVariantByProduct = activeVariants
             .GroupBy(v => v.ProductId)
-            .ToDictionary(g => g.Key, g => g.OrderBy(v => v.Price).First());
+            .ToDictionary(g => g.Key, g => VariantPricing.PickDisplayVariant(g)!);
 
         return products
             .Select(p =>
             {
-                cheapestByProduct.TryGetValue(p.Id, out var cheapest);
+                displayVariantByProduct.TryGetValue(p.Id, out var displayVariant);
                 return new ProductSummary(
                     p.Id,
                     p.Slug,
                     p.Name,
                     p.Platform,
                     _imageUrlBuilder.Build(p.ImageKey),
-                    cheapest?.Price ?? 0m,
-                    cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage));
+                    displayVariant?.Price ?? 0m,
+                    displayVariant is null ? null : VariantPricing.ComputeOldPrice(displayVariant.Price, displayVariant.DiscountPercentage));
             })
             .ToList();
     }

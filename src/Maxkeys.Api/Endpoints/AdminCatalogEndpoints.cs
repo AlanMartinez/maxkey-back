@@ -72,7 +72,16 @@ public static class AdminCatalogEndpoints
             CancellationToken cancellationToken) =>
         {
             var variant = await useCase.ExecuteAsync(
-                id, body.Price, body.DiscountPercentage, body.Currency, body.Region, body.Edition, body.SortOrder, body.IsActive, cancellationToken);
+                id,
+                body.Price,
+                body.DiscountPercentage,
+                body.Currency,
+                body.Region,
+                body.Edition,
+                body.SortOrder,
+                body.IsActive,
+                body.IsRecommended,
+                cancellationToken);
             return variant is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Variant not found")
                 : Results.Ok(variant);
@@ -119,6 +128,18 @@ public sealed record UpdateProductRequest(
     string? ActivationGuideUrl,
     string? ActivationType);
 
-/// <summary>Admin request body for <c>PUT /admin/catalog/variants/{id}</c> (design D3 contract table).</summary>
+/// <summary>
+/// Admin request body for <c>PUT /admin/catalog/variants/{id}</c> (design D3 contract
+/// table). <see cref="IsRecommended"/> marks the variant shown on the catalog card
+/// and preselected on the detail page; <c>true</c> clears the flag on the product's
+/// other variants (exclusive per product).
+/// </summary>
 public sealed record UpdateProductVariantRequest(
-    decimal Price, decimal? DiscountPercentage, string Currency, string? Region, string? Edition, int SortOrder, bool IsActive);
+    decimal Price,
+    decimal? DiscountPercentage,
+    string Currency,
+    string? Region,
+    string? Edition,
+    int SortOrder,
+    bool IsActive,
+    bool IsRecommended);

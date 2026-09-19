@@ -152,4 +152,76 @@ public sealed class GetProductBySlugTests
 
         Assert.Null(detail);
     }
+
+    [Fact]
+    public async Task FromPrice_uses_the_recommended_variant_over_a_cheaper_one_and_maps_the_flag()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 200m, discountPercentage: 20m, sortOrder: 1, isRecommended: true);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Equal(200m, detail!.FromPrice);
+        Assert.Equal(250m, detail.OldPrice);
+        Assert.False(detail.Variants[0].IsRecommended);
+        Assert.True(detail.Variants[1].IsRecommended);
+    }
+
+    [Fact]
+    public async Task FromPrice_falls_back_to_the_cheapest_variant_when_none_is_recommended()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 300m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, sortOrder: 1);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Equal(100m, detail!.FromPrice);
+        Assert.All(detail.Variants, v => Assert.False(v.IsRecommended));
+    }
+
+    [Fact]
+    public async Task FromPrice_falls_back_to_the_cheapest_variant_when_the_recommended_one_is_inactive()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 300m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, sortOrder: 1);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 500m, sortOrder: 2, isActive: false, isRecommended: true);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Equal(2, detail!.Variants.Count);
+        Assert.Equal(100m, detail.FromPrice);
+    }
 }

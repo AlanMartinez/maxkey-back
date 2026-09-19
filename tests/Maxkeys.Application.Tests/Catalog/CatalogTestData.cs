@@ -31,9 +31,11 @@ internal static class CatalogTestData
         int sortOrder = 0,
         string? region = null,
         string? edition = null,
-        bool isActive = true)
+        bool isActive = true,
+        bool isRecommended = false)
     {
-        context.ProductVariants.Add(
-            new ProductVariant(productId, price, "ARS", discountPercentage, region, edition, sortOrder, isActive));
+        var variant = new ProductVariant(productId, price, "ARS", discountPercentage, region, edition, sortOrder, isActive);
+        variant.SetRecommended(isRecommended);
+        context.ProductVariants.Add(variant);
     }
 }

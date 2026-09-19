@@ -8,7 +8,9 @@ namespace Maxkeys.Application.Catalog;
 /// Resolves a product by slug for the public product-detail page (catalog spec
 /// "Product Detail Lookup"). Returns <see langword="null"/> for an unknown slug
 /// or an inactive product — the API endpoint maps that to 404 (design section 7).
-/// Only active variants are returned, ordered by <see cref="ProductVariant.SortOrder"/>.
+/// Only active variants are returned, ordered by <see cref="ProductVariant.SortOrder"/>;
+/// <c>FromPrice</c>/<c>OldPrice</c> come from the recommended active variant,
+/// falling back to the cheapest (<see cref="VariantPricing.PickDisplayVariant"/>).
 /// One class per use case (ADR-02).
 /// </summary>
 public sealed class GetProductBySlug
@@ -38,7 +40,7 @@ public sealed class GetProductBySlug
             .OrderBy(v => v.SortOrder)
             .ToListAsync(cancellationToken);
 
-        var cheapest = variants.OrderBy(v => v.Price).FirstOrDefault();
+        var displayVariant = VariantPricing.PickDisplayVariant(variants);
 
         var images = await _db.ProductImages
             .Where(i => i.ProductId == product.Id)
@@ -63,8 +65,8 @@ public sealed class GetProductBySlug
             product.Platform,
             mainImageUrl,
             _imageUrlBuilder.Build(product.DetailImageKey),
-            cheapest?.Price ?? 0m,
-            cheapest is null ? null : VariantPricing.ComputeOldPrice(cheapest.Price, cheapest.DiscountPercentage),
+            displayVariant?.Price ?? 0m,
+            displayVariant is null ? null : VariantPricing.ComputeOldPrice(displayVariant.Price, displayVariant.DiscountPercentage),
             product.Description,
             variants.Select(ToVariantDetail).ToList(),
             galleryUrls,
@@ -80,7 +82,8 @@ public sealed class GetProductBySlug
             variant.Edition,
             variant.Price,
             VariantPricing.ComputeOldPrice(variant.Price, variant.DiscountPercentage),
-            variant.Currency);
+            variant.Currency,
+            variant.IsRecommended);
 
     /// <summary><see cref="ProductVariant"/> has no stored display name; compose one from region/edition.</summary>
     private static string BuildVariantName(ProductVariant variant)

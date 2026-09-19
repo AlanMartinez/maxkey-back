@@ -76,5 +76,5 @@ public sealed class ListAdminProducts
             product.ActivationType);
 
     public static AdminVariant ToAdminVariant(ProductVariant variant) =>
-        new(variant.Id, variant.Region, variant.Edition, variant.Price, VariantPricing.ComputeOldPrice(variant.Price, variant.DiscountPercentage), variant.Currency, variant.SortOrder, variant.IsActive);
+        new(variant.Id, variant.Region, variant.Edition, variant.Price, VariantPricing.ComputeOldPrice(variant.Price, variant.DiscountPercentage), variant.Currency, variant.SortOrder, variant.IsActive, variant.IsRecommended);
 }
