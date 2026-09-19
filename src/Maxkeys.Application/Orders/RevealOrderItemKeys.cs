@@ -78,7 +78,7 @@ public sealed class RevealOrderItemKeys
         var revealedCount = 0;
         foreach (var key in keys.Where(k => k.Status == KeyStatus.Assigned))
         {
-            key.Reveal(now);
+            key.Reveal(now, userId.ToString());
             revealedCount++;
         }
 

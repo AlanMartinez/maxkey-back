@@ -173,7 +173,7 @@ public sealed class ListBuyersTests
         var key = new Maxkeys.Domain.Keys.Key(item.ProductVariantId, blob, version, "seed-admin", now);
         context.Keys.Add(key);
         order.AttachKey(item.Id, key, now);
-        key.Reveal(now);
+        key.Reveal(now, "buyer-sub");
         await context.SaveChangesAsync();
 
         return order.Id;

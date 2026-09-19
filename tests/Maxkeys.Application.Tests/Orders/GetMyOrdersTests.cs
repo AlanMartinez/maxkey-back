@@ -119,7 +119,7 @@ public sealed class GetMyOrdersTests
         {
             var order = await revealContext.Orders.Include(o => o.Items).ThenInclude(i => i.Keys).SingleAsync(o => o.Id == orderId);
             var key = order.Items.Single().Keys.Single();
-            key.Reveal(DateTimeOffset.UtcNow);
+            key.Reveal(DateTimeOffset.UtcNow, "buyer-sub");
             await revealContext.SaveChangesAsync();
         }
 
