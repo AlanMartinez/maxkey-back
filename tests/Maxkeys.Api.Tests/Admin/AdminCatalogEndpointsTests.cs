@@ -12,7 +12,8 @@ namespace Maxkeys.Api.Tests.Admin;
 /// <summary>
 /// Covers the admin-catalog spec: Admin Product Listing Including Inactive,
 /// Admin Product Content Update, Admin Product Activation Toggle, Admin
-/// Variant Activation Toggle, Admin Catalog Authorization.
+/// Product Soft-Delete, Admin Variant Creation, Admin Variant Activation
+/// Toggle, Admin Catalog Authorization.
 /// </summary>
 [Collection(Hs256ApiCollection.Name)]
 public sealed class AdminCatalogEndpointsTests
@@ -365,6 +366,149 @@ public sealed class AdminCatalogEndpointsTests
     {
         var response = await AdminClient().DeleteAsync($"/admin/catalog/variants/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>Admin Product Soft-Delete — "Product soft-deleted": the row stays, only isActive flips.</summary>
+    [Fact]
+    public async Task Admin_can_soft_delete_a_product()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{productId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var deleted = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.Equal(productId, deleted!.Id);
+        Assert.False(deleted.IsActive);
+        Assert.Equal("Original Name", deleted.Name);
+
+        var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<AdminProduct>>();
+        Assert.Contains(products!, p => p.Id == productId && !p.IsActive);
+    }
+
+    /// <summary>Admin Product Soft-Delete — "Product not found".</summary>
+    [Fact]
+    public async Task Deleting_an_unknown_product_returns_404()
+    {
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_delete_product_is_rejected()
+    {
+        var response = await _factory.CreateClient().DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_deleting_product()
+    {
+        var response = await AdminClient(NonAdminSub).DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>Admin Variant Creation — "Variant created".</summary>
+    [Fact]
+    public async Task Admin_can_create_a_variant_for_an_existing_product()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PostAsJsonAsync($"/admin/catalog/products/{productId}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = await response.Content.ReadFromJsonAsync<AdminVariant>();
+        Assert.Equal(100m, created!.Price);
+        Assert.Equal("AR", created.Region);
+        Assert.Equal($"/admin/catalog/variants/{created.Id}", response.Headers.Location?.ToString());
+
+        var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
+        var products = await listResponse.Content.ReadFromJsonAsync<List<AdminProduct>>();
+        var product = Assert.Single(products!, p => p.Id == productId);
+        Assert.Contains(product.Variants, v => v.Id == created.Id);
+    }
+
+    /// <summary>Admin Variant Creation — "Invalid invariant rejected".</summary>
+    [Fact]
+    public async Task Creating_a_variant_with_a_non_positive_price_returns_422()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PostAsJsonAsync($"/admin/catalog/products/{productId}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 0m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    /// <summary>Admin Variant Creation — "Parent product not found".</summary>
+    [Fact]
+    public async Task Creating_a_variant_for_an_unknown_product_returns_404()
+    {
+        var response = await AdminClient().PostAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Anonymous_request_to_create_variant_is_rejected()
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_creating_variant()
+    {
+        var response = await AdminClient(NonAdminSub).PostAsJsonAsync($"/admin/catalog/products/{Guid.NewGuid()}/variants", new
+        {
+            region = "AR",
+            edition = "Standard",
+            price = 100m,
+            discountPercentage = (decimal?)null,
+            currency = "ARS",
+            sortOrder = 0,
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
