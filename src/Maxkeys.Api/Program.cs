@@ -3,6 +3,7 @@ using Maxkeys.Api.Cors;
 using Maxkeys.Api.Endpoints;
 using Maxkeys.Api.Errors;
 using Maxkeys.Api.Logging;
+using Maxkeys.Application.Security;
 using Maxkeys.Infrastructure;
 using Maxkeys.Infrastructure.Payments;
 using Maxkeys.Infrastructure.Persistence;
@@ -47,6 +48,23 @@ try
         using var seedScope = app.Services.CreateScope();
         var db = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
         await CatalogSeeder.SeedAsync(db, seedCatalogPath);
+        return;
+    }
+
+    // --seed-dev loads mock vault stock + buyers for the local demo. Hard-gated to
+    // Development so it can never be run against a deployed database by mistake.
+    if (args.Contains("--seed-dev"))
+    {
+        if (!app.Environment.IsDevelopment())
+        {
+            throw new InvalidOperationException("--seed-dev is only allowed in the Development environment.");
+        }
+
+        using var devSeedScope = app.Services.CreateScope();
+        var devDb = devSeedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var keyCipher = devSeedScope.ServiceProvider.GetRequiredService<KeyCipher>();
+        var seeded = await DevDataSeeder.SeedAsync(devDb, keyCipher);
+        Log.Information(seeded ? "Dev data seeded." : "Dev data already present; nothing to do.");
         return;
     }
 
