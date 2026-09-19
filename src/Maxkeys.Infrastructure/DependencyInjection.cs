@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Default")));
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddScoped<IOutboxEventReader, OutboxEventReader>();
 
         services.AddKeyCipher(configuration);
         services.AddStorageUrlBuilder(configuration);
@@ -84,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
         services.AddScoped<ListBuyers>();
+        services.AddScoped<GetAdminOrderDetail>();
         services.AddScoped<RevealOrderItemKeys>();
     }
 

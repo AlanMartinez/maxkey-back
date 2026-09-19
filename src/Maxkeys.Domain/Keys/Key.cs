@@ -20,6 +20,7 @@ public sealed class Key : Entity
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset? AssignedAt { get; private set; }
     public DateTimeOffset? RevealedAt { get; private set; }
+    public string? RevealedBy { get; private set; }
 
     /// <summary>EF Core materialization constructor (ADR-01) — properties are set by the ORM via their private setters.</summary>
     private Key()
@@ -66,9 +67,19 @@ public sealed class Key : Entity
         AssignedAt = now;
     }
 
-    /// <summary>Reveals this key to its buyer (admin-key-delivery-gate spec: decision 2, buyer "revelar key"). Valid only from Assigned.</summary>
-    public void Reveal(DateTimeOffset now)
+    /// <summary>
+    /// Reveals this key to its buyer (admin-key-delivery-gate spec: decision 2,
+    /// buyer "revelar key"). Valid only from Assigned, so the first reveal wins:
+    /// <see cref="RevealedAt"/> and <see cref="RevealedBy"/> (the revealing
+    /// user's <c>sub</c>) are never overwritten by a later call.
+    /// </summary>
+    public void Reveal(DateTimeOffset now, string revealedBy)
     {
+        if (string.IsNullOrWhiteSpace(revealedBy))
+        {
+            throw new DomainException("Key revealed-by must not be empty.");
+        }
+
         if (Status != KeyStatus.Assigned)
         {
             throw new DomainConflictException("Cannot reveal a key that is not assigned.");
@@ -76,5 +87,6 @@ public sealed class Key : Entity
 
         Status = KeyStatus.Revealed;
         RevealedAt = now;
+        RevealedBy = revealedBy;
     }
 }

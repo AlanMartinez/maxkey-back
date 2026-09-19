@@ -16,6 +16,7 @@ public sealed class KeyConfiguration : IEntityTypeConfiguration<Key>
 
         builder.Property(k => k.EncryptedCode).HasColumnType("bytea").IsRequired();
         builder.Property(k => k.LoadedBy).HasMaxLength(100).IsRequired();
+        builder.Property(k => k.RevealedBy).HasMaxLength(100);
         builder.Property(k => k.Status).HasConversion<string>().HasMaxLength(32);
 
         builder.HasIndex(k => new { k.ProductVariantId, k.Status });

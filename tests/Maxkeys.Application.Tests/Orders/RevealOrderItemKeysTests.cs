@@ -38,7 +38,12 @@ public sealed class RevealOrderItemKeysTests
 
         var item = await context.Orders.Include(o => o.Items).ThenInclude(i => i.Keys)
             .SelectMany(o => o.Items).SingleAsync(i => i.Id == itemId);
-        Assert.All(item.Keys, k => Assert.Equal(KeyStatus.Revealed, k.Status));
+        Assert.All(item.Keys, k =>
+        {
+            Assert.Equal(KeyStatus.Revealed, k.Status);
+            Assert.NotNull(k.RevealedAt);
+            Assert.Equal(userId.ToString(), k.RevealedBy);
+        });
     }
 
     [Fact]

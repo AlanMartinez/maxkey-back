@@ -3,6 +3,7 @@ using System;
 using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Maxkeys.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260919043338_AddKeyRevealedBy")]
+    partial class AddKeyRevealedBy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -195,12 +198,6 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
-                    b.Property<bool>("IsRecommended")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_recommended");
-
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric(12,2)")
                         .HasColumnName("price");
@@ -223,11 +220,6 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductId")
                         .HasDatabaseName("ix_product_variants_product_id");
-
-                    b.HasIndex(new[] { "ProductId" }, "ix_product_variants_product_id_is_recommended")
-                        .IsUnique()
-                        .HasDatabaseName("ix_product_variants_product_id_is_recommended")
-                        .HasFilter("is_recommended = TRUE");
 
                     b.ToTable("product_variants", (string)null);
                 });

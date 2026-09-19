@@ -52,30 +52,51 @@ public class KeyTests
     }
 
     [Fact]
-    public void Reveal_WhenAssigned_SetsRevealedAndTimestamp()
+    public void Reveal_WhenAssigned_SetsRevealedTimestampAndRevealedBy()
     {
         var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
         key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
 
-        key.Reveal(Now.AddMinutes(2));
+        key.Reveal(Now.AddMinutes(2), "buyer-sub");
 
         Assert.Equal(KeyStatus.Revealed, key.Status);
         Assert.Equal(Now.AddMinutes(2), key.RevealedAt);
+        Assert.Equal("buyer-sub", key.RevealedBy);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Reveal_WithEmptyRevealedBy_ThrowsAndLeavesKeyUnchanged(string? revealedBy)
+    {
+        var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
+        key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
+
+        Assert.Throws<DomainException>(() => key.Reveal(Now.AddMinutes(2), revealedBy!));
+
+        Assert.Equal(KeyStatus.Assigned, key.Status);
+        Assert.Null(key.RevealedAt);
+        Assert.Null(key.RevealedBy);
     }
 
     [Fact]
     public void Reveal_WhenAvailable_Throws()
     {
         var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
-        Assert.Throws<DomainConflictException>(() => key.Reveal(Now.AddMinutes(1)));
+        Assert.Throws<DomainConflictException>(() => key.Reveal(Now.AddMinutes(1), "buyer-sub"));
     }
 
     [Fact]
-    public void Reveal_WhenAlreadyRevealed_Throws()
+    public void Reveal_WhenAlreadyRevealed_ThrowsAndKeepsFirstReveal()
     {
         var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
         key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
-        key.Reveal(Now.AddMinutes(2));
-        Assert.Throws<DomainConflictException>(() => key.Reveal(Now.AddMinutes(3)));
+        key.Reveal(Now.AddMinutes(2), "first-sub");
+
+        Assert.Throws<DomainConflictException>(() => key.Reveal(Now.AddMinutes(3), "second-sub"));
+
+        Assert.Equal(Now.AddMinutes(2), key.RevealedAt);
+        Assert.Equal("first-sub", key.RevealedBy);
     }
 }
