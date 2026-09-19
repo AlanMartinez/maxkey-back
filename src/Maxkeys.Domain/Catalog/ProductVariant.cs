@@ -10,7 +10,11 @@ namespace Maxkeys.Domain.Catalog;
 /// inserting. <see cref="DiscountPercentage"/> is the sole discount input
 /// (admin-catalog spec "Variant Discount Percentage Pricing"); the display
 /// <c>OldPrice</c> is a read-time computation (<c>VariantPricing.ComputeOldPrice</c>),
-/// not persisted state.
+/// not persisted state. <see cref="IsRecommended"/> marks the variant whose price
+/// the catalog card shows and that the detail page preselects; at most one
+/// variant per product may carry it, enforced by the <c>UpdateProductVariant</c>
+/// use case (clears the sibling flag) and a DB partial unique index on
+/// <c>product_id WHERE is_recommended</c>.
 /// </summary>
 public sealed class ProductVariant : Entity
 {
@@ -24,6 +28,7 @@ public sealed class ProductVariant : Entity
     public string? Edition { get; private set; }
     public int SortOrder { get; private set; }
     public bool IsActive { get; private set; }
+    public bool IsRecommended { get; private set; }
 
     public ProductVariant(
         Guid productId,
@@ -45,6 +50,7 @@ public sealed class ProductVariant : Entity
         Edition = edition;
         SortOrder = sortOrder;
         IsActive = isActive;
+        IsRecommended = false;
     }
 
     /// <summary>Updates all mutable fields in place. Shares the same invariants as the constructor.</summary>
@@ -66,6 +72,16 @@ public sealed class ProductVariant : Entity
         Edition = edition;
         SortOrder = sortOrder;
         IsActive = isActive;
+    }
+
+    /// <summary>
+    /// Sets the recommended flag. Kept separate from <see cref="UpdateDetails"/> so
+    /// the seeder's signature stays untouched; per-product exclusivity is the
+    /// caller's responsibility (see class summary).
+    /// </summary>
+    public void SetRecommended(bool recommended)
+    {
+        IsRecommended = recommended;
     }
 
     /// <summary>Shared invariants for the constructor and <see cref="UpdateDetails"/> (design D2).</summary>

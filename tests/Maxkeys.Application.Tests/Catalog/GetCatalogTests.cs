@@ -115,4 +115,72 @@ public sealed class GetCatalogTests
         var summary = Assert.Single(result);
         Assert.Equal("https://img.test/products/abc.png", summary.ImageUrl);
     }
+
+    [Fact]
+    public async Task FromPrice_uses_the_recommended_variant_over_a_cheaper_one()
+    {
+        var platform = CatalogTestData.UniquePlatform();
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, platform, isActive: true);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 200m, discountPercentage: 20m, sortOrder: 1, isRecommended: true);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetCatalog(context, _imageUrlBuilder);
+
+        var result = await sut.ExecuteAsync(platform: platform, q: null);
+
+        var summary = Assert.Single(result);
+        Assert.Equal(200m, summary.FromPrice);
+        Assert.Equal(250m, summary.OldPrice);
+    }
+
+    [Fact]
+    public async Task FromPrice_falls_back_to_the_cheapest_variant_when_none_is_recommended()
+    {
+        var platform = CatalogTestData.UniquePlatform();
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, platform, isActive: true);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 300m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, sortOrder: 1);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetCatalog(context, _imageUrlBuilder);
+
+        var result = await sut.ExecuteAsync(platform: platform, q: null);
+
+        var summary = Assert.Single(result);
+        Assert.Equal(100m, summary.FromPrice);
+    }
+
+    [Fact]
+    public async Task FromPrice_falls_back_to_the_cheapest_variant_when_the_recommended_one_is_inactive()
+    {
+        var platform = CatalogTestData.UniquePlatform();
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, platform, isActive: true);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 300m, sortOrder: 0);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 100m, sortOrder: 1);
+            CatalogTestData.SeedVariant(seed, product.Id, price: 500m, sortOrder: 2, isActive: false, isRecommended: true);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetCatalog(context, _imageUrlBuilder);
+
+        var result = await sut.ExecuteAsync(platform: platform, q: null);
+
+        var summary = Assert.Single(result);
+        Assert.Equal(100m, summary.FromPrice);
+    }
 }

@@ -3,7 +3,8 @@ namespace Maxkeys.Application.Catalog;
 /// <summary>
 /// A variant as exposed to the admin catalog view (design D3 contract table).
 /// Unlike <see cref="ProductVariantDetail"/>, this carries every admin-editable
-/// field, including <see cref="IsActive"/>, and has no computed display name.
+/// field, including <see cref="IsActive"/> and <see cref="IsRecommended"/>, and
+/// has no computed display name.
 /// </summary>
 public sealed record AdminVariant(
     Guid Id,
@@ -13,7 +14,8 @@ public sealed record AdminVariant(
     decimal? OldPrice,
     string Currency,
     int SortOrder,
-    bool IsActive);
+    bool IsActive,
+    bool IsRecommended);
 
 /// <summary>
 /// A product as exposed to the admin catalog view (design D3 contract table,

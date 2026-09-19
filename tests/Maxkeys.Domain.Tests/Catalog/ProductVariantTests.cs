@@ -16,6 +16,26 @@ public class ProductVariantTests
         Assert.True(variant.IsActive);
     }
 
+    [Fact]
+    public void Constructor_CreatesVariantThatIsNotRecommended()
+    {
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS");
+
+        Assert.False(variant.IsRecommended);
+    }
+
+    [Fact]
+    public void SetRecommended_RoundTripsTheFlag()
+    {
+        var variant = new ProductVariant(ProductId, price: 1000m, currency: "ARS");
+
+        variant.SetRecommended(true);
+        Assert.True(variant.IsRecommended);
+
+        variant.SetRecommended(false);
+        Assert.False(variant.IsRecommended);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
