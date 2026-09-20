@@ -1,4 +1,7 @@
 using System.Net;
+using System.Net.Http.Json;
+using Maxkeys.Api.Auth;
+using Maxkeys.Api.Endpoints;
 using Maxkeys.Application.Tests.Fixtures;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -53,6 +56,19 @@ public sealed class DevBypassAdminTests : IAsyncLifetime
         var response = await factory.CreateClient().GetAsync("/admin/catalog/products");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Bypassed_caller_gets_a_placeholder_sub_instead_of_a_500()
+    {
+        // Sub-dependent endpoints (attach key, deliver, vault load, /me) used to throw on the
+        // anonymous principal the bypass lets through; the resolver hands them a fixed identity.
+        using var factory = BuildFactory(Environments.Development, devBypassAdmin: true);
+        var response = await factory.CreateClient().GetAsync("/admin/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<AdminMeResponse>();
+        Assert.Equal(AdminSubResolver.DevBypassSub, body!.Sub);
     }
 
     [Fact]
