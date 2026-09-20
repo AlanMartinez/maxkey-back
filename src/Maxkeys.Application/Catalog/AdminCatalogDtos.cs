@@ -38,5 +38,5 @@ public sealed record AdminProduct(
     IReadOnlyList<AdminVariant> Variants,
     IReadOnlyList<string> ImageKeys,
     IReadOnlyList<string> Images,
-    string? ActivationGuideUrl,
+    string? ActivationGuide,
     string? ActivationType);

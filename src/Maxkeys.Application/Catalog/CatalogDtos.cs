@@ -57,5 +57,5 @@ public sealed record ProductDetail(
     string Description,
     IReadOnlyList<ProductVariantDetail> Variants,
     IReadOnlyList<string> Images,
-    string? ActivationGuideUrl,
+    string? ActivationGuide,
     string? ActivationType);

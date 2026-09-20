@@ -84,7 +84,7 @@ public sealed class GetProductBySlugTests
             seed.ProductImages.Add(new Domain.Catalog.ProductImage(product.Id, "products/gallery/1.png", sortOrder: 0));
             product.UpdateCatalogInfo(
                 product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, product.IsActive,
-                activationGuideUrl: "https://maxkeys.example/guides/activation", activationType: "Enlace de activación");
+                activationGuide: "**Step 1.** Open the launcher and redeem the key.", activationType: "Enlace de activación");
             await seed.SaveChangesAsync();
         }
 
@@ -95,7 +95,7 @@ public sealed class GetProductBySlugTests
 
         Assert.NotNull(detail);
         Assert.Equal(["https://img.test/products/gallery/1.png", "https://img.test/products/gallery/2.png"], detail!.Images);
-        Assert.Equal("https://maxkeys.example/guides/activation", detail.ActivationGuideUrl);
+        Assert.Equal("**Step 1.** Open the launcher and redeem the key.", detail.ActivationGuide);
         Assert.Equal("Enlace de activación", detail.ActivationType);
     }
 

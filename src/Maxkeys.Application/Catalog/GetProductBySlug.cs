@@ -70,7 +70,7 @@ public sealed class GetProductBySlug
             product.Description,
             variants.Select(ToVariantDetail).ToList(),
             galleryUrls,
-            product.ActivationGuideUrl,
+            product.ActivationGuide,
             product.ActivationType);
     }
 

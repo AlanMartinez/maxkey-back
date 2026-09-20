@@ -39,7 +39,7 @@ public sealed class DeleteProduct
             product.ImageKey,
             product.DetailImageKey,
             isActive: false,
-            product.ActivationGuideUrl,
+            product.ActivationGuide,
             product.ActivationType);
         await _db.SaveChangesAsync(cancellationToken);
 
