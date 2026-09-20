@@ -25,6 +25,13 @@ public static class DevDataSeeder
 
     public static async Task<bool> SeedAsync(AppDbContext db, KeyCipher keyCipher, CancellationToken cancellationToken = default)
     {
+        var seededBase = await SeedBaseAsync(db, keyCipher, cancellationToken);
+        var seededManual = await SeedManualKeyLoadAsync(db, cancellationToken);
+        return seededBase || seededManual;
+    }
+
+    private static async Task<bool> SeedBaseAsync(AppDbContext db, KeyCipher keyCipher, CancellationToken cancellationToken)
+    {
         if (await db.Products.AnyAsync(p => p.Slug == MarkerSlug, cancellationToken))
         {
             return false;
@@ -139,6 +146,35 @@ public static class DevDataSeeder
             CreatePaidOrder(db, null, $"bulk.buyer{i:00}@dev.local",
                 [Line(noKeys, noKeysVariant, 1)], now.AddDays(-30).AddHours(i));
         }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// 11. Manual key load: vault ON with zero stock and an order already
+    /// AwaitingFulfillment — the exact state where "Asignar keys" finds nothing
+    /// and the admin has to paste a code from the order detail modal. Gated on
+    /// its own buyer email rather than the marker product so a database seeded
+    /// before this scenario existed picks it up on the next <c>--seed-dev</c>.
+    /// </summary>
+    private static async Task<bool> SeedManualKeyLoadAsync(AppDbContext db, CancellationToken cancellationToken)
+    {
+        const string buyerEmail = "alan@dev.local";
+        if (await db.Orders.AnyAsync(o => o.BuyerEmail == buyerEmail, cancellationToken))
+        {
+            return false;
+        }
+
+        var outOfStock = await db.Products.SingleAsync(p => p.Slug == "dev-vault-out-of-stock", cancellationToken);
+        var outOfStockVariant = await db.ProductVariants
+            .Where(v => v.ProductId == outOfStock.Id)
+            .OrderBy(v => v.SortOrder)
+            .FirstAsync(cancellationToken);
+
+        var now = DateTimeOffset.UtcNow;
+        var order = CreatePaidOrder(db, null, buyerEmail, [Line(outOfStock, outOfStockVariant, 1)], now.AddHours(-1));
+        order.MarkAwaitingFulfillment(now.AddHours(-1));
 
         await db.SaveChangesAsync(cancellationToken);
         return true;
