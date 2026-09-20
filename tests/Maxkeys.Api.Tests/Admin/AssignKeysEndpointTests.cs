@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Maxkeys.Api.Endpoints;
 using Maxkeys.Api.Tests.Auth;
 using Maxkeys.Application.Fulfillment;
 using Maxkeys.Domain.Catalog;
@@ -53,9 +54,9 @@ public sealed class AssignKeysEndpointTests
         var response = await AdminClient().PostAsync($"/admin/orders/{orderId}/assign-keys", content: null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<AssignVaultKeysToOrderResult>();
+        var body = await response.Content.ReadFromJsonAsync<AssignKeysResponse>();
         Assert.True(body!.AllItemsComplete);
-        Assert.Equal(OrderStatus.KeysAssigned, body.OrderStatus);
+        Assert.Equal(nameof(OrderStatus.KeysAssigned), body.OrderStatus);
     }
 
     private async Task<(Guid OrderId, Guid VariantId)> SeedAwaitingFulfillmentVaultOrderAsync(int quantity)
