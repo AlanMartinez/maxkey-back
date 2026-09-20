@@ -7,6 +7,7 @@ using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -61,6 +62,8 @@ public sealed class AttachKeyEndpointTests
             $"/admin/orders/{orderId}/items/{itemId}/keys", new AttachKeyRequest("CODE-2"));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal("Cannot attach a key unless the order is awaiting fulfillment.", problem!.Detail);
     }
 
     private async Task<(Guid OrderId, Guid ItemId, Guid VariantId)> SeedAwaitingFulfillmentOrderAsync(bool vaultEnabled)

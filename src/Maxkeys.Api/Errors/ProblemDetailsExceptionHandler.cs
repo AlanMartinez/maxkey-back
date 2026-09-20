@@ -46,6 +46,9 @@ public sealed class ProblemDetailsExceptionHandler : IExceptionHandler
             {
                 Status = statusCode,
                 Title = title,
+                // Domain messages are authored for the caller (e.g. "Order item already has all
+                // required keys assigned."); everything else stays opaque so 500s never leak internals.
+                Detail = exception is DomainException ? exception.Message : null,
                 Extensions = { ["traceId"] = httpContext.TraceIdentifier },
             },
         });
