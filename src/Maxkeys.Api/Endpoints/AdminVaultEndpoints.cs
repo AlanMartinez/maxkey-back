@@ -33,11 +33,11 @@ public static class AdminVaultEndpoints
             Guid id,
             LoadVaultKeysRequest body,
             ClaimsPrincipal user,
+            AdminSubResolver adminSubs,
             LoadVaultKeys useCase,
             CancellationToken cancellationToken) =>
         {
-            var adminSub = user.FindFirst("sub")?.Value
-                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+            var adminSub = adminSubs.Resolve(user);
 
             var result = await useCase.ExecuteAsync(id, body.Codes, adminSub, cancellationToken);
             return result is null

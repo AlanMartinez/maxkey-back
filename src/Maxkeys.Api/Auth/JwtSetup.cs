@@ -21,6 +21,7 @@ public static class JwtSetup
         services.AddHttpClient(nameof(JwksKeyCache));
         services.AddSingleton<JwksKeyCache>();
         services.AddSingleton<IAuthorizationHandler, AdminAuthorizationHandler>();
+        services.AddSingleton<AdminSubResolver>();
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -19,10 +19,9 @@ public static class AdminEndpoints
 
         // Lets the frontend admin guard confirm the caller passes AdminPolicy without
         // depending on the shape of any other admin endpoint's response (design D5).
-        meGroup.MapGet("/me", (ClaimsPrincipal user) =>
+        meGroup.MapGet("/me", (ClaimsPrincipal user, AdminSubResolver adminSubs) =>
         {
-            var adminSub = user.FindFirst("sub")?.Value
-                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+            var adminSub = adminSubs.Resolve(user);
             return Results.Ok(new AdminMeResponse(adminSub));
         });
 
@@ -54,11 +53,11 @@ public static class AdminEndpoints
             Guid itemId,
             AttachKeyRequest body,
             ClaimsPrincipal user,
+            AdminSubResolver adminSubs,
             AttachKeyToOrderItem useCase,
             CancellationToken cancellationToken) =>
         {
-            var adminSub = user.FindFirst("sub")?.Value
-                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+            var adminSub = adminSubs.Resolve(user);
 
             var result = await useCase.ExecuteAsync(id, itemId, body.Code, adminSub, cancellationToken);
             return result is null
@@ -69,11 +68,11 @@ public static class AdminEndpoints
         group.MapPost("/{id:guid}/resend-delivery", async (
             Guid id,
             ClaimsPrincipal user,
+            AdminSubResolver adminSubs,
             RequestDeliveryResend useCase,
             CancellationToken cancellationToken) =>
         {
-            var adminSub = user.FindFirst("sub")?.Value
-                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+            var adminSub = adminSubs.Resolve(user);
 
             var outboxEventId = await useCase.ExecuteAsync(id, adminSub, cancellationToken);
             return outboxEventId is null
@@ -89,17 +88,17 @@ public static class AdminEndpoints
             var result = await useCase.ExecuteAsync(id, cancellationToken);
             return result is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
-                : Results.Ok(result);
+                : Results.Ok(new AssignKeysResponse(result.OrderStatus.ToString(), result.AllItemsComplete, result.Items));
         });
 
         group.MapPost("/{id:guid}/deliver", async (
             Guid id,
             ClaimsPrincipal user,
+            AdminSubResolver adminSubs,
             DeliverOrder useCase,
             CancellationToken cancellationToken) =>
         {
-            var adminSub = user.FindFirst("sub")?.Value
-                ?? throw new InvalidOperationException("Authenticated admin principal is missing a 'sub' claim.");
+            var adminSub = adminSubs.Resolve(user);
 
             var status = await useCase.ExecuteAsync(id, adminSub, cancellationToken);
             return status is null
@@ -125,6 +124,12 @@ public sealed record AttachKeyResponse(string OrderStatus, IReadOnlyList<AttachK
 
 /// <summary>Acknowledges a queued delivery-email resend (admin-buyers spec: Resend Delivery Email; design D1).</summary>
 public sealed record ResendDeliveryResponse(Guid OutboxEventId);
+
+/// <summary>
+/// Response for <c>POST /admin/orders/{id}/assign-keys</c>. Status is the enum name, like every
+/// other order response here — the bare use-case result would serialize it as an integer.
+/// </summary>
+public sealed record AssignKeysResponse(string OrderStatus, bool AllItemsComplete, IReadOnlyList<AssignVaultKeysToOrderResultItem> Items);
 
 /// <summary>Response for <c>POST /admin/orders/{id}/deliver</c>.</summary>
 public sealed record DeliverOrderResponse(string Status);
