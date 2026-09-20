@@ -37,7 +37,7 @@ public static class AdminCatalogEndpoints
                 body.DetailImageKey,
                 body.IsActive,
                 body.ImageKeys ?? [],
-                body.ActivationGuideUrl,
+                body.ActivationGuide,
                 body.ActivationType,
                 cancellationToken);
             return Results.Created($"/admin/catalog/products/{product.Id}", product);
@@ -59,7 +59,7 @@ public static class AdminCatalogEndpoints
                 body.DetailImageKey,
                 body.IsActive,
                 body.ImageKeys ?? [],
-                body.ActivationGuideUrl,
+                body.ActivationGuide,
                 body.ActivationType,
                 cancellationToken);
             return product is null
@@ -138,7 +138,7 @@ public sealed record CreateProductRequest(
     string? DetailImageKey,
     bool IsActive,
     IReadOnlyList<string>? ImageKeys,
-    string? ActivationGuideUrl,
+    string? ActivationGuide,
     string? ActivationType);
 
 /// <summary>Admin request body for <c>PUT /admin/catalog/products/{id}</c> (design D3 contract table).</summary>
@@ -151,7 +151,7 @@ public sealed record UpdateProductRequest(
     string? DetailImageKey,
     bool IsActive,
     IReadOnlyList<string>? ImageKeys,
-    string? ActivationGuideUrl,
+    string? ActivationGuide,
     string? ActivationType);
 
 /// <summary>Admin request body for <c>POST /admin/catalog/products/{productId}/variants</c> (design D3 contract table).</summary>

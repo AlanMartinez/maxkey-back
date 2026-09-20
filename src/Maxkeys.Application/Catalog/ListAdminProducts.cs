@@ -72,7 +72,7 @@ public sealed class ListAdminProducts
             variants.Select(ToAdminVariant).ToList(),
             images.Select(i => i.ImageKey).ToList(),
             images.Select(i => imageUrlBuilder.Build(i.ImageKey)).ToList(),
-            product.ActivationGuideUrl,
+            product.ActivationGuide,
             product.ActivationType);
 
     public static AdminVariant ToAdminVariant(ProductVariant variant) =>

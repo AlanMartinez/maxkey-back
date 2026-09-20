@@ -33,7 +33,7 @@ public sealed class DeleteProductTests
                 imageKey: "products/keep.png",
                 description: "Keep description",
                 detailImageKey: "products/keep-detail.png",
-                activationGuideUrl: "https://maxkeys.example/guides/keep",
+                activationGuide: "**Kept.** This guide survives deletion.",
                 activationType: "Keep activation");
             seed.Products.Add(product);
             productId = product.Id;
@@ -51,7 +51,7 @@ public sealed class DeleteProductTests
         Assert.Equal("products/keep.png", deleted.ImageKey);
         Assert.Equal("products/keep-detail.png", deleted.DetailImageKey);
         Assert.Equal("Keep description", deleted.Description);
-        Assert.Equal("https://maxkeys.example/guides/keep", deleted.ActivationGuideUrl);
+        Assert.Equal("**Kept.** This guide survives deletion.", deleted.ActivationGuide);
         Assert.Equal("Keep activation", deleted.ActivationType);
 
         await using var verify = _fixture.CreateContext();
@@ -60,7 +60,7 @@ public sealed class DeleteProductTests
         Assert.False(reloaded!.IsActive);
         Assert.Equal("Keep Name", reloaded.Name);
         Assert.Equal("products/keep-detail.png", reloaded.DetailImageKey);
-        Assert.Equal("https://maxkeys.example/guides/keep", reloaded.ActivationGuideUrl);
+        Assert.Equal("**Kept.** This guide survives deletion.", reloaded.ActivationGuide);
         Assert.Equal("Keep activation", reloaded.ActivationType);
     }
 

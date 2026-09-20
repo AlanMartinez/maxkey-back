@@ -41,7 +41,7 @@ public sealed class UpdateProduct
         string? detailImageKey,
         bool isActive,
         IReadOnlyList<string>? imageKeys = null,
-        string? activationGuideUrl = null,
+        string? activationGuide = null,
         string? activationType = null,
         CancellationToken cancellationToken = default)
     {
@@ -58,7 +58,7 @@ public sealed class UpdateProduct
         }
 
         product.RenameSlug(slug);
-        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive, activationGuideUrl, activationType);
+        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive, activationGuide, activationType);
 
         var existingImages = await _db.ProductImages.Where(i => i.ProductId == id).ToListAsync(cancellationToken);
         _db.ProductImages.RemoveRange(existingImages);

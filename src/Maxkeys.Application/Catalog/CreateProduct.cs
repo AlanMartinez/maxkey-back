@@ -33,7 +33,7 @@ public sealed class CreateProduct
         string? detailImageKey,
         bool isActive,
         IReadOnlyList<string>? imageKeys = null,
-        string? activationGuideUrl = null,
+        string? activationGuide = null,
         string? activationType = null,
         CancellationToken cancellationToken = default)
     {
@@ -43,7 +43,7 @@ public sealed class CreateProduct
             throw new DomainConflictException($"A product with slug '{slug}' already exists.");
         }
 
-        var product = new Product(slug, name, platform, isActive, imageKey, description, detailImageKey, activationGuideUrl, activationType);
+        var product = new Product(slug, name, platform, isActive, imageKey, description, detailImageKey, activationGuide, activationType);
         _db.Products.Add(product);
 
         var images = (imageKeys ?? [])
