@@ -19,7 +19,7 @@ public static class MeEndpoints
             ClaimsPrincipal user,
             GetMyOrders useCase,
             CancellationToken cancellationToken) =>
-            Results.Ok(await useCase.ExecuteAsync(RequireUserId(user), cancellationToken)));
+            Results.Ok(await useCase.ExecuteAsync(RequireUserId(user), RequireEmail(user), cancellationToken)));
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -56,6 +56,15 @@ public static class MeEndpoints
         return Guid.TryParse(sub, out var userId)
             ? userId
             : throw new InvalidOperationException("Authenticated principal is missing a valid 'sub' claim.");
+    }
+
+    /// <summary>Supabase JWTs always carry an <c>email</c> claim; <c>JwtSetup.Configure</c> disables inbound claim mapping so it reads back unmapped.</summary>
+    private static string RequireEmail(ClaimsPrincipal user)
+    {
+        var email = user.FindFirst("email")?.Value;
+        return string.IsNullOrEmpty(email)
+            ? throw new InvalidOperationException("Authenticated principal is missing a valid 'email' claim.")
+            : email;
     }
 }
 

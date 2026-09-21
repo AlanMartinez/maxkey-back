@@ -20,6 +20,8 @@ public sealed class GetMyOrdersTests
     private static readonly string ValidKeyBase64 =
         Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray());
 
+    private const string CallerEmail = "caller@example.com";
+
     private readonly PostgresFixture _fixture;
 
     public GetMyOrdersTests(PostgresFixture fixture)
@@ -39,7 +41,7 @@ public sealed class GetMyOrdersTests
         await SeedOrderAsync(seedContext, userB);
 
         await using var context = _fixture.CreateContext();
-        var result = await new GetMyOrders(context).ExecuteAsync(userA);
+        var result = await new GetMyOrders(context).ExecuteAsync(userA, CallerEmail);
 
         Assert.Equal(2, result.Count);
         Assert.All(result, order => Assert.Equal(1, order.ItemCount));
@@ -56,10 +58,38 @@ public sealed class GetMyOrdersTests
         await SeedCancelledOrderAsync(seedContext, userId);
 
         await using var context = _fixture.CreateContext();
-        var result = await new GetMyOrders(context).ExecuteAsync(userId);
+        var result = await new GetMyOrders(context).ExecuteAsync(userId, CallerEmail);
 
         Assert.Single(result);
         Assert.Equal(nameof(OrderStatus.AwaitingFulfillment), result[0].Status);
+    }
+
+    [Fact]
+    public async Task GetMyOrders_claims_a_guest_order_matching_the_caller_email_case_insensitively()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var seedContext = _fixture.CreateContext();
+        await SeedGuestOrderAsync(seedContext, "match@example.com");
+
+        await using var context = _fixture.CreateContext();
+        var result = await new GetMyOrders(context).ExecuteAsync(userId, "Match@Example.com");
+
+        Assert.Single(result);
+    }
+
+    [Fact]
+    public async Task GetMyOrders_does_not_claim_a_guest_order_with_a_different_email()
+    {
+        var userId = Guid.NewGuid();
+
+        await using var seedContext = _fixture.CreateContext();
+        await SeedGuestOrderAsync(seedContext, "someone-else@example.com");
+
+        await using var context = _fixture.CreateContext();
+        var result = await new GetMyOrders(context).ExecuteAsync(userId, "match@example.com");
+
+        Assert.Empty(result);
     }
 
     [Fact]
@@ -151,6 +181,18 @@ public sealed class GetMyOrdersTests
             order.AttachKey(item.Id, new Maxkeys.Domain.Keys.Key(item.ProductVariantId, blob, version, "seed-admin", now), now);
             order.MarkDelivered(now.AddSeconds(1));
         }
+
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+        return order.Id;
+    }
+
+    private static async Task<Guid> SeedGuestOrderAsync(Infrastructure.Persistence.AppDbContext context, string buyerEmail)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var order = Order.Create(null, buyerEmail, [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], now);
+        order.MarkPaid($"pay-{Guid.NewGuid():N}", now);
+        order.MarkAwaitingFulfillment(now);
 
         context.Orders.Add(order);
         await context.SaveChangesAsync();
