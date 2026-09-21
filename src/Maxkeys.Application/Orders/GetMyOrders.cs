@@ -19,8 +19,15 @@ public sealed class GetMyOrders
         _db = db;
     }
 
-    public async Task<IReadOnlyList<OrderSummary>> ExecuteAsync(Guid userId, CancellationToken cancellationToken = default)
+    /// <summary>Claims guest orders by email first so "my orders" reflects pre-login purchases.</summary>
+    public async Task<IReadOnlyList<OrderSummary>> ExecuteAsync(Guid userId, string email, CancellationToken cancellationToken = default)
     {
+        // Bulk-update (no load-then-save) any guest order left behind by a checkout that
+        // matches this login's email, so it becomes owned by this account from now on.
+        await _db.Orders
+            .Where(order => order.UserId == null && order.BuyerEmail.ToLower() == email.ToLower())
+            .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.UserId, (Guid?)userId), cancellationToken);
+
         // Projects to an anonymous type first (server-translated) and stringifies the enum
         // client-side afterward — HasConversion<string>() only guarantees a clean translation
         // for filtering/ordering by the enum itself, not for calling .ToString() on it inside
