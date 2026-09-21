@@ -18,7 +18,7 @@ public sealed record OrderSummary(Guid Id, string Status, decimal TotalAmount, s
 /// <see cref="OrderStatus.Delivered"/>. <see cref="Revealable"/> tells the caller
 /// whether the "revelar key" action is available for this item right now.
 /// </summary>
-public sealed record MyOrderItemDetail(string ProductName, string VariantName, decimal UnitPrice, int Quantity, IReadOnlyList<string> Keys, bool Revealable);
+public sealed record MyOrderItemDetail(Guid ItemId, string ProductName, string VariantName, decimal UnitPrice, int Quantity, IReadOnlyList<string> Keys, bool Revealable);
 
 /// <summary>Full order detail for the owning buyer, scoped by <see cref="GetMyOrder"/>. <see cref="Status"/> is the enum's string name, see <see cref="OrderSummary"/>.</summary>
 public sealed record MyOrderDetail(
