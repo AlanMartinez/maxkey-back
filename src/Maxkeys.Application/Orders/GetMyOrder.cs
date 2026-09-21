@@ -38,6 +38,7 @@ public sealed class GetMyOrder
 
         var items = order.Items
             .Select(item => new MyOrderItemDetail(
+                item.Id,
                 item.ProductNameSnapshot,
                 item.VariantNameSnapshot,
                 item.UnitPrice,
