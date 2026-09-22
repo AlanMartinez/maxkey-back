@@ -25,7 +25,7 @@ primary_region = 'ams'
   # Mercado Pago back_urls target (design section 10) — without this, CreatePreferenceAsync
   # sends no back_urls/auto_return at all and MP shows its own confirmation page instead of
   # redirecting to /checkout/result. Same wholesale-replace risk as Cors above.
-  Frontend__BaseUrl = 'https://maxkey-front.vercel.app'
+  Frontend__BaseUrl = 'https://chekeys.com'
 
   # Mercado Pago webhook notification target — must be this app's public HTTPS URL.
   Payments__NotificationUrl = 'https://maxkeys.fly.dev/webhooks/mercadopago'
