@@ -94,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<RevealOrderItemKeys>();
         services.AddScoped<AddToWishlist>();
         services.AddScoped<RemoveFromWishlist>();
+        services.AddScoped<GetMyWishlist>();
     }
 
     /// <summary>
