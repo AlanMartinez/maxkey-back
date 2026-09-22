@@ -82,6 +82,7 @@ try
     app.MapCheckoutEndpoints();
     app.MapWebhookEndpoints();
     app.MapMeEndpoints();
+    app.MapWishlistEndpoints();
     app.MapAdminEndpoints();
     app.MapAdminCatalogEndpoints();
     app.MapAdminVaultEndpoints();
