@@ -5,6 +5,7 @@ using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Outbox;
 using Maxkeys.Domain.Payments;
+using Maxkeys.Domain.Wishlist;
 using Microsoft.EntityFrameworkCore;
 
 namespace Maxkeys.Application.Persistence;
@@ -26,6 +27,7 @@ public interface IAppDbContext
     DbSet<Notification> Notifications { get; }
     DbSet<OutboxEvent> OutboxEvents { get; }
     DbSet<ProcessedWebhookNotification> ProcessedWebhookNotifications { get; }
+    DbSet<WishlistItem> WishlistItems { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
