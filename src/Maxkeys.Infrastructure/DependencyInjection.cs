@@ -88,6 +88,7 @@ public static class DependencyInjection
         services.AddScoped<ListVariantKeys>();
         services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
+        services.AddScoped<ConfirmCheckoutPayment>();
         services.AddScoped<ListBuyers>();
         services.AddScoped<GetAdminOrderDetail>();
         services.AddScoped<RevealOrderItemKeys>();

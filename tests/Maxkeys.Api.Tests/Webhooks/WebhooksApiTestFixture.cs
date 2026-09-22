@@ -5,6 +5,7 @@ using Maxkeys.Application.Tests.Fixtures;
 using Maxkeys.Infrastructure.Payments;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -81,6 +82,7 @@ public sealed class WebhooksApiCollection : ICollectionFixture<WebhooksApiTestFi
 public sealed class FakeMercadoPagoHandler : HttpMessageHandler
 {
     private readonly Dictionary<string, string> _paymentResponses = new();
+    private readonly Dictionary<string, string> _searchResponses = new();
 
     public void SetPaymentResponse(string paymentId, string externalReference, decimal amount, string currency, string status)
     {
@@ -90,10 +92,31 @@ public sealed class FakeMercadoPagoHandler : HttpMessageHandler
             """;
     }
 
+    public void SetApprovedPaymentSearchResponse(string externalReference, string paymentId, decimal amount, string currency)
+    {
+        _searchResponses[externalReference] =
+            $$"""
+            {"results":[{"id":{{paymentId}},"status":"approved","external_reference":"{{externalReference}}","transaction_amount":{{amount.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"currency_id":"{{currency}}"}]}
+            """;
+    }
+
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         const string paymentsPrefix = "/v1/payments/";
         var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+
+        if (request.Method == HttpMethod.Get && path == "/v1/payments/search")
+        {
+            var query = QueryHelpers.ParseQuery(request.RequestUri?.Query ?? string.Empty);
+            var externalReference = query.TryGetValue("external_reference", out var values) ? values.ToString() : null;
+            if (externalReference is not null && _searchResponses.TryGetValue(externalReference, out var searchJson))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(searchJson, Encoding.UTF8, "application/json"),
+                });
+            }
+        }
 
         if (request.Method == HttpMethod.Get && path.StartsWith(paymentsPrefix, StringComparison.Ordinal))
         {
