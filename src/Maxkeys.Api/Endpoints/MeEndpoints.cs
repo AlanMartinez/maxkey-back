@@ -53,7 +53,12 @@ public static class MeEndpoints
             ListNotifications useCase,
             CancellationToken cancellationToken) =>
             Results.Ok((await useCase.ExecuteAsync(RequireUserId(user), cancellationToken))
-                .Select(notification => new NotificationResponse(notification.Id, notification.Type, notification.ReadAt))));
+                .Select(notification => new NotificationResponse(
+                    notification.Id,
+                    notification.Type,
+                    notification.OrderId,
+                    notification.CreatedAt,
+                    notification.ReadAt))));
 
         notifications.MapPost("/{id:guid}/read", async (
             Guid id,
@@ -92,4 +97,4 @@ public static class MeEndpoints
 /// <summary>Response for <c>POST /me/orders/{id}/items/{itemId}/keys/reveal</c>.</summary>
 public sealed record RevealOrderItemKeysResponse(IReadOnlyList<string> Codes);
 
-public sealed record NotificationResponse(Guid Id, string Type, DateTime? ReadAt);
+public sealed record NotificationResponse(Guid Id, string Type, Guid OrderId, DateTime CreatedAt, DateTime? ReadAt);

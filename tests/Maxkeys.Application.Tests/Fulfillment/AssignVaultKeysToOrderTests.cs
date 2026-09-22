@@ -71,6 +71,22 @@ public sealed class AssignVaultKeysToOrderTests
     }
 
     [Fact]
+    public async Task Full_aggregate_stock_assigns_each_item_when_order_repeats_a_variant()
+    {
+        var variantId = await SeedVaultVariantAsync();
+        await LoadVaultKeysAsync(variantId, "CODE-1", "CODE-2");
+        var orderId = await SeedAwaitingFulfillmentOrderAsync(variantId, quantities: [1, 1]);
+
+        await using var context = _fixture.CreateContext();
+        var result = await new AssignVaultKeysToOrder(context).ExecuteAsync(orderId);
+
+        Assert.NotNull(result);
+        Assert.True(result!.AllItemsComplete);
+        Assert.Equal(OrderStatus.KeysAssigned, result.OrderStatus);
+        Assert.All(result.Items, item => Assert.Equal(item.Quantity, item.AssignedKeys));
+    }
+
+    [Fact]
     public async Task Vault_disabled_product_never_auto_assigns()
     {
         await using var context = _fixture.CreateContext();
@@ -166,11 +182,15 @@ public sealed class AssignVaultKeysToOrderTests
         await new LoadVaultKeys(context, cipher).ExecuteAsync(variantId, codes, "seed-admin");
     }
 
-    private async Task<Guid> SeedAwaitingFulfillmentOrderAsync(Guid variantId, int quantity)
+    private Task<Guid> SeedAwaitingFulfillmentOrderAsync(Guid variantId, int quantity) =>
+        SeedAwaitingFulfillmentOrderAsync(variantId, [quantity]);
+
+    private async Task<Guid> SeedAwaitingFulfillmentOrderAsync(Guid variantId, IReadOnlyList<int> quantities)
     {
         await using var context = _fixture.CreateContext();
         var now = DateTimeOffset.UtcNow;
-        var order = Order.Create(null, $"buyer-{Guid.NewGuid():N}@example.com", [new OrderLine(variantId, "Vault Product", "Standard", 1_000m, quantity)], now);
+        var lines = quantities.Select(quantity => new OrderLine(variantId, "Vault Product", "Standard", 1_000m, quantity)).ToList();
+        var order = Order.Create(null, $"buyer-{Guid.NewGuid():N}@example.com", lines, now);
         order.MarkPaid($"pay-{Guid.NewGuid():N}", now);
         order.MarkAwaitingFulfillment(now);
         context.Orders.Add(order);

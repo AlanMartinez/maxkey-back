@@ -87,6 +87,7 @@ public sealed class AssignVaultKeysToOrder
             .Select(p => new { p.Id, p.VaultEnabled })
             .ToDictionaryAsync(p => p.Id, p => p.VaultEnabled, cancellationToken);
 
+        var keysAssignedDuringAttempt = new HashSet<Guid>();
         foreach (var item in incompleteItems)
         {
             if (!productIdByVariant.TryGetValue(item.ProductVariantId, out var productId) ||
@@ -103,7 +104,9 @@ public sealed class AssignVaultKeysToOrder
             }
 
             var availableKeys = await _db.Keys
-                .Where(k => k.ProductVariantId == item.ProductVariantId && k.Status == KeyStatus.Available)
+                .Where(k => k.ProductVariantId == item.ProductVariantId &&
+                            k.Status == KeyStatus.Available &&
+                            !keysAssignedDuringAttempt.Contains(k.Id))
                 .OrderBy(k => k.CreatedAt)
                 .Take(remaining)
                 .ToListAsync(cancellationToken);
@@ -116,6 +119,7 @@ public sealed class AssignVaultKeysToOrder
             foreach (var key in availableKeys)
             {
                 order.AttachKey(item.Id, key, now);
+                keysAssignedDuringAttempt.Add(key.Id);
             }
         }
 
