@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Maxkeys.Api.Auth;
 using Maxkeys.Application.Checkout;
+using Maxkeys.Application.Payments;
 
 namespace Maxkeys.Api.Endpoints;
 
@@ -42,6 +43,30 @@ public static class CheckoutEndpoints
         group.MapGet("/{id:guid}/status", async (Guid id, GetOrderStatus useCase, CancellationToken cancellationToken) =>
         {
             var status = await useCase.ExecuteAsync(id, cancellationToken);
+            return status is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
+                : Results.Ok(new CheckoutOrderStatusResponse(
+                    status.OrderId,
+                    status.Status.ToString(),
+                    status.LastPaymentAttemptStatus,
+                    status.BuyerEmail,
+                    status.TotalAmount,
+                    status.Currency));
+        });
+
+        group.MapPost("/{id:guid}/reconcile", async (
+            Guid id,
+            ConfirmCheckoutPayment confirmation,
+            GetOrderStatus getOrderStatus,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await confirmation.ExecuteAsync(id, cancellationToken);
+            if (result.Outcome == ConfirmCheckoutPaymentOutcome.NotFound)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found");
+            }
+
+            var status = await getOrderStatus.ExecuteAsync(id, cancellationToken);
             return status is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
                 : Results.Ok(new CheckoutOrderStatusResponse(
