@@ -2,6 +2,7 @@ using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Carousel;
 using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Keys;
+using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Outbox;
 using Maxkeys.Domain.Payments;
@@ -28,6 +29,7 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<Key> Keys => Set<Key>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<ProcessedWebhookNotification> ProcessedWebhookNotifications => Set<ProcessedWebhookNotification>();
 

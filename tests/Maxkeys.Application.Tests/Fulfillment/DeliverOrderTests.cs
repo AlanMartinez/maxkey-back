@@ -1,6 +1,7 @@
 using Maxkeys.Application.Fulfillment;
 using Maxkeys.Application.Tests.Fixtures;
 using Maxkeys.Domain.Common;
+using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,9 +20,10 @@ public sealed class DeliverOrderTests
     }
 
     [Fact]
-    public async Task KeysAssigned_order_transitions_to_delivered()
+    public async Task Delivery_creates_order_delivered_notification_for_buyer()
     {
-        var orderId = await SeedKeysAssignedOrderAsync();
+        var buyerId = Guid.NewGuid();
+        var orderId = await SeedKeysAssignedOrderAsync(buyerId);
 
         await using var context = _fixture.CreateContext();
         var sut = new DeliverOrder(context, NullLogger<DeliverOrder>.Instance);
@@ -33,6 +35,13 @@ public sealed class DeliverOrderTests
         var order = await context.Orders.SingleAsync(o => o.Id == orderId);
         Assert.Equal(OrderStatus.Delivered, order.Status);
         Assert.NotNull(order.DeliveredAt);
+
+        var notification = await context.Notifications.SingleAsync(notification => notification.OrderId == orderId);
+        Assert.Equal(buyerId, notification.UserId);
+        Assert.Equal(NotificationTypes.OrderDelivered, notification.Type);
+        Assert.Equal(orderId, notification.OrderId);
+        Assert.Equal(DateTimeKind.Utc, notification.CreatedAt.Kind);
+        Assert.Null(notification.ReadAt);
     }
 
     [Fact]
@@ -44,6 +53,9 @@ public sealed class DeliverOrderTests
         var sut = new DeliverOrder(context, NullLogger<DeliverOrder>.Instance);
 
         await Assert.ThrowsAsync<DomainConflictException>(() => sut.ExecuteAsync(orderId, "admin@maxkeys.test"));
+        Assert.DoesNotContain(
+            await context.Notifications.ToListAsync(),
+            notification => notification.OrderId == orderId);
     }
 
     [Fact]
@@ -57,11 +69,11 @@ public sealed class DeliverOrderTests
         Assert.Null(status);
     }
 
-    private async Task<Guid> SeedKeysAssignedOrderAsync()
+    private async Task<Guid> SeedKeysAssignedOrderAsync(Guid? userId = null)
     {
         var now = DateTimeOffset.UtcNow;
         await using var context = _fixture.CreateContext();
-        var order = Order.Create(null, $"buyer-{Guid.NewGuid():N}@example.com", [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], now);
+        var order = Order.Create(userId, $"buyer-{Guid.NewGuid():N}@example.com", [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], now);
         order.MarkPaid($"pay-{Guid.NewGuid():N}", now);
         order.MarkAwaitingFulfillment(now);
         context.Orders.Add(order);

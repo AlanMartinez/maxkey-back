@@ -1,5 +1,6 @@
 using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Orders;
+using Maxkeys.Domain.Notifications;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -36,6 +37,10 @@ public sealed class DeliverOrder
 
         var now = DateTimeOffset.UtcNow;
         order.MarkDelivered(now);
+        if (order.UserId is Guid userId)
+        {
+            _db.Notifications.Add(new Notification(userId, order.Id, DateTime.UtcNow));
+        }
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Order {OrderId} marked Delivered by admin {AdminSub}.", orderId, deliveredBy);

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Maxkeys.Application.Notifications;
 using Maxkeys.Application.Orders;
 
 namespace Maxkeys.Api.Endpoints;
@@ -46,6 +47,26 @@ public static class MeEndpoints
                 : Results.Ok(new RevealOrderItemKeysResponse(codes));
         });
 
+        var notifications = app.MapGroup("/me/notifications").RequireAuthorization();
+        notifications.MapGet(string.Empty, async (
+            ClaimsPrincipal user,
+            ListNotifications useCase,
+            CancellationToken cancellationToken) =>
+            Results.Ok((await useCase.ExecuteAsync(RequireUserId(user), cancellationToken))
+                .Select(notification => new NotificationResponse(notification.Id, notification.Type, notification.ReadAt))));
+
+        notifications.MapPost("/{id:guid}/read", async (
+            Guid id,
+            ClaimsPrincipal user,
+            ReadNotification useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var found = await useCase.ExecuteAsync(id, RequireUserId(user), cancellationToken);
+            return found
+                ? Results.NoContent()
+                : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Notification not found");
+        });
+
         return app;
     }
 
@@ -70,3 +91,5 @@ public static class MeEndpoints
 
 /// <summary>Response for <c>POST /me/orders/{id}/items/{itemId}/keys/reveal</c>.</summary>
 public sealed record RevealOrderItemKeysResponse(IReadOnlyList<string> Codes);
+
+public sealed record NotificationResponse(Guid Id, string Type, DateTime? ReadAt);
