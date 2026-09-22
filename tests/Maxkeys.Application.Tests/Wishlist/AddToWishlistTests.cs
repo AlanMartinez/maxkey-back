@@ -92,4 +92,28 @@ public sealed class AddToWishlistTests
         await using var verify = _fixture.CreateContext();
         Assert.Equal(1, await verify.WishlistItems.CountAsync(w => w.UserId == userId && w.ProductId == productId));
     }
+
+    [Fact]
+    public async Task Concurrent_adds_of_the_same_product_both_succeed_and_only_one_row_is_created()
+    {
+        var userId = Guid.NewGuid();
+        Guid productId;
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
+            await seed.SaveChangesAsync();
+            productId = product.Id;
+        }
+
+        await using var first = _fixture.CreateContext();
+        await using var second = _fixture.CreateContext();
+
+        var firstTask = new AddToWishlist(first).ExecuteAsync(userId, productId);
+        var secondTask = new AddToWishlist(second).ExecuteAsync(userId, productId);
+        var results = await Task.WhenAll(firstTask, secondTask);
+
+        Assert.All(results, Assert.True);
+        await using var verify = _fixture.CreateContext();
+        Assert.Equal(1, await verify.WishlistItems.CountAsync(w => w.UserId == userId && w.ProductId == productId));
+    }
 }

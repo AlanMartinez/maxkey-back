@@ -9,7 +9,9 @@ namespace Maxkeys.Application.Wishlist;
 /// <see langword="false"/> for an unknown or inactive product (API maps to
 /// 404) — mirrors <see cref="Maxkeys.Application.Catalog.GetProductBySlug"/>'s
 /// not-found handling. Idempotent: adding a product already on the wishlist
-/// is not an error (spec: "AddToWishlist is idempotent").
+/// is not an error (spec: "AddToWishlist is idempotent"), but a genuine save
+/// failure (not a concurrent duplicate-add race) is re-checked against the
+/// database and correctly reported as a failure rather than assumed success.
 /// </summary>
 public sealed class AddToWishlist
 {
@@ -41,18 +43,20 @@ public sealed class AddToWishlist
         try
         {
             await _db.SaveChangesAsync(cancellationToken);
+            return true;
         }
         catch (DbUpdateException)
         {
-            // A concurrent add for the same (userId, productId) raced us past the
-            // AnyAsync check above and won; the unique index already has the row,
-            // so this is still a success (idempotent add), not a failure.
+            // A concurrent add for the same (userId, productId) may have raced us past the
+            // AnyAsync check above and won; re-check the actual state instead of assuming
+            // success, so a genuine save failure isn't silently reported as one.
             if (_db is DbContext dbContext)
             {
                 dbContext.ChangeTracker.Clear();
             }
-        }
 
-        return true;
+            return await _db.WishlistItems
+                .AnyAsync(w => w.UserId == userId && w.ProductId == productId, cancellationToken);
+        }
     }
 }
