@@ -1,6 +1,7 @@
 using Maxkeys.Domain.Carousel;
 using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Keys;
+using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Outbox;
 using Maxkeys.Domain.Payments;
@@ -22,6 +23,7 @@ public interface IAppDbContext
     DbSet<Order> Orders { get; }
     DbSet<OrderItem> OrderItems { get; }
     DbSet<Key> Keys { get; }
+    DbSet<Notification> Notifications { get; }
     DbSet<OutboxEvent> OutboxEvents { get; }
     DbSet<ProcessedWebhookNotification> ProcessedWebhookNotifications { get; }
 
