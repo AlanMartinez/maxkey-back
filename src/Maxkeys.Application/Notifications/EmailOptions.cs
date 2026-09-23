@@ -10,6 +10,10 @@ namespace Maxkeys.Application.Notifications;
 /// "awaiting fulfillment" notification. Named <c>OperatorTo</c>, not
 /// <c>OperatorAddress</c> as design section 10's original config matrix named
 /// it — the doc was reconciled to this name in PR12 (task 12.1).
+/// <see cref="Sender"/> also accepts <c>Resend</c> (<see cref="ResendOptions"/>) —
+/// same lazy-selection pattern, added alongside <c>Smtp</c> rather than
+/// replacing it, since Resend's HTTP API (used here) gives clearer
+/// send failures than going through its SMTP relay would.
 /// </summary>
 public sealed class EmailOptions
 {
@@ -21,7 +25,12 @@ public sealed class EmailOptions
 
     public string OperatorTo { get; set; } = string.Empty;
 
+    /// <summary>Buyer-facing link used by <c>EmailTemplates.BuyerOrderReady</c> (design section 3; admin-key-delivery-gate spec: decision 4 revisited — buyer notification on delivery).</summary>
+    public string AccountOrdersUrl { get; set; } = string.Empty;
+
     public SmtpOptions Smtp { get; set; } = new();
+
+    public ResendOptions Resend { get; set; } = new();
 }
 
 /// <summary>
@@ -41,4 +50,10 @@ public sealed class SmtpOptions
     public string User { get; set; } = string.Empty;
 
     public string Password { get; set; } = string.Empty;
+}
+
+/// <summary>Resend API settings. Bound under <c>Email:Resend:*</c>; only read when <see cref="EmailOptions.Sender"/> is <c>Resend</c>. <see cref="ApiKey"/> is a secret — set via <c>fly secrets</c>/user-secrets, never committed.</summary>
+public sealed class ResendOptions
+{
+    public string ApiKey { get; set; } = string.Empty;
 }

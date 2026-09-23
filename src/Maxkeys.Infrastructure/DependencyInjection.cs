@@ -109,10 +109,16 @@ public static class DependencyInjection
 
         services.AddScoped<LoggingEmailSender>();
         services.AddScoped<SmtpEmailSender>();
+        services.AddHttpClient<ResendEmailSender>();
 
         services.AddScoped<IEmailSender>(sp =>
         {
             var options = sp.GetRequiredService<IOptionsMonitor<EmailOptions>>().CurrentValue;
+            if (options.Sender.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+            {
+                return sp.GetRequiredService<ResendEmailSender>();
+            }
+
             return options.Sender.Equals("Smtp", StringComparison.OrdinalIgnoreCase)
                 ? sp.GetRequiredService<SmtpEmailSender>()
                 : sp.GetRequiredService<LoggingEmailSender>();
