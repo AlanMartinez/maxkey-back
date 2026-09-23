@@ -82,6 +82,28 @@ public sealed class AdminCarouselEndpointsTests
         Assert.Equal(productId, slide!.ProductId);
     }
 
+    [Fact]
+    public async Task Create_canonicalizes_leading_slash_ImageKit_key_and_emits_ImageKit_delivery_url()
+    {
+        var productId = await SeedProductAsync();
+        var imageKey = $"carousel/{Guid.NewGuid():N}.png";
+        var registration = await AdminClient().PostAsJsonAsync("/admin/media/imagekit-assets", new { filePath = imageKey });
+        Assert.Equal(HttpStatusCode.NoContent, registration.StatusCode);
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/carousel", new
+        {
+            productId,
+            sortOrder = 0,
+            isActive = true,
+            imageKey = $"/{imageKey}",
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var slide = await response.Content.ReadFromJsonAsync<AdminCarouselSlide>();
+        Assert.Equal(imageKey, slide!.ImageKey);
+        Assert.Equal($"https://ik.imagekit.io/test-account/{imageKey}", slide.ImageUrl);
+    }
+
     /// <summary>Admin Slide Creation — "Slide creation rejects unknown product".</summary>
     [Fact]
     public async Task Create_with_unknown_product_returns_422()
@@ -160,6 +182,22 @@ public sealed class AdminCarouselEndpointsTests
     {
         var response = await AdminClient().DeleteAsync($"/admin/carousel/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_rejects_unsafe_image_key_before_persistence()
+    {
+        var productId = await SeedProductAsync();
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/carousel", new
+        {
+            productId,
+            sortOrder = 0,
+            isActive = true,
+            imageKey = "carousel/uploads/../private.png",
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     private static string UniquePlatform() => $"platform-{Guid.NewGuid():N}";
