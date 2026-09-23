@@ -222,6 +222,8 @@ The domain methods are strict (throw on wrong state). Use cases that must be ide
 
 **Migration strategy.** Additive only during MVP (new tables/columns/indexes; no renames or drops). One migration per slice that changes the schema, generated with `dotnet ef migrations add` into `Infrastructure/Persistence/Migrations`. Applied by `Maxkeys.Api --migrate` (section 12), never automatically on web startup.
 
+**Exception (activation-guides, 2026-09-23):** `AddActivationGuides` drops `products.activation_guide` (free text) in favor of `products.activation_guide_id` (FK). Accepted as a one-off exception to the additive-only rule because no production row held a non-null value in that column at the time this shipped — confirmed before merge, not inferred. Any future column drop needs the same explicit confirmation.
+
 ## 6. Sequence diagrams
 
 ### (a) Checkout → order → MP preference → redirect → result page
