@@ -102,6 +102,31 @@ public sealed class GetProductBySlugTests
         Assert.Equal("Enlace de activación", detail.ActivationType);
     }
 
+    /// <summary>Review Focus (final review, Important #1): a product whose linked guide no longer exists must degrade to null, never 500.</summary>
+    [Fact]
+    public async Task Returns_null_activation_guide_slug_when_the_linked_guide_no_longer_exists()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
+            await seed.SaveChangesAsync();
+            product.UpdateCatalogInfo(
+                product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, product.IsActive,
+                activationGuideId: Guid.NewGuid(), activationType: null);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Null(detail!.ActivationGuideSlug);
+    }
+
     [Fact]
     public async Task Prepends_the_catalog_image_before_gallery_images()
     {

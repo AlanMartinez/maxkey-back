@@ -57,6 +57,11 @@ public sealed class UpdateProduct
             throw new DomainConflictException($"A product with slug '{slug}' already exists.");
         }
 
+        if (activationGuideId is { } guideId && !await _db.ActivationGuides.AnyAsync(g => g.Id == guideId, cancellationToken))
+        {
+            throw new DomainException($"Activation guide '{guideId}' does not exist.");
+        }
+
         product.RenameSlug(slug);
         product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive, activationGuideId, activationType);
 
