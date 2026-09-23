@@ -22,7 +22,7 @@ public sealed class Product : Entity
     public string? ImageKey { get; private set; }
     public string? DetailImageKey { get; private set; }
     public string Description { get; private set; }
-    public string? ActivationGuide { get; private set; }
+    public Guid? ActivationGuideId { get; private set; }
     public string? ActivationType { get; private set; }
 
     public Product(
@@ -33,7 +33,7 @@ public sealed class Product : Entity
         string? imageKey = null,
         string? description = null,
         string? detailImageKey = null,
-        string? activationGuide = null,
+        Guid? activationGuideId = null,
         string? activationType = null)
     {
         if (string.IsNullOrWhiteSpace(slug))
@@ -64,7 +64,7 @@ public sealed class Product : Entity
         ImageKey = imageKey;
         DetailImageKey = detailImageKey;
         Description = description ?? string.Empty;
-        ActivationGuide = activationGuide;
+        ActivationGuideId = activationGuideId;
         ActivationType = activationType;
     }
 
@@ -80,7 +80,7 @@ public sealed class Product : Entity
         string? imageKey,
         string? detailImageKey,
         bool isActive,
-        string? activationGuide,
+        Guid? activationGuideId,
         string? activationType)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -99,7 +99,7 @@ public sealed class Product : Entity
         ImageKey = imageKey;
         DetailImageKey = detailImageKey;
         IsActive = isActive;
-        ActivationGuide = activationGuide;
+        ActivationGuideId = activationGuideId;
         ActivationType = activationType;
     }
 
