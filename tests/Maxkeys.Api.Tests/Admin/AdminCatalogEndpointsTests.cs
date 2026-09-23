@@ -87,7 +87,7 @@ public sealed class AdminCatalogEndpointsTests
             detailImageKey = "products/new-detail.png",
             isActive = true,
             imageKeys = new[] { "products/gallery/1.png", "products/gallery/2.png" },
-            activationGuide = "**Step 1.** Open the launcher and redeem the key.",
+            activationGuideId = (Guid?)Guid.NewGuid(),
             activationType = "Clave de activación",
         });
 
@@ -96,7 +96,7 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(slug, created!.Slug);
         Assert.Equal("New Product", created.Name);
         Assert.Equal(["products/gallery/1.png", "products/gallery/2.png"], created.ImageKeys);
-        Assert.Equal("**Step 1.** Open the launcher and redeem the key.", created.ActivationGuide);
+        Assert.NotNull(created.ActivationGuideId);
         Assert.Equal("Clave de activación", created.ActivationType);
 
         var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
