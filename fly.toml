@@ -37,6 +37,17 @@ primary_region = 'ams'
   Auth__Audience = 'authenticated'
   Auth__JwksUrl = 'https://gyclqawjpphtogezvleg.supabase.co/auth/v1/.well-known/jwks.json'
 
+  # Email (ADR-08, Resend SMTP relay). Email__Sender/From/AccountOrdersUrl
+  # were Fly secrets before this change — consolidated here so fly.toml stays
+  # the single source of truth for non-sensitive config (see CLAUDE.md).
+  Email__Sender = 'Smtp'
+  Email__From = 'ordenes@chekeys.com'
+  Email__AccountOrdersUrl = 'https://chekeys.com/account/orders'
+  Email__Smtp__Host = 'smtp.resend.com'
+  Email__Smtp__Port = '465'
+  Email__Smtp__UseStartTls = 'false'  # port 465 is implicit TLS, not STARTTLS
+  Email__Smtp__Username = 'resend'
+
 [http_service]
   internal_port = 8080
   force_https = true

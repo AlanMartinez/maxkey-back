@@ -45,9 +45,9 @@ public sealed class SmtpEmailSender : IEmailSender
 
         await client.ConnectAsync(options.Smtp.Host, options.Smtp.Port, secureSocketOptions, cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(options.Smtp.User))
+        if (!string.IsNullOrWhiteSpace(options.Smtp.Username))
         {
-            await client.AuthenticateAsync(options.Smtp.User, options.Smtp.Password, cancellationToken);
+            await client.AuthenticateAsync(options.Smtp.Username, options.Smtp.Password, cancellationToken);
         }
 
         await client.SendAsync(mimeMessage, cancellationToken);

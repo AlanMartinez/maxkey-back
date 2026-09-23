@@ -111,7 +111,18 @@ public static class DependencyInjection
     /// </summary>
     private static void AddEmailSender(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName))
+            .PostConfigure(options =>
+            {
+                // Legacy Fly secret name (predates the Email:Smtp:* nesting) — read it
+                // only as a fallback so the already-provisioned secret keeps working
+                // without needing to be re-entered under Email__Smtp__Password.
+                if (string.IsNullOrEmpty(options.Smtp.Password))
+                {
+                    options.Smtp.Password = configuration["Smtp:Password"] ?? string.Empty;
+                }
+            });
 
         services.AddScoped<LoggingEmailSender>();
         services.AddScoped<SmtpEmailSender>();
