@@ -33,7 +33,9 @@ public sealed class OrderDeliveredHandler : IOutboxHandler
     {
         var orderId = ParseOrderId(evt.Payload);
 
-        var order = await _db.Orders.SingleOrDefaultAsync(o => o.Id == orderId, cancellationToken);
+        var order = await _db.Orders
+            .Include(o => o.Items)
+            .SingleOrDefaultAsync(o => o.Id == orderId, cancellationToken);
         if (order is null)
         {
             throw new InvalidOperationException($"OrderDelivered event references unknown order {orderId}.");
