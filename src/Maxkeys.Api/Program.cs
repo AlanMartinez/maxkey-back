@@ -79,12 +79,14 @@ try
 
     app.MapHealthEndpoints();
     app.MapCatalogEndpoints();
+    app.MapGuideEndpoints();
     app.MapCheckoutEndpoints();
     app.MapWebhookEndpoints();
     app.MapMeEndpoints();
     app.MapAdminEndpoints();
     app.MapAdminMediaEndpoints();
     app.MapAdminCatalogEndpoints();
+    app.MapAdminGuidesEndpoints();
     app.MapAdminVaultEndpoints();
     app.MapAdminCarouselEndpoints();
     app.MapAdminBuyersEndpoints();
