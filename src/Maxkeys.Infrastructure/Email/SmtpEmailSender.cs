@@ -39,6 +39,11 @@ public sealed class SmtpEmailSender : IEmailSender
 
         using var client = new SmtpClient();
 
+        // Fly's container can't reach the intermediate cert's CRL distribution point,
+        // so the default revocation check throws SslHandshakeException ("unable to
+        // get certificate CRL") even though Resend's certificate itself is valid.
+        client.CheckCertificateRevocation = false;
+
         var secureSocketOptions = options.Smtp.UseStartTls
             ? SecureSocketOptions.StartTls
             : SecureSocketOptions.Auto;
