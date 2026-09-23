@@ -83,6 +83,7 @@ try
     app.MapWebhookEndpoints();
     app.MapMeEndpoints();
     app.MapAdminEndpoints();
+    app.MapAdminMediaEndpoints();
     app.MapAdminCatalogEndpoints();
     app.MapAdminVaultEndpoints();
     app.MapAdminCarouselEndpoints();

@@ -28,15 +28,23 @@ public static class AdminCatalogEndpoints
             CreateProduct useCase,
             CancellationToken cancellationToken) =>
         {
+            var imageKey = ImageKeyPolicy.NormalizeImageKitUploadPath(body.ImageKey);
+            var detailImageKey = ImageKeyPolicy.NormalizeImageKitUploadPath(body.DetailImageKey);
+            var imageKeys = NormalizeImageKitUploadPaths(body.ImageKeys);
+            if (!ImageKeysAreValid(imageKey, detailImageKey, imageKeys))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid image key");
+            }
+
             var product = await useCase.ExecuteAsync(
                 body.Slug,
                 body.Name,
                 body.Platform,
                 body.Description,
-                body.ImageKey,
-                body.DetailImageKey,
+                imageKey,
+                detailImageKey,
                 body.IsActive,
-                body.ImageKeys ?? [],
+                imageKeys ?? [],
                 body.ActivationGuide,
                 body.ActivationType,
                 cancellationToken);
@@ -49,16 +57,24 @@ public static class AdminCatalogEndpoints
             UpdateProduct useCase,
             CancellationToken cancellationToken) =>
         {
+            var imageKey = ImageKeyPolicy.NormalizeImageKitUploadPath(body.ImageKey);
+            var detailImageKey = ImageKeyPolicy.NormalizeImageKitUploadPath(body.DetailImageKey);
+            var imageKeys = NormalizeImageKitUploadPaths(body.ImageKeys);
+            if (!ImageKeysAreValid(imageKey, detailImageKey, imageKeys))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid image key");
+            }
+
             var product = await useCase.ExecuteAsync(
                 id,
                 body.Slug,
                 body.Name,
                 body.Platform,
                 body.Description,
-                body.ImageKey,
-                body.DetailImageKey,
+                imageKey,
+                detailImageKey,
                 body.IsActive,
-                body.ImageKeys ?? [],
+                imageKeys ?? [],
                 body.ActivationGuide,
                 body.ActivationType,
                 cancellationToken);
@@ -126,6 +142,14 @@ public static class AdminCatalogEndpoints
 
         return app;
     }
+
+    private static bool ImageKeysAreValid(string? imageKey, string? detailImageKey, IReadOnlyList<string>? imageKeys) =>
+        ImageKeyPolicy.IsOptionalKeyValid(imageKey) &&
+        ImageKeyPolicy.IsOptionalKeyValid(detailImageKey) &&
+        (imageKeys is null || imageKeys.All(ImageKeyPolicy.IsSafeRelativeKey));
+
+    private static IReadOnlyList<string>? NormalizeImageKitUploadPaths(IReadOnlyList<string>? imageKeys) =>
+        imageKeys?.Select(ImageKeyPolicy.NormalizeImageKitUploadPath).Cast<string>().ToArray();
 }
 
 /// <summary>Admin request body for <c>POST /admin/catalog/products</c>.</summary>

@@ -19,6 +19,7 @@ public interface IAppDbContext
     DbSet<Product> Products { get; }
     DbSet<ProductVariant> ProductVariants { get; }
     DbSet<ProductImage> ProductImages { get; }
+    DbSet<ImageKitAsset> ImageKitAssets { get; }
     DbSet<CarouselSlide> CarouselSlides { get; }
     DbSet<Order> Orders { get; }
     DbSet<OrderItem> OrderItems { get; }

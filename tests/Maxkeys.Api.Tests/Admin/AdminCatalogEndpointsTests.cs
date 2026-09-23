@@ -105,6 +105,36 @@ public sealed class AdminCatalogEndpointsTests
     }
 
     [Fact]
+    public async Task Create_canonicalizes_leading_slash_ImageKit_keys_and_emits_ImageKit_delivery_urls()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+        var mainKey = $"products/{Guid.NewGuid():N}.png";
+        var galleryKey = $"products/{Guid.NewGuid():N}-2.png";
+        await RegisterImageKitAssetAsync(mainKey);
+        await RegisterImageKitAssetAsync(galleryKey);
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "ImageKit Product",
+            platform = UniquePlatform(),
+            imageKey = $"/{mainKey}",
+            detailImageKey = $"/{mainKey}",
+            imageKeys = new[] { $"/{galleryKey}" },
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var product = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.Equal(mainKey, product!.ImageKey);
+        Assert.Equal(mainKey, product.DetailImageKey);
+        Assert.Equal([galleryKey], product.ImageKeys);
+        Assert.Equal($"https://ik.imagekit.io/test-account/{mainKey}", product.ImageUrl);
+        Assert.Equal($"https://ik.imagekit.io/test-account/{mainKey}", product.DetailImageUrl);
+        Assert.Equal([$"https://ik.imagekit.io/test-account/{galleryKey}"], product.Images);
+    }
+
+    [Fact]
     public async Task Creating_a_product_with_a_duplicate_slug_returns_409()
     {
         var slug = $"p-{Guid.NewGuid():N}";
@@ -531,6 +561,27 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Create_rejects_unsafe_image_key_before_persistence()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "Unsafe image",
+            platform = UniquePlatform(),
+            imageKey = "products/uploads/../private.png",
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var products = await (await AdminClient().GetAsync("/admin/catalog/products"))
+            .Content.ReadFromJsonAsync<List<AdminProduct>>();
+        Assert.DoesNotContain(products!, product => product.Slug == slug);
+    }
+
     private static string UniquePlatform() => $"platform-{Guid.NewGuid():N}";
 
     private async Task<Guid> SeedProductAsync()
@@ -566,6 +617,12 @@ public sealed class AdminCatalogEndpointsTests
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await seed(db);
+    }
+
+    private async Task RegisterImageKitAssetAsync(string filePath)
+    {
+        var response = await AdminClient().PostAsJsonAsync("/admin/media/imagekit-assets", new { filePath });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
     private HttpClient AdminClient(string? sub = null)

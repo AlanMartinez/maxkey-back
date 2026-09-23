@@ -40,11 +40,16 @@ public sealed class Hs256ApiTestFixture : WebApplicationFactory<Program>, IAsync
                 ["Payments:Mode"] = string.Empty,
                 ["Cors:AllowedOrigins:0"] = "http://allowed.test",
                 ["Storage:R2PublicBaseUrl"] = "https://img.test",
+                ["Storage:ImageKitUrlEndpoint"] = "https://ik.imagekit.io/test-account",
+                ["Storage:ImageKitPublicKey"] = "public_test_key",
+                ["Storage:ImageKitPrivateKey"] = "private_test_key",
+                ["Storage:ImageKitUploadPolicyVerified"] = "true",
                 ["Auth:Mode"] = "Hs256",
                 ["Auth:Issuer"] = Issuer,
                 ["Auth:Audience"] = Audience,
                 ["Auth:Hs256Secret"] = Hs256Secret,
                 ["Auth:AdminSubs:0"] = AdminSub,
+                ["Auth:DevBypassAdmin"] = "false",
             });
         });
     }
