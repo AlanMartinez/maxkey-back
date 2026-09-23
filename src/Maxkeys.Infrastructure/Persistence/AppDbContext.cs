@@ -1,6 +1,7 @@
 using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Carousel;
 using Maxkeys.Domain.Catalog;
+using Maxkeys.Domain.Guides;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
@@ -23,6 +24,7 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     }
 
     public DbSet<Product> Products => Set<Product>();
+    public DbSet<ActivationGuide> ActivationGuides => Set<ActivationGuide>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ImageKitAsset> ImageKitAssets => Set<ImageKitAsset>();

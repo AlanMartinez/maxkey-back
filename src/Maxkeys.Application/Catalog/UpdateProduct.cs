@@ -41,7 +41,7 @@ public sealed class UpdateProduct
         string? detailImageKey,
         bool isActive,
         IReadOnlyList<string>? imageKeys = null,
-        string? activationGuide = null,
+        Guid? activationGuideId = null,
         string? activationType = null,
         CancellationToken cancellationToken = default)
     {
@@ -57,8 +57,13 @@ public sealed class UpdateProduct
             throw new DomainConflictException($"A product with slug '{slug}' already exists.");
         }
 
+        if (activationGuideId is { } guideId && !await _db.ActivationGuides.AnyAsync(g => g.Id == guideId, cancellationToken))
+        {
+            throw new DomainException($"Activation guide '{guideId}' does not exist.");
+        }
+
         product.RenameSlug(slug);
-        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive, activationGuide, activationType);
+        product.UpdateCatalogInfo(name, platform, description, imageKey, detailImageKey, isActive, activationGuideId, activationType);
 
         var existingImages = await _db.ProductImages.Where(i => i.ProductId == id).ToListAsync(cancellationToken);
         _db.ProductImages.RemoveRange(existingImages);

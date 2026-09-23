@@ -17,7 +17,9 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.ImageKey).HasMaxLength(500);
         builder.Property(p => p.DetailImageKey).HasMaxLength(500);
         builder.Property(p => p.Description).HasColumnType("text").IsRequired();
-        builder.Property(p => p.ActivationGuide).HasColumnType("text");
+        builder.Property(p => p.ActivationGuideId);
+
+        builder.HasIndex(p => p.ActivationGuideId);
         builder.Property(p => p.ActivationType).HasMaxLength(100);
 
         builder.HasIndex(p => p.Slug).IsUnique();

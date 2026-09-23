@@ -44,12 +44,14 @@ public static class CatalogSeeder
                     seedProduct.ImageKey,
                     seedProduct.Description,
                     seedProduct.DetailImageKey,
-                    seedProduct.ActivationGuide,
+                    activationGuideId: null,
                     seedProduct.ActivationType);
                 db.Products.Add(product);
             }
             else
             {
+                // The seed file no longer carries a guide assignment — reseeding must preserve
+                // whatever ActivationGuideId an admin already set via /admin/catalog, never null it out.
                 product.UpdateCatalogInfo(
                     seedProduct.Name,
                     seedProduct.Platform,
@@ -57,7 +59,7 @@ public static class CatalogSeeder
                     seedProduct.ImageKey,
                     seedProduct.DetailImageKey,
                     seedProduct.IsActive,
-                    seedProduct.ActivationGuide,
+                    product.ActivationGuideId,
                     seedProduct.ActivationType);
             }
 
@@ -111,7 +113,6 @@ internal sealed record CatalogSeedProduct(
     [property: JsonPropertyName("detailImageKey")] string? DetailImageKey,
     bool IsActive,
     List<CatalogSeedVariant> Variants,
-    [property: JsonPropertyName("activationGuide")] string? ActivationGuide = null,
     [property: JsonPropertyName("activationType")] string? ActivationType = null);
 
 internal sealed record CatalogSeedVariant(

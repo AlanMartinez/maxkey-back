@@ -37,7 +37,7 @@ public static class AdminMediaEndpoints
             var filePath = ImageKeyPolicy.NormalizeImageKitUploadPath(body.FilePath);
             if (!ImageKeyPolicy.IsSafeRelativeKey(filePath!) || !ImageKeyPolicy.IsImageKitUploadKey(filePath!))
             {
-                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "ImageKit file path must use products/ or carousel/");
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "ImageKit file path must use products/, carousel/ or guides/");
             }
 
             var exists = await db.ImageKitAssets.AnyAsync(asset => asset.FilePath == filePath, cancellationToken);

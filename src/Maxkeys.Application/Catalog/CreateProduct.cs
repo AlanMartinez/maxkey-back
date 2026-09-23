@@ -33,7 +33,7 @@ public sealed class CreateProduct
         string? detailImageKey,
         bool isActive,
         IReadOnlyList<string>? imageKeys = null,
-        string? activationGuide = null,
+        Guid? activationGuideId = null,
         string? activationType = null,
         CancellationToken cancellationToken = default)
     {
@@ -43,7 +43,12 @@ public sealed class CreateProduct
             throw new DomainConflictException($"A product with slug '{slug}' already exists.");
         }
 
-        var product = new Product(slug, name, platform, isActive, imageKey, description, detailImageKey, activationGuide, activationType);
+        if (activationGuideId is { } guideId && !await _db.ActivationGuides.AnyAsync(g => g.Id == guideId, cancellationToken))
+        {
+            throw new DomainException($"Activation guide '{guideId}' does not exist.");
+        }
+
+        var product = new Product(slug, name, platform, isActive, imageKey, description, detailImageKey, activationGuideId, activationType);
         _db.Products.Add(product);
 
         var images = (imageKeys ?? [])

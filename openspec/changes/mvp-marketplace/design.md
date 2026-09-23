@@ -155,6 +155,7 @@ maxkeys-front/                # Nuxt 3 app at the repo ROOT — no frontend/ pre
 | `Key` | `EncryptedCode` non-empty; `KeyVersion >= 1`; `LoadedBy` non-empty | `AssignTo(orderItemId, now)`: `Available → Assigned`, sets `AssignedAt` |
 | `OutboxEvent` | `Type` in `OutboxEventTypes`; `Payload` valid JSON | `Claim(leaseUntil)`, `MarkProcessed(now)`, `MarkFailedAttempt(error, now, maxAttempts)` |
 | `ProcessedWebhookNotification` | `RequestId` non-empty | none (insert-only) |
+| `ActivationGuide` | `Slug` non-empty, lowercase, unique (DB); `Title` non-empty | `Update` (slug/title/content, all at once — no seeder upsert path pins the slug) |
 
 `Entity` base: `Guid Id` (client-generated `Guid.NewGuid()`, so ids exist before the first `SaveChanges` — needed for `external_reference`). No domain-event infrastructure; use cases read the resulting state.
 
@@ -210,7 +211,8 @@ The domain methods are strict (throw on wrong state). Use cases that must be ide
 
 | Table | Index / constraint | Why |
 |---|---|---|
-| `products` | `UNIQUE(slug)`, `INDEX(platform)` | slug lookup, platform filter |
+| `products` | `UNIQUE(slug)`, `INDEX(platform)`, `INDEX(activation_guide_id)` | slug lookup, platform filter, guide-reference-check on delete |
+| `activation_guides` | `UNIQUE(slug)` | slug lookup for `/guides/{slug}` |
 | `product_variants` | `INDEX(product_id)` | product detail |
 | `orders` | `INDEX(user_id)`, `INDEX(status)`, `UNIQUE(mp_payment_id) WHERE mp_payment_id IS NOT NULL` | Mis compras, admin list, one payment can never pay two orders |
 | `order_items` | `INDEX(order_id)` | load order |
@@ -219,6 +221,8 @@ The domain methods are strict (throw on wrong state). Use cases that must be ide
 | `processed_webhook_notifications` | `PRIMARY KEY(request_id)` | dedupe by PK violation, not by read-then-write |
 
 **Migration strategy.** Additive only during MVP (new tables/columns/indexes; no renames or drops). One migration per slice that changes the schema, generated with `dotnet ef migrations add` into `Infrastructure/Persistence/Migrations`. Applied by `Maxkeys.Api --migrate` (section 12), never automatically on web startup.
+
+**Exception (activation-guides, 2026-09-23):** `AddActivationGuides` drops `products.activation_guide` (free text) in favor of `products.activation_guide_id` (FK). Accepted as a one-off exception to the additive-only rule because no production row held a non-null value in that column at the time this shipped — confirmed before merge, not inferred. Any future column drop needs the same explicit confirmation.
 
 ## 6. Sequence diagrams
 
@@ -411,7 +415,12 @@ Base path `/`. All error bodies are RFC 7807 Problem Details (`application/probl
 | Method + path | Auth | Request | Success response |
 |---|---|---|---|
 | `GET /catalog/products?platform=&q=` | public | query | `200 ProductSummary[]` `{id, slug, name, platform, imageUrl, fromPrice, oldPrice?}` |
-| `GET /catalog/products/{slug}` | public | — | `200 ProductDetail` `{..., description, variants[{id, name, region?, edition?, price, oldPrice?, currency}]}` |
+| `GET /catalog/products/{slug}` | public | — | `200 ProductDetail` `{..., description, variants[{id, name, region?, edition?, price, oldPrice?, currency}], activationGuideSlug?}` — `activationGuideSlug` resolves the product's linked `ActivationGuide`, null when unset or the linked guide no longer exists |
+| `GET /guides/{slug}` | public | — | `200 GuideDto` `{id, slug, title, contentMarkdown}` |
+| `GET /admin/guides` | bearer + Admin | — | `200 GuideDto[]` |
+| `POST /admin/guides` | bearer + Admin | `{slug, title, contentMarkdown?}` | `201 GuideDto` |
+| `PUT /admin/guides/{id}` | bearer + Admin | `{slug, title, contentMarkdown?}` | `200 GuideDto` |
+| `DELETE /admin/guides/{id}` | bearer + Admin | — | `204` (`409` if a product still references it) |
 | `POST /checkout/orders` | public, optional bearer | `{email, items:[{variantId, quantity}]}` | `201 {orderId, initPoint}` |
 | `GET /checkout/orders/{id}/status` | public (unguessable GUID) | — | `200 {orderId, status, lastPaymentAttemptStatus?, buyerEmailMasked, totalAmount, currency}` — `lastPaymentAttemptStatus` lets the result page distinguish "still Pending, payment rejected" from "still Pending, waiting for the webhook" |
 | `POST /webhooks/mercadopago?data.id=&type=` | MP signature | MP body (ignored; headers + query used) | `200` always for handled/ignored/duplicate |

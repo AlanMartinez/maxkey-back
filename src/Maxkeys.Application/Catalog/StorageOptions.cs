@@ -30,7 +30,7 @@ public sealed class StorageOptions
     public string[] ImageKitMigratedKeys { get; set; } = [];
 
     /// <summary>Canonical folders permitted for browser-direct ImageKit uploads.</summary>
-    public string[] ImageKitAllowedFolders { get; set; } = ["products/uploads", "carousel/uploads"];
+    public string[] ImageKitAllowedFolders { get; set; } = ["products/uploads", "carousel/uploads", "guides/uploads"];
 
     /// <summary>Maximum browser-direct image upload size in bytes.</summary>
     public long ImageKitMaxUploadBytes { get; set; } = 20 * 1024 * 1024;
@@ -103,7 +103,8 @@ public static class ImageKeyPolicy
 
     public static bool IsImageKitUploadKey(string key) =>
         key.StartsWith("products/", StringComparison.Ordinal) ||
-        key.StartsWith("carousel/", StringComparison.Ordinal);
+        key.StartsWith("carousel/", StringComparison.Ordinal) ||
+        key.StartsWith("guides/", StringComparison.Ordinal);
 
     /// <summary>
     /// Canonicalizes the single leading slash returned by ImageKit for permitted upload paths.
