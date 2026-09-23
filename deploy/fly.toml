@@ -62,13 +62,15 @@ primary_region = "eze"  # <placeholder> Fly region code (eze = Buenos Aires)
   # control). Swap for a Custom Domain when one is set up — env-var-only change.
   Storage__R2PublicBaseUrl = "https://pub-d26599ecfc0f4b1092350d82115c5398.r2.dev"
 
-  # --- Email (ADR-08) ---
+  # --- Email (ADR-08, Resend SMTP relay) ---
   Email__Sender = "Smtp"
-  Email__From = "orders@<your-domain>"
+  Email__From = "ordenes@chekeys.com"
   Email__OperatorTo = "<operator-inbox>@<your-domain>"
-  Email__Smtp__Host = "<smtp-host>"
-  Email__Smtp__Port = "587"
-  Email__Smtp__UseStartTls = "true"
+  Email__AccountOrdersUrl = "https://chekeys.com/account/orders"
+  Email__Smtp__Host = "smtp.resend.com"
+  Email__Smtp__Port = "465"
+  Email__Smtp__UseStartTls = "false"  # port 465 is implicit TLS, not STARTTLS
+  Email__Smtp__Username = "resend"
 
   # --- Keys ---
   Keys__CurrentVersion = "1"
@@ -80,5 +82,4 @@ primary_region = "eze"  # <placeholder> Fly region code (eze = Buenos Aires)
 #   Payments__AccessToken        Mercado Pago production access token
 #   Payments__WebhookSecret      Mercado Pago webhook secret
 #   Keys__EncryptionKey          base64 AES-256 key (decodes to exactly 32 bytes) — separate from the dev key
-#   Email__Smtp__User
-#   Email__Smtp__Password
+#   Email__Smtp__Password         Resend API key (used as the SMTP password; see docs/send-with-smtp)
