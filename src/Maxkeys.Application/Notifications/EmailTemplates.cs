@@ -1,10 +1,11 @@
+using System.Net;
 using System.Text;
 using Maxkeys.Domain.Orders;
 
 namespace Maxkeys.Application.Notifications;
 
 /// <summary>
-/// Plain-text email content builders (design section 3). Templates never
+/// Buyer and operator email content builders (design section 3). Templates never
 /// include key codes — <see cref="OperatorOrderAwaitingFulfillment"/> fires
 /// while the order is still <see cref="OrderStatus.Paid"/>/transitioning to
 /// <see cref="OrderStatus.AwaitingFulfillment"/>, before any key is attached.
@@ -69,22 +70,49 @@ public static class EmailTemplates
     /// <see cref="OrderStatus.Delivered"/> (admin-key-delivery-gate spec:
     /// decision 4 revisited — <c>OrderDeliveredHandler</c>). Unlike
     /// <see cref="BuyerOrderDelivered"/> (the admin-triggered resend), this
-    /// never includes key codes — it only points the buyer at
+    /// never includes key codes — it lists purchased items and points the buyer at
     /// <paramref name="accountOrdersUrl"/>, where <c>RevealOrderItemKeys</c>
     /// is the sole path that discloses a code (ADR-14).
     /// </summary>
-    public static (string Subject, string TextBody) BuyerOrderReady(Order order, string accountOrdersUrl)
+    public static (string Subject, string TextBody, string HtmlBody) BuyerOrderReady(Order order, string accountOrdersUrl)
     {
-        var subject = $"Tu pedido {order.Id} ya está listo";
+        var primaryProduct = order.Items[0].ProductNameSnapshot;
+        var subject = $"Tus claves de {primaryProduct} ya están listas";
+        var logoUrl = new Uri(new Uri(accountOrdersUrl), "/images/logo/logo.png").AbsoluteUri;
 
         var body = new StringBuilder()
             .AppendLine("¡Gracias por tu compra!")
-            .AppendLine($"Tus claves del pedido {order.Id} ya están disponibles.")
+            .AppendLine($"Tus claves de {primaryProduct} ya están disponibles.")
             .AppendLine()
-            .AppendLine($"Podés verlas y revelarlas acá: {accountOrdersUrl}")
-            .ToString();
+            .AppendLine("Productos de tu pedido:");
 
-        return (subject, body);
+        foreach (var item in order.Items)
+        {
+            body.AppendLine($"- {item.ProductNameSnapshot} ({item.VariantNameSnapshot}) x{item.Quantity}");
+        }
+
+        body.AppendLine()
+            .AppendLine("Iniciá sesión con Google para recibir tus claves:")
+            .AppendLine(accountOrdersUrl);
+
+        var html = new StringBuilder()
+            .AppendLine("<!doctype html>")
+            .AppendLine("<html><body style=\"font-family:Arial,sans-serif;color:#1f2937;line-height:1.5\">")
+            .AppendLine($"<img src=\"{WebUtility.HtmlEncode(logoUrl)}\" alt=\"Chekeys\" style=\"display:block;width:120px;height:auto;margin:0 0 24px\" />")
+            .AppendLine("<p>¡Gracias por tu compra!</p>")
+            .AppendLine($"<p>Tus claves de <strong>{WebUtility.HtmlEncode(primaryProduct)}</strong> ya están disponibles.</p>")
+            .AppendLine("<p><strong>Productos de tu pedido:</strong></p><ul>");
+
+        foreach (var item in order.Items)
+        {
+            html.AppendLine($"<li>{WebUtility.HtmlEncode(item.ProductNameSnapshot)} ({WebUtility.HtmlEncode(item.VariantNameSnapshot)}) x{item.Quantity}</li>");
+        }
+
+        html.AppendLine("</ul>")
+            .AppendLine($"<p>Iniciá sesión con Google para recibir tus claves: <a href=\"{WebUtility.HtmlEncode(accountOrdersUrl)}\">Ver mis pedidos</a></p>")
+            .AppendLine("</body></html>");
+
+        return (subject, body.ToString(), html.ToString());
     }
 
     /// <summary>Same masking rule as <c>Checkout.GetOrderStatus</c> — kept local since templates must not depend on Checkout.</summary>
