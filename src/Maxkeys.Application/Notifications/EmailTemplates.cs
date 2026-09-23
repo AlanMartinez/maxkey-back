@@ -64,6 +64,29 @@ public static class EmailTemplates
         return (subject, body.ToString());
     }
 
+    /// <summary>
+    /// Automatic buyer notification sent once an order reaches
+    /// <see cref="OrderStatus.Delivered"/> (admin-key-delivery-gate spec:
+    /// decision 4 revisited — <c>OrderDeliveredHandler</c>). Unlike
+    /// <see cref="BuyerOrderDelivered"/> (the admin-triggered resend), this
+    /// never includes key codes — it only points the buyer at
+    /// <paramref name="accountOrdersUrl"/>, where <c>RevealOrderItemKeys</c>
+    /// is the sole path that discloses a code (ADR-14).
+    /// </summary>
+    public static (string Subject, string TextBody) BuyerOrderReady(Order order, string accountOrdersUrl)
+    {
+        var subject = $"Tu pedido {order.Id} ya está listo";
+
+        var body = new StringBuilder()
+            .AppendLine("¡Gracias por tu compra!")
+            .AppendLine($"Tus claves del pedido {order.Id} ya están disponibles.")
+            .AppendLine()
+            .AppendLine($"Podés verlas y revelarlas acá: {accountOrdersUrl}")
+            .ToString();
+
+        return (subject, body);
+    }
+
     /// <summary>Same masking rule as <c>Checkout.GetOrderStatus</c> — kept local since templates must not depend on Checkout.</summary>
     private static string MaskEmail(string email)
     {

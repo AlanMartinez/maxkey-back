@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Notifications;
+using Maxkeys.Domain.Outbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,8 +15,10 @@ namespace Maxkeys.Application.Fulfillment;
 /// throws <see cref="Domain.Common.DomainConflictException"/> (409) otherwise,
 /// e.g. an item still lacks stock or the order was already delivered. Returns
 /// <see langword="null"/> for an unknown order so the API layer maps it to
-/// 404. No outbox/email side effect — delivery only opens buyer visibility in
-/// <c>/account/orders</c> (decision 4: no automatic email for now).
+/// 404. Delivery opens buyer visibility in <c>/account/orders</c> AND raises
+/// <see cref="OutboxEventTypes.OrderDelivered"/> (decision 4 revisited —
+/// <c>OrderDeliveredHandler</c> emails the buyer that their keys are ready,
+/// without the key codes themselves).
 /// </summary>
 public sealed class DeliverOrder
 {
@@ -41,6 +45,12 @@ public sealed class DeliverOrder
         {
             _db.Notifications.Add(new Notification(userId, order.Id, DateTime.UtcNow));
         }
+
+        _db.OutboxEvents.Add(new OutboxEvent(
+            OutboxEventTypes.OrderDelivered,
+            JsonSerializer.Serialize(new { orderId }),
+            now));
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Order {OrderId} marked Delivered by admin {AdminSub}.", orderId, deliveredBy);
