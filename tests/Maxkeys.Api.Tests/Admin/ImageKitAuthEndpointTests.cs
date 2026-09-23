@@ -95,6 +95,18 @@ public sealed class ImageKitAuthEndpointTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>activation-guides: images inserted into guide Markdown upload to guides/ via MarkdownEditor's autoUpload mode.</summary>
+    [Fact]
+    public async Task Admin_can_register_uploaded_guide_asset()
+    {
+        var filePath = $"guides/{Guid.NewGuid():N}.png";
+
+        var response = await AuthorizedClient(Hs256ApiTestFixture.AdminSub)
+            .PostAsJsonAsync("/admin/media/imagekit-assets", new { filePath });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
     private HttpClient AuthorizedClient(string sub)
     {
         var token = TestTokens.CreateHs256(sub, Hs256ApiTestFixture.Issuer, Hs256ApiTestFixture.Audience, Hs256ApiTestFixture.Hs256Secret);
