@@ -41,7 +41,7 @@ primary_region = 'ams'
   # were Fly secrets before this change — consolidated here so fly.toml stays
   # the single source of truth for non-sensitive config (see CLAUDE.md).
   Email__Sender = 'Smtp'
-  Email__From = 'ordenes@chekeys.com'
+  Email__From = 'Chekeys Team <ordenes@chekeys.com>'
   Email__AccountOrdersUrl = 'https://chekeys.com/account/orders'
   Email__Smtp__Host = 'smtp.resend.com'
   Email__Smtp__Port = '465'

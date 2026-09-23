@@ -39,8 +39,8 @@ public sealed class OrderDeliveredHandler : IOutboxHandler
             throw new InvalidOperationException($"OrderDelivered event references unknown order {orderId}.");
         }
 
-        var (subject, textBody) = EmailTemplates.BuyerOrderReady(order, _emailOptions.Value.AccountOrdersUrl);
-        await _emailSender.SendAsync(new EmailMessage(order.BuyerEmail, subject, textBody), cancellationToken);
+        var (subject, textBody, htmlBody) = EmailTemplates.BuyerOrderReady(order, _emailOptions.Value.AccountOrdersUrl);
+        await _emailSender.SendAsync(new EmailMessage(order.BuyerEmail, subject, textBody, htmlBody), cancellationToken);
     }
 
     private static Guid ParseOrderId(string payload)
