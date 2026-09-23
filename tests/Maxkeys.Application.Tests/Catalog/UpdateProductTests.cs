@@ -97,16 +97,17 @@ public sealed class UpdateProductTests
         await using var context = _fixture.CreateContext();
         var sut = new UpdateProduct(context, _imageUrlBuilder);
 
+        var guideId = Guid.NewGuid();
         var updated = await sut.ExecuteAsync(
             productId, slug, "Name", "PSN", null, null, null, isActive: true,
             imageKeys: ["products/gallery/new-1.png", "products/gallery/new-2.png"],
-            activationGuide: "**Step 1.** Open the launcher and redeem the key.",
+            activationGuideId: guideId,
             activationType: "Clave de activación");
 
         Assert.NotNull(updated);
         Assert.Equal(["products/gallery/new-1.png", "products/gallery/new-2.png"], updated!.ImageKeys);
         Assert.Equal("https://img.test/products/gallery/new-1.png", updated.Images[0]);
-        Assert.Equal("**Step 1.** Open the launcher and redeem the key.", updated.ActivationGuide);
+        Assert.Equal(guideId, updated.ActivationGuideId);
         Assert.Equal("Clave de activación", updated.ActivationType);
 
         await using var verify = _fixture.CreateContext();

@@ -58,6 +58,15 @@ public sealed class GetProductBySlug
         }
         galleryUrls.AddRange(images.Select(i => _imageUrlBuilder.Build(i.ImageKey)));
 
+        // SingleOrDefaultAsync, not SingleAsync: a product whose linked guide was later deleted
+        // must degrade to no guide, never 500.
+        var activationGuideSlug = product.ActivationGuideId is { } guideId
+            ? await _db.ActivationGuides
+                .Where(g => g.Id == guideId)
+                .Select(g => g.Slug)
+                .SingleOrDefaultAsync(cancellationToken)
+            : null;
+
         return new ProductDetail(
             product.Id,
             product.Slug,
@@ -70,7 +79,7 @@ public sealed class GetProductBySlug
             product.Description,
             variants.Select(ToVariantDetail).ToList(),
             galleryUrls,
-            product.ActivationGuide,
+            activationGuideSlug,
             product.ActivationType);
     }
 
