@@ -1,0 +1,9 @@
+{
+  "guides": [
+    {
+      "slug": "example-activation-guide",
+      "title": "Ejemplo de guía de activación",
+      "contentMarkdown": "## Paso 1\n\nDescribí acá el primer paso para activar el código (por ejemplo, dónde ingresarlo en la plataforma).\n\n## Paso 2\n\nAgregá el siguiente paso. Podés insertar imágenes con el botón \"Imagen\" del editor.\n\n## Paso 3\n\nCerrá con cualquier aclaración final (regiones soportadas, tiempo de acreditación, etc.)."
+    }
+  ]
+}
