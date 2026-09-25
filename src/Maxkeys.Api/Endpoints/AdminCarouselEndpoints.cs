@@ -1,4 +1,5 @@
 using Maxkeys.Api.Auth;
+using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Carousel;
 
 namespace Maxkeys.Api.Endpoints;
@@ -23,8 +24,14 @@ public static class AdminCarouselEndpoints
             CreateCarouselSlide useCase,
             CancellationToken cancellationToken) =>
         {
+            var imageKey = ImageKeyPolicy.NormalizeImageKitUploadPath(body.ImageKey);
+            if (!ImageKeyPolicy.IsOptionalKeyValid(imageKey))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid image key");
+            }
+
             var slide = await useCase.ExecuteAsync(
-                body.ProductId, body.SortOrder, body.IsActive, body.Title, body.Caption, body.ImageKey, cancellationToken);
+                body.ProductId, body.SortOrder, body.IsActive, body.Title, body.Caption, imageKey, cancellationToken);
             return Results.Created($"/admin/carousel/{slide.Id}", slide);
         });
 
@@ -34,8 +41,14 @@ public static class AdminCarouselEndpoints
             UpdateCarouselSlide useCase,
             CancellationToken cancellationToken) =>
         {
+            var imageKey = ImageKeyPolicy.NormalizeImageKitUploadPath(body.ImageKey);
+            if (!ImageKeyPolicy.IsOptionalKeyValid(imageKey))
+            {
+                return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Invalid image key");
+            }
+
             var slide = await useCase.ExecuteAsync(
-                id, body.ProductId, body.SortOrder, body.IsActive, body.Title, body.Caption, body.ImageKey, cancellationToken);
+                id, body.ProductId, body.SortOrder, body.IsActive, body.Title, body.Caption, imageKey, cancellationToken);
             return slide is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Carousel slide not found")
                 : Results.Ok(slide);

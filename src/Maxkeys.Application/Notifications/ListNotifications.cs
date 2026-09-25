@@ -17,8 +17,13 @@ public sealed class ListNotifications
             .AsNoTracking()
             .Where(notification => notification.UserId == userId && notification.ReadAt == null)
             .OrderByDescending(notification => notification.CreatedAt)
-            .Select(notification => new NotificationSummary(notification.Id, notification.Type, notification.ReadAt))
+            .Select(notification => new NotificationSummary(
+                notification.Id,
+                notification.Type,
+                notification.OrderId,
+                notification.CreatedAt,
+                notification.ReadAt))
             .ToListAsync(cancellationToken);
 }
 
-public sealed record NotificationSummary(Guid Id, string Type, DateTime? ReadAt);
+public sealed record NotificationSummary(Guid Id, string Type, Guid OrderId, DateTime CreatedAt, DateTime? ReadAt);

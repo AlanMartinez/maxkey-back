@@ -4,6 +4,7 @@ using Maxkeys.Application.Carousel;
 using Maxkeys.Application.Catalog;
 using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Fulfillment;
+using Maxkeys.Application.Guides;
 using Maxkeys.Application.Notifications;
 using Maxkeys.Application.Orders;
 using Maxkeys.Application.Outbox;
@@ -68,6 +69,11 @@ public static class DependencyInjection
         services.AddScoped<CreateProductVariant>();
         services.AddScoped<UpdateProductVariant>();
         services.AddScoped<DeleteProductVariant>();
+        services.AddScoped<ListGuides>();
+        services.AddScoped<CreateGuide>();
+        services.AddScoped<UpdateGuide>();
+        services.AddScoped<DeleteGuide>();
+        services.AddScoped<GetGuideBySlug>();
         services.AddScoped<GetCarousel>();
         services.AddScoped<ListCarouselSlides>();
         services.AddScoped<CreateCarouselSlide>();
@@ -89,6 +95,7 @@ public static class DependencyInjection
         services.AddScoped<ListVariantKeys>();
         services.AddScoped<RequestDeliveryResend>();
         services.AddScoped<ProcessPaymentNotification>();
+        services.AddScoped<ConfirmCheckoutPayment>();
         services.AddScoped<ListBuyers>();
         services.AddScoped<GetAdminOrderDetail>();
         services.AddScoped<RevealOrderItemKeys>();
@@ -108,14 +115,31 @@ public static class DependencyInjection
     /// </summary>
     private static void AddEmailSender(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.SectionName));
+        services.AddOptions<EmailOptions>()
+            .Bind(configuration.GetSection(EmailOptions.SectionName))
+            .PostConfigure(options =>
+            {
+                // Legacy Fly secret name (predates the Email:Smtp:* nesting) — read it
+                // only as a fallback so the already-provisioned secret keeps working
+                // without needing to be re-entered under Email__Smtp__Password.
+                if (string.IsNullOrEmpty(options.Smtp.Password))
+                {
+                    options.Smtp.Password = configuration["Smtp:Password"] ?? string.Empty;
+                }
+            });
 
         services.AddScoped<LoggingEmailSender>();
         services.AddScoped<SmtpEmailSender>();
+        services.AddHttpClient<ResendEmailSender>();
 
         services.AddScoped<IEmailSender>(sp =>
         {
             var options = sp.GetRequiredService<IOptionsMonitor<EmailOptions>>().CurrentValue;
+            if (options.Sender.Equals("Resend", StringComparison.OrdinalIgnoreCase))
+            {
+                return sp.GetRequiredService<ResendEmailSender>();
+            }
+
             return options.Sender.Equals("Smtp", StringComparison.OrdinalIgnoreCase)
                 ? sp.GetRequiredService<SmtpEmailSender>()
                 : sp.GetRequiredService<LoggingEmailSender>();

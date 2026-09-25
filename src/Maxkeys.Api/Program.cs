@@ -51,6 +51,15 @@ try
         return;
     }
 
+    var seedGuidesPath = GetSeedGuidesPath(args);
+    if (seedGuidesPath is not null)
+    {
+        using var seedGuidesScope = app.Services.CreateScope();
+        var guidesDb = seedGuidesScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await GuideSeeder.SeedAsync(guidesDb, seedGuidesPath);
+        return;
+    }
+
     // --seed-dev loads mock vault stock + buyers for the local demo. Hard-gated to
     // Development so it can never be run against a deployed database by mistake.
     if (args.Contains("--seed-dev"))
@@ -79,12 +88,15 @@ try
 
     app.MapHealthEndpoints();
     app.MapCatalogEndpoints();
+    app.MapGuideEndpoints();
     app.MapCheckoutEndpoints();
     app.MapWebhookEndpoints();
     app.MapMeEndpoints();
     app.MapWishlistEndpoints();
     app.MapAdminEndpoints();
+    app.MapAdminMediaEndpoints();
     app.MapAdminCatalogEndpoints();
+    app.MapAdminGuidesEndpoints();
     app.MapAdminVaultEndpoints();
     app.MapAdminCarouselEndpoints();
     app.MapAdminBuyersEndpoints();
@@ -115,6 +127,19 @@ static string? GetSeedCatalogPath(string[] args)
     for (var i = 0; i < args.Length - 1; i++)
     {
         if (args[i] == "--seed-catalog")
+        {
+            return args[i + 1];
+        }
+    }
+
+    return null;
+}
+
+static string? GetSeedGuidesPath(string[] args)
+{
+    for (var i = 0; i < args.Length - 1; i++)
+    {
+        if (args[i] == "--seed-guides")
         {
             return args[i + 1];
         }

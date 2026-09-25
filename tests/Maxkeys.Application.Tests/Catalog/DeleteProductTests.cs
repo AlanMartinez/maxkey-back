@@ -23,6 +23,7 @@ public sealed class DeleteProductTests
     public async Task Soft_deletes_a_product_preserving_sibling_fields()
     {
         Guid productId;
+        var keptGuideId = Guid.NewGuid();
         await using (var seed = _fixture.CreateContext())
         {
             var product = new Product(
@@ -33,7 +34,7 @@ public sealed class DeleteProductTests
                 imageKey: "products/keep.png",
                 description: "Keep description",
                 detailImageKey: "products/keep-detail.png",
-                activationGuide: "**Kept.** This guide survives deletion.",
+                activationGuideId: keptGuideId,
                 activationType: "Keep activation");
             seed.Products.Add(product);
             productId = product.Id;
@@ -51,7 +52,7 @@ public sealed class DeleteProductTests
         Assert.Equal("products/keep.png", deleted.ImageKey);
         Assert.Equal("products/keep-detail.png", deleted.DetailImageKey);
         Assert.Equal("Keep description", deleted.Description);
-        Assert.Equal("**Kept.** This guide survives deletion.", deleted.ActivationGuide);
+        Assert.Equal(keptGuideId, deleted.ActivationGuideId);
         Assert.Equal("Keep activation", deleted.ActivationType);
 
         await using var verify = _fixture.CreateContext();
@@ -60,7 +61,7 @@ public sealed class DeleteProductTests
         Assert.False(reloaded!.IsActive);
         Assert.Equal("Keep Name", reloaded.Name);
         Assert.Equal("products/keep-detail.png", reloaded.DetailImageKey);
-        Assert.Equal("**Kept.** This guide survives deletion.", reloaded.ActivationGuide);
+        Assert.Equal(keptGuideId, reloaded.ActivationGuideId);
         Assert.Equal("Keep activation", reloaded.ActivationType);
     }
 

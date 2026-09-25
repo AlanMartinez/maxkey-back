@@ -108,7 +108,9 @@ public sealed class AssignVaultKeysToOrder
         // avoids the N+1 round-trip this loop used to make (perf scan, 2026-09-25). The queue
         // also sidesteps a subtle bug the per-item query had: since EF evaluates each iteration's
         // WHERE against the database, not pending in-memory Assigned changes, two items sharing a
-        // variant could have raced for the same rows before this batch snapshot.
+        // variant could have raced for the same rows before this batch snapshot (same race
+        // origin/main patched with a keysAssignedDuringAttempt HashSet — the shared Queue below
+        // makes that exclusion set unnecessary, since each key can only be dequeued once).
         var eligibleVariantIds = eligibleItems.Select(x => x.Item.ProductVariantId).Distinct().ToList();
         var availableKeys = await _db.Keys
             .Where(k => eligibleVariantIds.Contains(k.ProductVariantId) && k.Status == KeyStatus.Available)

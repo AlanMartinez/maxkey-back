@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using Maxkeys.Api.Tests.Auth;
 using Maxkeys.Application.Catalog;
 using Maxkeys.Domain.Catalog;
+using Maxkeys.Domain.Guides;
 using Maxkeys.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -76,6 +77,7 @@ public sealed class AdminCatalogEndpointsTests
     public async Task Admin_can_create_a_product_with_gallery_and_activation_fields()
     {
         var slug = $"p-{Guid.NewGuid():N}";
+        var guideId = await SeedGuideAsync();
 
         var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
         {
@@ -87,7 +89,7 @@ public sealed class AdminCatalogEndpointsTests
             detailImageKey = "products/new-detail.png",
             isActive = true,
             imageKeys = new[] { "products/gallery/1.png", "products/gallery/2.png" },
-            activationGuide = "**Step 1.** Open the launcher and redeem the key.",
+            activationGuideId = (Guid?)guideId,
             activationType = "Clave de activación",
         });
 
@@ -96,12 +98,58 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(slug, created!.Slug);
         Assert.Equal("New Product", created.Name);
         Assert.Equal(["products/gallery/1.png", "products/gallery/2.png"], created.ImageKeys);
-        Assert.Equal("**Step 1.** Open the launcher and redeem the key.", created.ActivationGuide);
+        Assert.Equal(guideId, created.ActivationGuideId);
         Assert.Equal("Clave de activación", created.ActivationType);
 
         var listResponse = await AdminClient().GetAsync("/admin/catalog/products");
         var products = await listResponse.Content.ReadFromJsonAsync<List<AdminProduct>>();
         Assert.Contains(products!, p => p.Slug == slug);
+    }
+
+    /// <summary>Review Focus (final review, Important #2): creating with an unknown guide id must not silently succeed.</summary>
+    [Fact]
+    public async Task Create_with_unknown_activation_guide_id_returns_422()
+    {
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug = $"p-{Guid.NewGuid():N}",
+            name = "New Product",
+            platform = UniquePlatform(),
+            isActive = true,
+            activationGuideId = (Guid?)Guid.NewGuid(),
+        });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_canonicalizes_leading_slash_ImageKit_keys_and_emits_ImageKit_delivery_urls()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+        var mainKey = $"products/{Guid.NewGuid():N}.png";
+        var galleryKey = $"products/{Guid.NewGuid():N}-2.png";
+        await RegisterImageKitAssetAsync(mainKey);
+        await RegisterImageKitAssetAsync(galleryKey);
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "ImageKit Product",
+            platform = UniquePlatform(),
+            imageKey = $"/{mainKey}",
+            detailImageKey = $"/{mainKey}",
+            imageKeys = new[] { $"/{galleryKey}" },
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var product = await response.Content.ReadFromJsonAsync<AdminProduct>();
+        Assert.Equal(mainKey, product!.ImageKey);
+        Assert.Equal(mainKey, product.DetailImageKey);
+        Assert.Equal([galleryKey], product.ImageKeys);
+        Assert.Equal($"https://ik.imagekit.io/test-account/{mainKey}", product.ImageUrl);
+        Assert.Equal($"https://ik.imagekit.io/test-account/{mainKey}", product.DetailImageUrl);
+        Assert.Equal([$"https://ik.imagekit.io/test-account/{galleryKey}"], product.Images);
     }
 
     [Fact]
@@ -531,6 +579,27 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Create_rejects_unsafe_image_key_before_persistence()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+
+        var response = await AdminClient().PostAsJsonAsync("/admin/catalog/products", new
+        {
+            slug,
+            name = "Unsafe image",
+            platform = UniquePlatform(),
+            imageKey = "products/uploads/../private.png",
+            isActive = true,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var products = await (await AdminClient().GetAsync("/admin/catalog/products"))
+            .Content.ReadFromJsonAsync<List<AdminProduct>>();
+        Assert.DoesNotContain(products!, product => product.Slug == slug);
+    }
+
     private static string UniquePlatform() => $"platform-{Guid.NewGuid():N}";
 
     private async Task<Guid> SeedProductAsync()
@@ -561,11 +630,30 @@ public sealed class AdminCatalogEndpointsTests
         return id;
     }
 
+    private async Task<Guid> SeedGuideAsync()
+    {
+        Guid id = default;
+        await Seed(async db =>
+        {
+            var guide = new ActivationGuide($"guide-{Guid.NewGuid():N}", "Guide");
+            db.ActivationGuides.Add(guide);
+            await db.SaveChangesAsync();
+            id = guide.Id;
+        });
+        return id;
+    }
+
     private async Task Seed(Func<AppDbContext, Task> seed)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await seed(db);
+    }
+
+    private async Task RegisterImageKitAssetAsync(string filePath)
+    {
+        var response = await AdminClient().PostAsJsonAsync("/admin/media/imagekit-assets", new { filePath });
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
     private HttpClient AdminClient(string? sub = null)

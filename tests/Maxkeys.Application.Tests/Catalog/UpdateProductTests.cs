@@ -85,12 +85,16 @@ public sealed class UpdateProductTests
     {
         Guid productId;
         string slug;
+        Guid guideId;
         await using (var seed = _fixture.CreateContext())
         {
             var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
             productId = product.Id;
             slug = product.Slug;
             seed.ProductImages.Add(new ProductImage(productId, "products/gallery/old.png", sortOrder: 0));
+            var guide = new Maxkeys.Domain.Guides.ActivationGuide($"guide-{Guid.NewGuid():N}", "Guide");
+            seed.ActivationGuides.Add(guide);
+            guideId = guide.Id;
             await seed.SaveChangesAsync();
         }
 
@@ -100,13 +104,13 @@ public sealed class UpdateProductTests
         var updated = await sut.ExecuteAsync(
             productId, slug, "Name", "PSN", null, null, null, isActive: true,
             imageKeys: ["products/gallery/new-1.png", "products/gallery/new-2.png"],
-            activationGuide: "**Step 1.** Open the launcher and redeem the key.",
+            activationGuideId: guideId,
             activationType: "Clave de activación");
 
         Assert.NotNull(updated);
         Assert.Equal(["products/gallery/new-1.png", "products/gallery/new-2.png"], updated!.ImageKeys);
         Assert.Equal("https://img.test/products/gallery/new-1.png", updated.Images[0]);
-        Assert.Equal("**Step 1.** Open the launcher and redeem the key.", updated.ActivationGuide);
+        Assert.Equal(guideId, updated.ActivationGuideId);
         Assert.Equal("Clave de activación", updated.ActivationType);
 
         await using var verify = _fixture.CreateContext();
@@ -165,6 +169,31 @@ public sealed class UpdateProductTests
         await using var verify = _fixture.CreateContext();
         var reloaded = await verify.Products.FindAsync(productId);
         Assert.Equal(newSlug, reloaded!.Slug);
+    }
+
+    /// <summary>Review Focus (final review, Important #2): the admin API must not create a dangling ActivationGuideId link.</summary>
+    [Fact]
+    public async Task Rejects_an_unknown_activation_guide_id_and_leaves_the_product_unchanged()
+    {
+        Guid productId;
+        string slug;
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true);
+            productId = product.Id;
+            slug = product.Slug;
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new UpdateProduct(context, _imageUrlBuilder);
+
+        await Assert.ThrowsAsync<DomainException>(
+            () => sut.ExecuteAsync(productId, slug, "Name", "PSN", null, null, null, isActive: true, activationGuideId: Guid.NewGuid()));
+
+        await using var verify = _fixture.CreateContext();
+        var reloaded = await verify.Products.FindAsync(productId);
+        Assert.Null(reloaded!.ActivationGuideId);
     }
 
     [Fact]

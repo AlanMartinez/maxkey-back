@@ -76,15 +76,18 @@ public sealed class GetProductBySlugTests
     {
         var slug = $"slug-{Guid.NewGuid():N}";
 
+        var guideSlug = $"guide-{Guid.NewGuid():N}";
         await using (var seed = _fixture.CreateContext())
         {
+            var guide = new Domain.Guides.ActivationGuide(guideSlug, "Guide", "**Step 1.** Open the launcher and redeem the key.");
+            seed.ActivationGuides.Add(guide);
             var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
             CatalogTestData.SeedVariant(seed, product.Id, price: 100m);
             seed.ProductImages.Add(new Domain.Catalog.ProductImage(product.Id, "products/gallery/2.png", sortOrder: 1));
             seed.ProductImages.Add(new Domain.Catalog.ProductImage(product.Id, "products/gallery/1.png", sortOrder: 0));
             product.UpdateCatalogInfo(
                 product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, product.IsActive,
-                activationGuide: "**Step 1.** Open the launcher and redeem the key.", activationType: "Enlace de activación");
+                activationGuideId: guide.Id, activationType: "Enlace de activación");
             await seed.SaveChangesAsync();
         }
 
@@ -95,8 +98,33 @@ public sealed class GetProductBySlugTests
 
         Assert.NotNull(detail);
         Assert.Equal(["https://img.test/products/gallery/1.png", "https://img.test/products/gallery/2.png"], detail!.Images);
-        Assert.Equal("**Step 1.** Open the launcher and redeem the key.", detail.ActivationGuide);
+        Assert.Equal(guideSlug, detail.ActivationGuideSlug);
         Assert.Equal("Enlace de activación", detail.ActivationType);
+    }
+
+    /// <summary>Review Focus (final review, Important #1): a product whose linked guide no longer exists must degrade to null, never 500.</summary>
+    [Fact]
+    public async Task Returns_null_activation_guide_slug_when_the_linked_guide_no_longer_exists()
+    {
+        var slug = $"slug-{Guid.NewGuid():N}";
+
+        await using (var seed = _fixture.CreateContext())
+        {
+            var product = CatalogTestData.SeedProduct(seed, CatalogTestData.UniquePlatform(), isActive: true, slug: slug);
+            await seed.SaveChangesAsync();
+            product.UpdateCatalogInfo(
+                product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, product.IsActive,
+                activationGuideId: Guid.NewGuid(), activationType: null);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var sut = new GetProductBySlug(context, _imageUrlBuilder);
+
+        var detail = await sut.ExecuteAsync(slug);
+
+        Assert.NotNull(detail);
+        Assert.Null(detail!.ActivationGuideSlug);
     }
 
     [Fact]

@@ -43,6 +43,14 @@ public sealed class NotificationEndpointsTests
             Assert.Equal(NotificationTypes.OrderDelivered, notification.Type);
             Assert.Null(notification.ReadAt);
         });
+        using var document = System.Text.Json.JsonDocument.Parse(rawJson);
+        Assert.All(document.RootElement.EnumerateArray(), notification =>
+        {
+            Assert.True(notification.TryGetProperty("orderId", out var orderId));
+            Assert.Equal(System.Text.Json.JsonValueKind.String, orderId.ValueKind);
+            Assert.True(notification.TryGetProperty("createdAt", out var createdAt));
+            Assert.Equal(System.Text.Json.JsonValueKind.String, createdAt.ValueKind);
+        });
     }
 
     [Fact]

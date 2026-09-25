@@ -1,5 +1,6 @@
 using Maxkeys.Domain.Carousel;
 using Maxkeys.Domain.Catalog;
+using Maxkeys.Domain.Guides;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
@@ -18,8 +19,10 @@ namespace Maxkeys.Application.Persistence;
 public interface IAppDbContext
 {
     DbSet<Product> Products { get; }
+    DbSet<ActivationGuide> ActivationGuides { get; }
     DbSet<ProductVariant> ProductVariants { get; }
     DbSet<ProductImage> ProductImages { get; }
+    DbSet<ImageKitAsset> ImageKitAssets { get; }
     DbSet<CarouselSlide> CarouselSlides { get; }
     DbSet<Order> Orders { get; }
     DbSet<OrderItem> OrderItems { get; }
