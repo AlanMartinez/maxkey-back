@@ -4,7 +4,7 @@
 #
 
 app = 'maxkey-back'
-primary_region = 'ams'
+primary_region = 'iad'
 
 [build]
 
