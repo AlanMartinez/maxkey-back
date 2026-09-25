@@ -24,7 +24,7 @@ public sealed class GetProductBySlug
         _imageUrlBuilder = imageUrlBuilder;
     }
 
-    public async Task<ProductDetail?> ExecuteAsync(string slug, CancellationToken cancellationToken = default)
+    public async Task<ProductDetailResult?> ExecuteAsync(string slug, CancellationToken cancellationToken = default)
     {
         var product = await _db.Products
             .Where(p => p.IsActive && p.Slug == slug)
@@ -67,7 +67,7 @@ public sealed class GetProductBySlug
                 .SingleOrDefaultAsync(cancellationToken)
             : null;
 
-        return new ProductDetail(
+        var detail = new ProductDetail(
             product.Id,
             product.Slug,
             product.Name,
@@ -81,6 +81,8 @@ public sealed class GetProductBySlug
             galleryUrls,
             activationGuideSlug,
             product.ActivationType);
+
+        return new ProductDetailResult(detail, product.UpdatedAt);
     }
 
     private static ProductVariantDetail ToVariantDetail(ProductVariant variant) =>

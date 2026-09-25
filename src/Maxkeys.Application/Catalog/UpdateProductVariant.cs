@@ -49,6 +49,9 @@ public sealed class UpdateProductVariant
             return null;
         }
 
+        var product = await _db.Products.SingleAsync(p => p.Id == variant.ProductId, cancellationToken);
+        product.Touch();
+
         variant.UpdateDetails(price, discountPercentage, currency, region, edition, sortOrder, isActive);
 
         if (isRecommended)

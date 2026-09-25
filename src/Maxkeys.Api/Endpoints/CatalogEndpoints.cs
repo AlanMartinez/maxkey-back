@@ -16,12 +16,27 @@ public static class CatalogEndpoints
         group.MapGet("/products", async (string? platform, string? q, GetCatalog useCase, CancellationToken cancellationToken) =>
             Results.Ok(await useCase.ExecuteAsync(platform, q, cancellationToken)));
 
-        group.MapGet("/products/{slug}", async (string slug, GetProductBySlug useCase, CancellationToken cancellationToken) =>
+        group.MapGet("/products/{slug}", async (string slug, HttpRequest request, HttpResponse response, GetProductBySlug useCase, CancellationToken cancellationToken) =>
         {
-            var product = await useCase.ExecuteAsync(slug, cancellationToken);
-            return product is null
-                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
-                : Results.Ok(product);
+            var result = await useCase.ExecuteAsync(slug, cancellationToken);
+            if (result is null)
+            {
+                return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found");
+            }
+
+            // Weak ETag from Product.UpdatedAt (bumped on every catalog field and by every
+            // variant create/update/delete via Product.Touch()) so a 304 never serves a stale
+            // price. Cache-Control forces revalidation instead of trusting a local TTL.
+            var etag = $"W/\"{result.UpdatedAt.ToUnixTimeMilliseconds():x}\"";
+            response.Headers.ETag = etag;
+            response.Headers.CacheControl = "public, max-age=0, must-revalidate";
+
+            if (request.Headers.IfNoneMatch == etag)
+            {
+                return Results.StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            return Results.Ok(result.Detail);
         });
 
         // Public, unauthenticated (carousel spec "Public Carousel Listing"; design D2).
