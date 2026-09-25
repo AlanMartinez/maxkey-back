@@ -67,7 +67,7 @@ public sealed class GetMyWishlistTests
             await seed.SaveChangesAsync();
             productId = product.Id;
 
-            product.UpdateCatalogInfo(product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, isActive: false, product.ActivationGuide, product.ActivationType);
+            product.UpdateCatalogInfo(product.Name, product.Platform, product.Description, product.ImageKey, product.DetailImageKey, isActive: false, product.ActivationGuideId, product.ActivationType);
             await seed.SaveChangesAsync();
         }
 

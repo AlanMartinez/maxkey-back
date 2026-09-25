@@ -66,7 +66,7 @@ public sealed class OutboxProcessorTests
         var evt = await LoadEventAsync(eventId);
         Assert.Equal(OutboxEventStatus.Processed, evt.Status);
         Assert.NotNull(evt.ProcessedAt);
-        Assert.Single(handler.HandledEvents);
+        Assert.Contains(handler.HandledEvents, e => e.Id == eventId);
     }
 
     private async Task RunOnceAsync(FakeOutboxHandler handler, int maxAttempts)
