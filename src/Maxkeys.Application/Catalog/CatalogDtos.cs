@@ -59,3 +59,11 @@ public sealed record ProductDetail(
     IReadOnlyList<string> Images,
     string? ActivationGuideSlug,
     string? ActivationType);
+
+/// <summary>
+/// <see cref="GetProductBySlug"/> result: the public <see cref="Detail"/> body plus
+/// <see cref="UpdatedAt"/> for the endpoint's ETag/304 handling. Kept out of
+/// <see cref="ProductDetail"/> itself so the version stamp is never serialized into
+/// the response body or the frontend's <c>ProductDetail</c> contract.
+/// </summary>
+public sealed record ProductDetailResult(ProductDetail Detail, DateTimeOffset UpdatedAt);

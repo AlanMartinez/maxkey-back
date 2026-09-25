@@ -38,11 +38,11 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal(2, detail!.Variants.Count);
-        Assert.Equal(100m, detail.FromPrice);
-        Assert.Equal(125m, detail.OldPrice);
-        Assert.Equal("AR · Standard", detail.Variants[0].Name);
-        Assert.Equal("AR · Deluxe", detail.Variants[1].Name);
+        Assert.Equal(2, detail!.Detail.Variants.Count);
+        Assert.Equal(100m, detail.Detail.FromPrice);
+        Assert.Equal(125m, detail.Detail.OldPrice);
+        Assert.Equal("AR · Standard", detail.Detail.Variants[0].Name);
+        Assert.Equal("AR · Deluxe", detail.Detail.Variants[1].Name);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal("500 ARS worth of in-game currency.", detail!.Description);
+        Assert.Equal("500 ARS worth of in-game currency.", detail!.Detail.Description);
     }
 
     [Fact]
@@ -97,9 +97,9 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal(["https://img.test/products/gallery/1.png", "https://img.test/products/gallery/2.png"], detail!.Images);
-        Assert.Equal(guideSlug, detail.ActivationGuideSlug);
-        Assert.Equal("Enlace de activación", detail.ActivationType);
+        Assert.Equal(["https://img.test/products/gallery/1.png", "https://img.test/products/gallery/2.png"], detail!.Detail.Images);
+        Assert.Equal(guideSlug, detail.Detail.ActivationGuideSlug);
+        Assert.Equal("Enlace de activación", detail.Detail.ActivationType);
     }
 
     /// <summary>Review Focus (final review, Important #1): a product whose linked guide no longer exists must degrade to null, never 500.</summary>
@@ -124,7 +124,7 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Null(detail!.ActivationGuideSlug);
+        Assert.Null(detail!.Detail.ActivationGuideSlug);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal(["https://img.test/products/main.png", "https://img.test/products/gallery/1.png"], detail!.Images);
+        Assert.Equal(["https://img.test/products/main.png", "https://img.test/products/gallery/1.png"], detail!.Detail.Images);
     }
 
     [Fact]
@@ -200,10 +200,10 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal(200m, detail!.FromPrice);
-        Assert.Equal(250m, detail.OldPrice);
-        Assert.False(detail.Variants[0].IsRecommended);
-        Assert.True(detail.Variants[1].IsRecommended);
+        Assert.Equal(200m, detail!.Detail.FromPrice);
+        Assert.Equal(250m, detail.Detail.OldPrice);
+        Assert.False(detail.Detail.Variants[0].IsRecommended);
+        Assert.True(detail.Detail.Variants[1].IsRecommended);
     }
 
     [Fact]
@@ -225,8 +225,8 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal(100m, detail!.FromPrice);
-        Assert.All(detail.Variants, v => Assert.False(v.IsRecommended));
+        Assert.Equal(100m, detail!.Detail.FromPrice);
+        Assert.All(detail.Detail.Variants, v => Assert.False(v.IsRecommended));
     }
 
     [Fact]
@@ -249,7 +249,7 @@ public sealed class GetProductBySlugTests
         var detail = await sut.ExecuteAsync(slug);
 
         Assert.NotNull(detail);
-        Assert.Equal(2, detail!.Variants.Count);
-        Assert.Equal(100m, detail.FromPrice);
+        Assert.Equal(2, detail!.Detail.Variants.Count);
+        Assert.Equal(100m, detail.Detail.FromPrice);
     }
 }

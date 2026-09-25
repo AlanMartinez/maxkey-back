@@ -33,14 +33,15 @@ public sealed class CreateProductVariant
         bool isActive,
         CancellationToken cancellationToken = default)
     {
-        var productExists = await _db.Products.AnyAsync(p => p.Id == productId, cancellationToken);
-        if (!productExists)
+        var product = await _db.Products.SingleOrDefaultAsync(p => p.Id == productId, cancellationToken);
+        if (product is null)
         {
             return null;
         }
 
         var variant = new ProductVariant(productId, price, currency, discountPercentage, region, edition, sortOrder, isActive);
         _db.ProductVariants.Add(variant);
+        product.Touch();
         await _db.SaveChangesAsync(cancellationToken);
 
         return ListAdminProducts.ToAdminVariant(variant);

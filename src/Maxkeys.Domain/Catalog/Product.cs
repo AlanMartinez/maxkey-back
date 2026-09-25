@@ -24,6 +24,7 @@ public sealed class Product : Entity
     public string Description { get; private set; }
     public Guid? ActivationGuideId { get; private set; }
     public string? ActivationType { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
 
     public Product(
         string slug,
@@ -66,6 +67,18 @@ public sealed class Product : Entity
         Description = description ?? string.Empty;
         ActivationGuideId = activationGuideId;
         ActivationType = activationType;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Bumps <see cref="UpdatedAt"/> without changing any catalog field — used by
+    /// variant create/update/delete use cases, which mutate a child row that the
+    /// public product-detail response (<c>GetProductBySlug</c>) embeds, so its
+    /// ETag must move even though nothing on <see cref="Product"/> itself changed.
+    /// </summary>
+    public void Touch()
+    {
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     /// <summary>
@@ -101,6 +114,7 @@ public sealed class Product : Entity
         IsActive = isActive;
         ActivationGuideId = activationGuideId;
         ActivationType = activationType;
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     /// <summary>
@@ -122,6 +136,7 @@ public sealed class Product : Entity
         }
 
         Slug = slug;
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     /// <summary>
@@ -132,5 +147,6 @@ public sealed class Product : Entity
     public void SetVaultEnabled(bool enabled)
     {
         VaultEnabled = enabled;
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

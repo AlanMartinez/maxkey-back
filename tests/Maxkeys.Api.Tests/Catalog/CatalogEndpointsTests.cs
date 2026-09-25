@@ -90,6 +90,72 @@ public sealed class CatalogEndpointsTests
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
+    [Fact]
+    public async Task Second_request_with_matching_if_none_match_returns_304()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+        await Seed(async db =>
+        {
+            var product = new Product(slug, "Cached Product", UniquePlatform());
+            db.Products.Add(product);
+            db.ProductVariants.Add(new ProductVariant(product.Id, 100m, "ARS"));
+            await db.SaveChangesAsync();
+        });
+
+        var client = _factory.CreateClient();
+        var first = await client.GetAsync($"/catalog/products/{slug}");
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        // .ETag.Tag strips the weak "W/" prefix; compare against the raw header value
+        // instead, since that's the literal string a real client echoes back verbatim.
+        var etag = first.Headers.ETag?.ToString();
+        Assert.NotNull(etag);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/catalog/products/{slug}");
+        request.Headers.TryAddWithoutValidation("If-None-Match", etag);
+        var second = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotModified, second.StatusCode);
+    }
+
+    /// <summary>
+    /// Regression guard for the ETag propagation gap: <see cref="ProductDetail"/> embeds
+    /// variant price/discount, so a variant-only change must move the product's ETag even
+    /// though no field on <see cref="Product"/> itself changed (<see cref="Product.Touch"/>,
+    /// called by <see cref="UpdateProductVariant"/>).
+    /// </summary>
+    [Fact]
+    public async Task Etag_changes_after_a_variant_price_update_even_though_the_product_row_is_untouched()
+    {
+        var slug = $"p-{Guid.NewGuid():N}";
+        Guid variantId = default;
+        await Seed(async db =>
+        {
+            var product = new Product(slug, "Repriced Product", UniquePlatform());
+            db.Products.Add(product);
+            var variant = new ProductVariant(product.Id, 100m, "ARS");
+            db.ProductVariants.Add(variant);
+            await db.SaveChangesAsync();
+            variantId = variant.Id;
+        });
+
+        var client = _factory.CreateClient();
+        var before = await client.GetAsync($"/catalog/products/{slug}");
+        var etagBefore = before.Headers.ETag?.ToString();
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var updateVariant = scope.ServiceProvider.GetRequiredService<UpdateProductVariant>();
+            await updateVariant.ExecuteAsync(variantId, price: 150m, discountPercentage: null, currency: "ARS", region: null, edition: null, sortOrder: 0, isActive: true, isRecommended: false);
+        }
+
+        var after = await client.GetAsync($"/catalog/products/{slug}");
+        var etagAfter = after.Headers.ETag?.ToString();
+        var detailAfter = await after.Content.ReadFromJsonAsync<ProductDetail>();
+
+        Assert.NotEqual(etagBefore, etagAfter);
+        Assert.Equal(150m, detailAfter!.FromPrice);
+    }
+
     private static string UniquePlatform() => $"platform-{Guid.NewGuid():N}";
 
     private async Task Seed(Func<AppDbContext, Task> seed)

@@ -21,6 +21,7 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasIndex(p => p.ActivationGuideId);
         builder.Property(p => p.ActivationType).HasMaxLength(100);
+        builder.Property(p => p.UpdatedAt).IsRequired();
 
         builder.HasIndex(p => p.Slug).IsUnique();
         builder.HasIndex(p => p.Platform);

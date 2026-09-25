@@ -29,6 +29,9 @@ public sealed class DeleteProductVariant
             return false;
         }
 
+        var product = await _db.Products.SingleAsync(p => p.Id == variant.ProductId, cancellationToken);
+        product.Touch();
+
         _db.ProductVariants.Remove(variant);
         await _db.SaveChangesAsync(cancellationToken);
 
