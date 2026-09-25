@@ -29,6 +29,7 @@ public sealed class ListVaultStock
         var productIds = products.Select(p => p.Id).ToList();
 
         var variants = await _db.ProductVariants
+            .AsNoTracking()
             .Where(v => productIds.Contains(v.ProductId))
             .OrderBy(v => v.SortOrder)
             .ToListAsync(cancellationToken);

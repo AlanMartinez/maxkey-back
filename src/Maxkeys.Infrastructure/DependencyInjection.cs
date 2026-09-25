@@ -11,6 +11,7 @@ using Maxkeys.Application.Outbox;
 using Maxkeys.Application.Payments;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Application.Security;
+using Maxkeys.Application.Wishlist;
 using Maxkeys.Infrastructure.Email;
 using Maxkeys.Infrastructure.Outbox;
 using Maxkeys.Infrastructure.Payments;
@@ -98,6 +99,9 @@ public static class DependencyInjection
         services.AddScoped<ListBuyers>();
         services.AddScoped<GetAdminOrderDetail>();
         services.AddScoped<RevealOrderItemKeys>();
+        services.AddScoped<AddToWishlist>();
+        services.AddScoped<RemoveFromWishlist>();
+        services.AddScoped<GetMyWishlist>();
     }
 
     /// <summary>

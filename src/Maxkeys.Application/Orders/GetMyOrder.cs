@@ -28,6 +28,7 @@ public sealed class GetMyOrder
     public async Task<MyOrderDetail?> ExecuteAsync(Guid orderId, Guid userId, CancellationToken cancellationToken = default)
     {
         var order = await _db.Orders
+            .AsNoTracking()
             .Include(o => o.Items).ThenInclude(i => i.Keys)
             .SingleOrDefaultAsync(o => o.Id == orderId, cancellationToken);
 

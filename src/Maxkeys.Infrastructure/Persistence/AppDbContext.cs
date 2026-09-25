@@ -7,6 +7,7 @@ using Maxkeys.Domain.Notifications;
 using Maxkeys.Domain.Orders;
 using Maxkeys.Domain.Outbox;
 using Maxkeys.Domain.Payments;
+using Maxkeys.Domain.Wishlist;
 using Microsoft.EntityFrameworkCore;
 
 namespace Maxkeys.Infrastructure.Persistence;
@@ -35,6 +36,7 @@ public sealed class AppDbContext : DbContext, IAppDbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<ProcessedWebhookNotification> ProcessedWebhookNotifications => Set<ProcessedWebhookNotification>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

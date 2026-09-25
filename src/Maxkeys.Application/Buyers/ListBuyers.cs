@@ -34,7 +34,7 @@ public sealed class ListBuyers
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? DefaultPageSize : Math.Min(pageSize, MaxPageSize);
 
-        var paidOrders = _db.Orders.Where(o => o.PaidAt != null);
+        var paidOrders = _db.Orders.AsNoTracking().Where(o => o.PaidAt != null);
 
         if (!string.IsNullOrWhiteSpace(email))
         {
@@ -57,6 +57,7 @@ public sealed class ListBuyers
         var emails = page1.Select(g => g.Email).ToList();
 
         var orders = await _db.Orders
+            .AsNoTracking()
             .Include(o => o.Items).ThenInclude(i => i.Keys)
             .Where(o => o.PaidAt != null && emails.Contains(o.BuyerEmail))
             .ToListAsync(cancellationToken);

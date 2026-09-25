@@ -27,7 +27,7 @@ public sealed class GetCatalog
         string? q,
         CancellationToken cancellationToken = default)
     {
-        var query = _db.Products.Where(p => p.IsActive);
+        var query = _db.Products.AsNoTracking().Where(p => p.IsActive);
 
         if (!string.IsNullOrWhiteSpace(platform))
         {
@@ -47,6 +47,7 @@ public sealed class GetCatalog
         var productIds = products.Select(p => p.Id).ToList();
 
         var activeVariants = await _db.ProductVariants
+            .AsNoTracking()
             .Where(v => v.IsActive && productIds.Contains(v.ProductId))
             .ToListAsync(cancellationToken);
 

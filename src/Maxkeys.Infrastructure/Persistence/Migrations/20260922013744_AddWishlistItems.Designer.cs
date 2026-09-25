@@ -3,6 +3,7 @@ using System;
 using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Maxkeys.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260922013744_AddWishlistItems")]
+    partial class AddWishlistItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -68,29 +71,6 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
                     b.ToTable("carousel_slides", (string)null);
                 });
 
-            modelBuilder.Entity("Maxkeys.Domain.Catalog.ImageKitAsset", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("file_path");
-
-                    b.HasKey("Id")
-                        .HasName("pk_image_kit_assets");
-
-                    b.HasIndex("FilePath")
-                        .IsUnique()
-                        .HasDatabaseName("ix_image_kit_assets_file_path");
-
-                    b.ToTable("image_kit_assets", (string)null);
-                });
-
             modelBuilder.Entity("Maxkeys.Domain.Catalog.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -98,9 +78,9 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid?>("ActivationGuideId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("activation_guide_id");
+                    b.Property<string>("ActivationGuide")
+                        .HasColumnType("text")
+                        .HasColumnName("activation_guide");
 
                     b.Property<string>("ActivationType")
                         .HasMaxLength(100)
@@ -150,9 +130,6 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_products");
-
-                    b.HasIndex("ActivationGuideId")
-                        .HasDatabaseName("ix_products_activation_guide_id");
 
                     b.HasIndex("Platform")
                         .HasDatabaseName("ix_products_platform");
@@ -255,40 +232,6 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
                         .HasFilter("is_recommended = TRUE");
 
                     b.ToTable("product_variants", (string)null);
-                });
-
-            modelBuilder.Entity("Maxkeys.Domain.Guides.ActivationGuide", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ContentMarkdown")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("content_markdown");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("slug");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("title");
-
-                    b.HasKey("Id")
-                        .HasName("pk_activation_guides");
-
-                    b.HasIndex("Slug")
-                        .IsUnique()
-                        .HasDatabaseName("ix_activation_guides_slug");
-
-                    b.ToTable("activation_guides", (string)null);
                 });
 
             modelBuilder.Entity("Maxkeys.Domain.Keys.Key", b =>
