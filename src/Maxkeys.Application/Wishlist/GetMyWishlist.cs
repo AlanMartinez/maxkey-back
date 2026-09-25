@@ -28,6 +28,7 @@ public sealed class GetMyWishlist
     public async Task<IReadOnlyList<WishlistItemSummary>> ExecuteAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var wishlistItems = await _db.WishlistItems
+            .AsNoTracking()
             .Where(w => w.UserId == userId)
             .OrderByDescending(w => w.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -35,10 +36,12 @@ public sealed class GetMyWishlist
         var productIds = wishlistItems.Select(w => w.ProductId).ToList();
 
         var products = await _db.Products
+            .AsNoTracking()
             .Where(p => p.IsActive && productIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, cancellationToken);
 
         var activeVariants = await _db.ProductVariants
+            .AsNoTracking()
             .Where(v => v.IsActive && productIds.Contains(v.ProductId))
             .ToListAsync(cancellationToken);
 

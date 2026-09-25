@@ -87,6 +87,7 @@ public sealed class AssignVaultKeysToOrder
             .Select(p => new { p.Id, p.VaultEnabled })
             .ToDictionaryAsync(p => p.Id, p => p.VaultEnabled, cancellationToken);
 
+        var eligibleItems = new List<(Domain.Orders.OrderItem Item, int Remaining)>();
         foreach (var item in incompleteItems)
         {
             if (!productIdByVariant.TryGetValue(item.ProductVariantId, out var productId) ||
@@ -97,25 +98,37 @@ public sealed class AssignVaultKeysToOrder
             }
 
             var remaining = item.Quantity - item.Keys.Count(k => k.Status == KeyStatus.Assigned);
-            if (remaining <= 0)
+            if (remaining > 0)
             {
-                continue;
+                eligibleItems.Add((item, remaining));
             }
+        }
 
-            var availableKeys = await _db.Keys
-                .Where(k => k.ProductVariantId == item.ProductVariantId && k.Status == KeyStatus.Available)
-                .OrderBy(k => k.CreatedAt)
-                .Take(remaining)
-                .ToListAsync(cancellationToken);
+        // One query for every eligible variant's available keys instead of one query per item —
+        // avoids the N+1 round-trip this loop used to make (perf scan, 2026-09-25). The queue
+        // also sidesteps a subtle bug the per-item query had: since EF evaluates each iteration's
+        // WHERE against the database, not pending in-memory Assigned changes, two items sharing a
+        // variant could have raced for the same rows before this batch snapshot.
+        var eligibleVariantIds = eligibleItems.Select(x => x.Item.ProductVariantId).Distinct().ToList();
+        var availableKeys = await _db.Keys
+            .Where(k => eligibleVariantIds.Contains(k.ProductVariantId) && k.Status == KeyStatus.Available)
+            .OrderBy(k => k.CreatedAt)
+            .ToListAsync(cancellationToken);
 
-            if (availableKeys.Count < remaining)
+        var keyQueueByVariant = availableKeys
+            .GroupBy(k => k.ProductVariantId)
+            .ToDictionary(g => g.Key, g => new Queue<Key>(g));
+
+        foreach (var (item, remaining) in eligibleItems)
+        {
+            if (!keyQueueByVariant.TryGetValue(item.ProductVariantId, out var queue) || queue.Count < remaining)
             {
                 continue; // all-or-nothing: leave this item for the manual flow
             }
 
-            foreach (var key in availableKeys)
+            for (var i = 0; i < remaining; i++)
             {
-                order.AttachKey(item.Id, key, now);
+                order.AttachKey(item.Id, queue.Dequeue(), now);
             }
         }
 

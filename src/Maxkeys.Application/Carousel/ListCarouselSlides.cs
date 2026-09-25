@@ -24,8 +24,8 @@ public sealed class ListCarouselSlides
     public async Task<IReadOnlyList<AdminCarouselSlide>> ExecuteAsync(CancellationToken cancellationToken = default)
     {
         var rows = await (
-            from slide in _db.CarouselSlides
-            join product in _db.Products on slide.ProductId equals product.Id
+            from slide in _db.CarouselSlides.AsNoTracking()
+            join product in _db.Products.AsNoTracking() on slide.ProductId equals product.Id
             orderby slide.SortOrder, slide.Id
             select new { slide, product })
             .ToListAsync(cancellationToken);
