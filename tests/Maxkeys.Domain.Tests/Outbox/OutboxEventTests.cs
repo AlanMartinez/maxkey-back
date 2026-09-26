@@ -45,6 +45,19 @@ public class OutboxEventTests
         Assert.Equal(Now.AddSeconds(1), outboxEvent.ProcessedAt);
     }
 
+    [Fact]
+    public void MarkProcessed_AfterFailedAttempt_ClearsLastError()
+    {
+        var outboxEvent = CreatePendingEvent();
+        outboxEvent.Claim(Now.AddSeconds(30));
+        outboxEvent.MarkFailedAttempt("No address found.", Now, maxAttempts: 8);
+        outboxEvent.Claim(Now.AddSeconds(120));
+
+        outboxEvent.MarkProcessed(Now.AddSeconds(90));
+
+        Assert.Null(outboxEvent.LastError);
+    }
+
     [Theory]
     [InlineData(0, 1, 60)]   // 30s * 2^1 = 60s
     [InlineData(1, 2, 120)]  // 30s * 2^2 = 120s

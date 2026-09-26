@@ -32,4 +32,18 @@ public sealed class EmailTemplatesTests
         Assert.True(htmlBody.IndexOf("<img", StringComparison.Ordinal) < htmlBody.IndexOf("¡Gracias por tu compra!", StringComparison.Ordinal));
         Assert.DoesNotContain(order.Id.ToString(), htmlBody);
     }
+
+    [Fact]
+    public void OperatorOrderAwaitingFulfillment_includes_full_unmasked_buyer_email()
+    {
+        var order = Order.Create(
+            null,
+            "buyer@example.com",
+            [new OrderLine(Guid.NewGuid(), "EA SPORTS FC 26", "Ultimate Edition", 70_000m, 1)],
+            DateTimeOffset.UtcNow);
+
+        var (_, textBody) = EmailTemplates.OperatorOrderAwaitingFulfillment(order);
+
+        Assert.Contains("Buyer: buyer@example.com", textBody);
+    }
 }
