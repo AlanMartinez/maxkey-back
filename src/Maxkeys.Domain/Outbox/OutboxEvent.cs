@@ -67,6 +67,10 @@ public sealed class OutboxEvent : Entity
     {
         Status = OutboxEventStatus.Processed;
         ProcessedAt = now;
+
+        // A successful attempt supersedes any earlier failure, so the admin
+        // order detail must not keep showing a stale error for a processed event.
+        LastError = null;
     }
 
     /// <summary>
