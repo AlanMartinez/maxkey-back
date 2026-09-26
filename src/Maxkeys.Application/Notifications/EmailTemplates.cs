@@ -15,10 +15,10 @@ public static class EmailTemplates
     /// <summary>
     /// Internal operator notification sent when an order reaches
     /// <see cref="OrderStatus.AwaitingFulfillment"/> (outbox-processing spec:
-    /// OrderApproved Handler). The buyer email is masked the same way as the
-    /// public checkout status endpoint (<c>GetOrderStatus</c>) — this message
-    /// may end up forwarded or logged, so it stays consistent with what a
-    /// buyer-facing surface would already reveal.
+    /// OrderApproved Handler). The buyer email is sent unmasked: this message
+    /// only goes to the configured operator inbox (<c>Email:OperatorTo</c>),
+    /// and operators need the full address to cross-check the order against
+    /// the system before fulfilling it.
     /// </summary>
     public static (string Subject, string TextBody) OperatorOrderAwaitingFulfillment(Order order)
     {
@@ -26,7 +26,7 @@ public static class EmailTemplates
 
         var body = new StringBuilder()
             .AppendLine($"Order {order.Id} is awaiting fulfillment.")
-            .AppendLine($"Buyer: {MaskEmail(order.BuyerEmail)}")
+            .AppendLine($"Buyer: {order.BuyerEmail}")
             .AppendLine($"Total: {order.TotalAmount} {order.Currency}")
             .AppendLine("Items:");
 
@@ -113,18 +113,5 @@ public static class EmailTemplates
             .AppendLine("</body></html>");
 
         return (subject, body.ToString(), html.ToString());
-    }
-
-    /// <summary>Same masking rule as <c>Checkout.GetOrderStatus</c> — kept local since templates must not depend on Checkout.</summary>
-    private static string MaskEmail(string email)
-    {
-        var separator = email.IndexOf('@');
-        if (separator < 0)
-        {
-            return "***";
-        }
-
-        var localPart = email[..separator];
-        return $"{(localPart.Length == 0 ? "***" : $"{localPart[0]}***")}{email[separator..]}";
     }
 }
