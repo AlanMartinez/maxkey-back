@@ -38,6 +38,18 @@ public sealed class AuthOptions
     public string[] AdminSubs { get; set; } = [];
 
     /// <summary>
+    /// Supabase <c>app_metadata.provider</c> values whose tokens carry an email
+    /// address the provider itself has verified, and which may therefore be used to
+    /// claim a guest order (see <see cref="VerifiedEmailResolver"/>). Defaults to
+    /// Google alone — the only login the storefront offers — so the default needs no
+    /// entry in <c>fly.toml</c>, whose <c>[env]</c> block is replaced wholesale on
+    /// every deploy and has silently dropped keys before. Empty MUST deny every
+    /// caller. Adding <c>email</c> here re-opens ownership to unconfirmed
+    /// email/password signups and must not be done.
+    /// </summary>
+    public string[] VerifiedEmailProviders { get; set; } = ["google"];
+
+    /// <summary>
     /// Local-only escape hatch so a developer without a real Supabase admin
     /// account can exercise admin endpoints (e.g. seeding test catalog data)
     /// without logging in. Defaults to <see langword="false"/> and MUST only

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Maxkeys.Api.Auth;
 using Maxkeys.Application.Notifications;
 using Maxkeys.Application.Orders;
 
@@ -19,8 +20,9 @@ public static class MeEndpoints
         group.MapGet(string.Empty, async (
             ClaimsPrincipal user,
             GetMyOrders useCase,
+            VerifiedEmailResolver verifiedEmail,
             CancellationToken cancellationToken) =>
-            Results.Ok(await useCase.ExecuteAsync(RequireUserId(user), RequireEmail(user), cancellationToken)));
+            Results.Ok(await useCase.ExecuteAsync(RequireUserId(user), verifiedEmail.Resolve(user), cancellationToken)));
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -84,14 +86,6 @@ public static class MeEndpoints
             : throw new InvalidOperationException("Authenticated principal is missing a valid 'sub' claim.");
     }
 
-    /// <summary>Supabase JWTs always carry an <c>email</c> claim; <c>JwtSetup.Configure</c> disables inbound claim mapping so it reads back unmapped.</summary>
-    private static string RequireEmail(ClaimsPrincipal user)
-    {
-        var email = user.FindFirst("email")?.Value;
-        return string.IsNullOrEmpty(email)
-            ? throw new InvalidOperationException("Authenticated principal is missing a valid 'email' claim.")
-            : email;
-    }
 }
 
 /// <summary>Response for <c>POST /me/orders/{id}/items/{itemId}/keys/reveal</c>.</summary>

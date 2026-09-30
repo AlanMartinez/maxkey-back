@@ -79,6 +79,26 @@ public sealed class GetMyOrdersTests
     }
 
     [Fact]
+    public async Task GetMyOrders_skips_the_claim_entirely_when_the_email_is_not_claimable()
+    {
+        // The API layer passes null when the token's email is not provider-verified
+        // (VerifiedEmailResolver). Listing must still answer, just without taking ownership.
+        var userId = Guid.NewGuid();
+
+        await using var seedContext = _fixture.CreateContext();
+        var guestOrderId = await SeedGuestOrderAsync(seedContext, "match@example.com");
+        await SeedOrderAsync(seedContext, userId);
+
+        await using var context = _fixture.CreateContext();
+        var result = await new GetMyOrders(context).ExecuteAsync(userId, claimableEmail: null);
+
+        Assert.Single(result);
+        await using var assertContext = _fixture.CreateContext();
+        var guestOrder = await assertContext.Orders.AsNoTracking().SingleAsync(o => o.Id == guestOrderId);
+        Assert.Null(guestOrder.UserId);
+    }
+
+    [Fact]
     public async Task GetMyOrders_does_not_claim_a_guest_order_with_a_different_email()
     {
         var userId = Guid.NewGuid();
