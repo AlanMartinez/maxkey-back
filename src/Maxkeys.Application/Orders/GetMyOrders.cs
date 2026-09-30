@@ -19,14 +19,27 @@ public sealed class GetMyOrders
         _db = db;
     }
 
-    /// <summary>Claims guest orders by email first so "my orders" reflects pre-login purchases.</summary>
-    public async Task<IReadOnlyList<OrderSummary>> ExecuteAsync(Guid userId, string email, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Claims guest orders by email first so "my orders" reflects pre-login purchases.
+    /// <paramref name="claimableEmail"/> is the caller's email ONLY when it may be
+    /// trusted to take ownership — the API layer passes <see langword="null"/>
+    /// otherwise (see <c>VerifiedEmailResolver</c>), and the claim step is then
+    /// skipped. Listing still works in that case: it returns whatever is already
+    /// linked to <paramref name="userId"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<OrderSummary>> ExecuteAsync(
+        Guid userId, string? claimableEmail, CancellationToken cancellationToken = default)
     {
-        // Bulk-update (no load-then-save) any guest order left behind by a checkout that
-        // matches this login's email, so it becomes owned by this account from now on.
-        await _db.Orders
-            .Where(order => order.UserId == null && order.BuyerEmail.ToLower() == email.ToLower())
-            .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.UserId, (Guid?)userId), cancellationToken);
+        if (!string.IsNullOrWhiteSpace(claimableEmail))
+        {
+            // Bulk-update (no load-then-save) any guest order left behind by a checkout that
+            // matches this login's email, so it becomes owned by this account from now on.
+            // This is the ONLY writer of Order.UserId after checkout, and it is irreversible,
+            // which is why the caller must have proven the email is provider-verified first.
+            await _db.Orders
+                .Where(order => order.UserId == null && order.BuyerEmail.ToLower() == claimableEmail.ToLower())
+                .ExecuteUpdateAsync(setters => setters.SetProperty(order => order.UserId, (Guid?)userId), cancellationToken);
+        }
 
         // Projects to an anonymous type first (server-translated) and stringifies the enum
         // client-side afterward — HasConversion<string>() only guarantees a clean translation

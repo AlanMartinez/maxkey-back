@@ -57,6 +57,11 @@ public sealed class Order : Entity
             throw new DomainException("Order buyer email must not be empty.");
         }
 
+        // Trimmed before anything else stores or compares it: BuyerEmail is the ownership
+        // key for a guest order (GetMyOrders claims by it), so a stray leading/trailing
+        // space would leave the order permanently unclaimable and its keys unreachable.
+        buyerEmail = buyerEmail.Trim();
+
         try
         {
             _ = new MailAddress(buyerEmail);
