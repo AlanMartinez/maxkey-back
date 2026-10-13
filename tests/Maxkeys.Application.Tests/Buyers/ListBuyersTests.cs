@@ -44,6 +44,28 @@ public sealed class ListBuyersTests
     }
 
     [Fact]
+    public async Task Bank_transfer_awaiting_validation_is_listed_with_phone_and_payment_method()
+    {
+        var buyerEmail = $"transfer-{Guid.NewGuid():N}@example.com";
+        await using (var seed = _fixture.CreateContext())
+        {
+            seed.Orders.Add(Order.Create(
+                null, buyerEmail, [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)], DateTimeOffset.UtcNow,
+                PaymentMethod.BankTransfer, "+54 11 5555-1234"));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var result = await CreateSut(context).ExecuteAsync(email: buyerEmail, page: 1, pageSize: 20);
+
+        var order = Assert.Single(Assert.Single(result.Items).Orders);
+        Assert.Equal(nameof(OrderStatus.AwaitingTransferValidation), order.Status);
+        Assert.Equal("bank-transfer", order.PaymentMethod);
+        Assert.NotNull(order.BuyerPhone);
+        Assert.Null(order.PaidAt);
+    }
+
+    [Fact]
     public async Task Email_search_narrows_results_to_the_matching_buyer()
     {
         var emailA = $"a-{Guid.NewGuid():N}@x.com";

@@ -1,3 +1,4 @@
+using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Keys;
 using Maxkeys.Domain.Orders;
@@ -14,7 +15,9 @@ namespace Maxkeys.Application.Buyers;
 /// <c>GetCatalog</c>), orders by last <c>PaidAt</c> descending, and pages;
 /// Q2 loads the full orders/items/keys for only that page's emails. Never
 /// returns a key code — only the count of <see cref="KeyStatus.Assigned"/>
-/// keys per item.
+/// keys per item. Bank transfers awaiting validation are listed too (no
+/// <c>PaidAt</c> yet), so the admin can validate them against the buyer phone
+/// from the same view; buyers are ordered by their latest paid or submitted order.
 /// </summary>
 public sealed class ListBuyers
 {
@@ -34,7 +37,7 @@ public sealed class ListBuyers
         page = page < 1 ? 1 : page;
         pageSize = pageSize < 1 ? DefaultPageSize : Math.Min(pageSize, MaxPageSize);
 
-        var paidOrders = _db.Orders.AsNoTracking().Where(o => o.PaidAt != null);
+        var paidOrders = _db.Orders.AsNoTracking().Where(o => o.PaidAt != null || o.Status == OrderStatus.AwaitingTransferValidation);
 
         if (!string.IsNullOrWhiteSpace(email))
         {
@@ -44,8 +47,14 @@ public sealed class ListBuyers
 
         var grouped = paidOrders
             .GroupBy(o => o.BuyerEmail)
-            .Select(g => new { Email = g.Key, OrderCount = g.Count(), LastPaidAt = g.Max(o => o.PaidAt) })
-            .OrderByDescending(g => g.LastPaidAt);
+            .Select(g => new
+            {
+                Email = g.Key,
+                OrderCount = g.Count(),
+                LastPaidAt = g.Max(o => o.PaidAt),
+                LastActivityAt = g.Max(o => o.PaidAt ?? o.CreatedAt),
+            })
+            .OrderByDescending(g => g.LastActivityAt);
 
         var total = await grouped.CountAsync(cancellationToken);
 
@@ -59,12 +68,12 @@ public sealed class ListBuyers
         var orders = await _db.Orders
             .AsNoTracking()
             .Include(o => o.Items).ThenInclude(i => i.Keys)
-            .Where(o => o.PaidAt != null && emails.Contains(o.BuyerEmail))
+            .Where(o => (o.PaidAt != null || o.Status == OrderStatus.AwaitingTransferValidation) && emails.Contains(o.BuyerEmail))
             .ToListAsync(cancellationToken);
 
         var ordersByEmail = orders
             .GroupBy(o => o.BuyerEmail)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(o => o.PaidAt).ToList());
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(o => o.PaidAt ?? o.CreatedAt).ToList());
 
         var items = page1
             .Select(g => new AdminBuyer(
@@ -83,6 +92,9 @@ public sealed class ListBuyers
         order.Id,
         order.Status.ToString(),
         order.PaidAt,
+        order.CreatedAt,
+        PaymentMethodNames.ToWire(order.PaymentMethod),
+        order.BuyerPhone,
         order.TotalAmount,
         order.Currency,
         order.Items
