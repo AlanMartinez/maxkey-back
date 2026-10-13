@@ -1,3 +1,4 @@
+using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Payments;
 using Maxkeys.Domain.Common;
 using Microsoft.AspNetCore.Diagnostics;
@@ -9,7 +10,10 @@ namespace Maxkeys.Api.Errors;
 /// Central exception-to-Problem-Details mapping (design section 7 error table):
 /// <see cref="DomainConflictException"/> → 409, <see cref="DomainException"/> (any
 /// other, including the base type) → 422, <see cref="PaymentGatewayException"/> → 503,
-/// anything else → 500 with no exception detail in the body. Registered via
+/// <see cref="BankTransferUnavailableException"/> → 503 "Bank transfer unavailable",
+/// anything else → 500 with no exception detail in the body. A
+/// <see cref="DomainValidationException"/> also gets an <c>errors</c> member keyed by
+/// its field (<c>{"phone": ["..."]}</c>, the <c>ValidationProblemDetails</c> shape). Registered via
 /// <c>AddExceptionHandler&lt;ProblemDetailsExceptionHandler&gt;()</c> + <c>UseExceptionHandler()</c>.
 /// </summary>
 public sealed class ProblemDetailsExceptionHandler : IExceptionHandler
@@ -27,6 +31,24 @@ public sealed class ProblemDetailsExceptionHandler : IExceptionHandler
     {
         var (statusCode, title) = Map(exception);
 
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = title,
+            // Domain messages are authored for the caller (e.g. "Order item already has all
+            // required keys assigned."); everything else stays opaque so 500s never leak internals.
+            Detail = exception is DomainException ? exception.Message : null,
+            Extensions = { ["traceId"] = httpContext.TraceIdentifier },
+        };
+
+        if (exception is DomainValidationException validation)
+        {
+            problemDetails.Extensions["errors"] = new Dictionary<string, string[]>
+            {
+                [validation.Field] = [validation.Message],
+            };
+        }
+
         if (statusCode == StatusCodes.Status500InternalServerError)
         {
             _logger.LogError(exception, "Unhandled exception for {TraceId}", httpContext.TraceIdentifier);
@@ -42,15 +64,7 @@ public sealed class ProblemDetailsExceptionHandler : IExceptionHandler
         {
             HttpContext = httpContext,
             Exception = exception,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = statusCode,
-                Title = title,
-                // Domain messages are authored for the caller (e.g. "Order item already has all
-                // required keys assigned."); everything else stays opaque so 500s never leak internals.
-                Detail = exception is DomainException ? exception.Message : null,
-                Extensions = { ["traceId"] = httpContext.TraceIdentifier },
-            },
+            ProblemDetails = problemDetails,
         });
     }
 
@@ -60,6 +74,7 @@ public sealed class ProblemDetailsExceptionHandler : IExceptionHandler
         DomainConflictException => (StatusCodes.Status409Conflict, "Conflict"),
         DomainException => (StatusCodes.Status422UnprocessableEntity, "Unprocessable Entity"),
         PaymentGatewayException => (StatusCodes.Status503ServiceUnavailable, "Service Unavailable"),
+        BankTransferUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Bank transfer unavailable"),
         _ => (StatusCodes.Status500InternalServerError, "Internal Server Error"),
     };
 }

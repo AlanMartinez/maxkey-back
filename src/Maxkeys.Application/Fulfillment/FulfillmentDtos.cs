@@ -11,10 +11,15 @@ public sealed record AttachKeyToOrderItemResult(OrderStatus OrderStatus, IReadOn
 /// <summary>Per-item fulfillment progress row for the admin listing (fulfillment spec: Admin Order Listing).</summary>
 public sealed record AdminOrderItemSummary(Guid ItemId, Guid VariantId, string ProductName, string VariantName, int Quantity, int Assigned);
 
-/// <summary>One order awaiting fulfillment, with per-item progress, for the admin listing.</summary>
+/// <summary>One order in an admin queue (awaiting fulfillment or awaiting transfer validation), with per-item progress.</summary>
 public sealed record AdminOrderSummary(
     Guid Id,
     string BuyerEmail,
+    string? BuyerPhone,
     OrderStatus Status,
+    PaymentMethod PaymentMethod,
+    DateTimeOffset CreatedAt,
+    decimal TotalAmount,
+    string Currency,
     DateTimeOffset? PaidAt,
     IReadOnlyList<AdminOrderItemSummary> Items);

@@ -13,4 +13,7 @@ public static class OutboxEventTypes
 
     /// <summary>Raised by <c>DeliverOrder</c> when an order transitions to <see cref="Maxkeys.Domain.Orders.OrderStatus.Delivered"/> (admin-key-delivery-gate spec: decision 4 revisited) — <c>OrderDeliveredHandler</c> notifies the buyer their keys are available, without sending key codes.</summary>
     public const string OrderDelivered = "OrderDelivered";
+
+    /// <summary>Raised by <c>CreateOrder</c> for a bank-transfer checkout — <c>TransferSubmittedHandler</c> emails the operator that a transfer awaits validation.</summary>
+    public const string TransferSubmitted = "TransferSubmitted";
 }

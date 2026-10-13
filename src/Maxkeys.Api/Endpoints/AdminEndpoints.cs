@@ -1,14 +1,17 @@
 using System.Security.Claims;
 using Maxkeys.Api.Auth;
 using Maxkeys.Application.Buyers;
+using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Fulfillment;
+using Maxkeys.Application.Payments;
 
 namespace Maxkeys.Api.Endpoints;
 
 /// <summary>
 /// Admin-only fulfillment endpoints (design section 7; fulfillment spec:
 /// Admin Order Listing, Key Attachment, Admin Authorization; admin-buyers
-/// spec: Order Detail via <c>GET /admin/orders/{id}</c>). Every route
+/// spec: Order Detail via <c>GET /admin/orders/{id}</c>), plus the bank-transfer
+/// validation queue (<c>?status=awaiting-transfer</c>, approve/reject). Every route
 /// requires the <see cref="AdminPolicy.Name"/> policy.
 /// </summary>
 public static class AdminEndpoints
@@ -27,11 +30,17 @@ public static class AdminEndpoints
 
         var group = app.MapGroup("/admin/orders").RequireAuthorization(AdminPolicy.Name);
 
-        // "status" is accepted for API-contract compatibility (design §7); the MVP has exactly
-        // one admin queue (AwaitingFulfillment), so the parameter is currently unused for filtering.
-        group.MapGet(string.Empty, async (string? status, ListOrdersAwaitingFulfillment useCase, CancellationToken cancellationToken) =>
+        // "status=awaiting-transfer" selects the bank-transfer validation queue; any other value
+        // (or none) keeps the original single fulfillment queue (AwaitingFulfillment), as before.
+        group.MapGet(string.Empty, async (
+            string? status,
+            ListOrdersAwaitingFulfillment awaitingFulfillment,
+            ListOrdersAwaitingTransferValidation awaitingTransfer,
+            CancellationToken cancellationToken) =>
         {
-            var orders = await useCase.ExecuteAsync(cancellationToken);
+            var orders = string.Equals(status, AwaitingTransferStatusFilter, StringComparison.OrdinalIgnoreCase)
+                ? await awaitingTransfer.ExecuteAsync(cancellationToken)
+                : await awaitingFulfillment.ExecuteAsync(cancellationToken);
             return Results.Ok(orders.Select(ToResponse).ToList());
         });
 
@@ -46,6 +55,34 @@ public static class AdminEndpoints
             return detail is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
                 : Results.Ok(detail);
+        });
+
+        // Same OrderApproved outbox event as an approved Mercado Pago payment, so the order
+        // continues through vault auto-assignment and the operator email unchanged.
+        group.MapPost("/{id:guid}/approve-transfer", async (
+            Guid id,
+            ClaimsPrincipal user,
+            AdminSubResolver adminSubs,
+            ApproveBankTransfer useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var order = await useCase.ExecuteAsync(id, adminSubs.Resolve(user), cancellationToken);
+            return order is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
+                : Results.Ok(ToResponse(order));
+        });
+
+        group.MapPost("/{id:guid}/reject-transfer", async (
+            Guid id,
+            ClaimsPrincipal user,
+            AdminSubResolver adminSubs,
+            RejectBankTransfer useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var order = await useCase.ExecuteAsync(id, adminSubs.Resolve(user), cancellationToken);
+            return order is null
+                ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
+                : Results.Ok(ToResponse(order));
         });
 
         group.MapPost("/{id:guid}/items/{itemId:guid}/keys", async (
@@ -109,8 +146,19 @@ public static class AdminEndpoints
         return app;
     }
 
-    private static AdminOrderResponse ToResponse(AdminOrderSummary order) =>
-        new(order.Id, order.BuyerEmail, order.Status.ToString(), order.PaidAt, order.Items);
+    private const string AwaitingTransferStatusFilter = "awaiting-transfer";
+
+    private static AdminOrderResponse ToResponse(AdminOrderSummary order) => new(
+        order.Id,
+        order.BuyerEmail,
+        order.BuyerPhone,
+        order.Status.ToString(),
+        PaymentMethodNames.ToWire(order.PaymentMethod),
+        order.CreatedAt,
+        order.TotalAmount,
+        order.Currency,
+        order.PaidAt,
+        order.Items);
 }
 
 /// <summary>Response for <c>GET /admin/me</c> — confirms the caller passes <see cref="AdminPolicy"/> (design D5).</summary>
@@ -134,10 +182,15 @@ public sealed record AssignKeysResponse(string OrderStatus, bool AllItemsComplet
 /// <summary>Response for <c>POST /admin/orders/{id}/deliver</c>.</summary>
 public sealed record DeliverOrderResponse(string Status);
 
-/// <summary>One order awaiting fulfillment, with per-item progress, for the admin listing (design section 7).</summary>
+/// <summary>One order in an admin queue, with per-item progress, for the admin listing (design section 7) and the transfer approve/reject responses.</summary>
 public sealed record AdminOrderResponse(
     Guid Id,
     string BuyerEmail,
+    string? BuyerPhone,
     string Status,
+    string PaymentMethod,
+    DateTimeOffset CreatedAt,
+    decimal TotalAmount,
+    string Currency,
     DateTimeOffset? PaidAt,
     IReadOnlyList<AdminOrderItemSummary> Items);

@@ -39,6 +39,32 @@ public static class EmailTemplates
     }
 
     /// <summary>
+    /// Internal operator notification sent when a buyer submits a bank-transfer checkout
+    /// (<c>TransferSubmittedHandler</c>): the operator checks the bank account, then approves
+    /// or rejects the transfer from the admin panel. Buyer email and phone are sent unmasked
+    /// for the same reason as <see cref="OperatorOrderAwaitingFulfillment"/> — this only goes
+    /// to <c>Email:OperatorTo</c>, and the operator may need to contact the buyer.
+    /// </summary>
+    public static (string Subject, string TextBody) OperatorTransferAwaitingValidation(Order order)
+    {
+        var subject = $"Order {order.Id} awaiting bank transfer validation";
+
+        var body = new StringBuilder()
+            .AppendLine($"Order {order.Id} was placed by bank transfer and awaits validation.")
+            .AppendLine($"Buyer: {order.BuyerEmail}")
+            .AppendLine($"Phone: {order.BuyerPhone}")
+            .AppendLine($"Total: {order.TotalAmount} {order.Currency}")
+            .AppendLine("Items:");
+
+        foreach (var item in order.Items)
+        {
+            body.AppendLine($"  - {item.ProductNameSnapshot} ({item.VariantNameSnapshot}) x{item.Quantity}");
+        }
+
+        return (subject, body.ToString());
+    }
+
+    /// <summary>
     /// Buyer delivery email sent once per <see cref="OrderStatus.AwaitingFulfillment"/> →
     /// <see cref="OrderStatus.Delivered"/> transition (fulfillment spec: One-Time Delivery
     /// Email — MODIFIED, admin-key-delivery-gate spec: now sent only via the admin-triggered

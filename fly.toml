@@ -49,6 +49,13 @@ primary_region = 'iad'
   Email__Smtp__UseStartTls = 'false'  # port 465 is implicit TLS, not STARTTLS
   Email__Smtp__Username = 'resend'
 
+  # Bank transfer checkout (BankTransferOptions). Not secrets — shown to every buyer.
+  # The payment method stays disabled (GET /checkout/bank-transfer → 404, POST → 503)
+  # until both Alias and AccountHolder are set.
+  BankTransfer__Alias = 'mobisur.rg'
+  BankTransfer__AccountHolder = 'Denis Martin Martinez'
+  # BankTransfer__Cbu = '<22-digit CBU/CVU>'  # optional
+
 [http_service]
   internal_port = 8080
   force_https = true

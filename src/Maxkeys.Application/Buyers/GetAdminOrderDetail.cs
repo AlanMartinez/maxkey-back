@@ -1,3 +1,4 @@
+using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Outbox;
 using Maxkeys.Application.Persistence;
 using Maxkeys.Domain.Keys;
@@ -42,7 +43,9 @@ public sealed class GetAdminOrderDetail
         return new AdminOrderDetail(
             order.Id,
             order.BuyerEmail,
+            order.BuyerPhone,
             order.Status.ToString(),
+            PaymentMethodNames.ToWire(order.PaymentMethod),
             order.TotalAmount,
             order.Currency,
             order.CreatedAt,

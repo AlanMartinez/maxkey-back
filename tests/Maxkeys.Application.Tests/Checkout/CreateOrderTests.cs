@@ -4,7 +4,10 @@ using Maxkeys.Application.Tests.Fixtures;
 using Maxkeys.Domain.Catalog;
 using Maxkeys.Domain.Common;
 using Maxkeys.Domain.Orders;
+using Maxkeys.Domain.Outbox;
+using Maxkeys.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Application.Tests.Checkout;
 
@@ -12,6 +15,9 @@ namespace Maxkeys.Application.Tests.Checkout;
 public sealed class CreateOrderTests
 {
     private readonly PostgresFixture _fixture;
+
+    private static readonly IOptions<BankTransferOptions> EnabledBankTransfer =
+        Options.Create(new BankTransferOptions { Alias = "chekeys.mp", AccountHolder = "Chekeys" });
 
     public CreateOrderTests(PostgresFixture fixture)
     {
@@ -28,7 +34,7 @@ public sealed class CreateOrderTests
         };
 
         await using var context = _fixture.CreateContext();
-        var sut = new CreateOrder(context, gateway);
+        var sut = new CreateOrder(context, gateway, EnabledBankTransfer);
 
         var result = await sut.ExecuteAsync(
             new CreateOrderRequest(null, "buyer@example.com", [new CreateOrderLine(variantId, 2)]));
@@ -56,7 +62,7 @@ public sealed class CreateOrderTests
         var gateway = new FakePaymentGateway();
 
         await using var context = _fixture.CreateContext();
-        var sut = new CreateOrder(context, gateway);
+        var sut = new CreateOrder(context, gateway, EnabledBankTransfer);
         var result = await sut.ExecuteAsync(
             new CreateOrderRequest(null, "buyer@example.com", [new CreateOrderLine(variantId, 1)]));
 
@@ -88,7 +94,7 @@ public sealed class CreateOrderTests
         var email = $"buyer-{Guid.NewGuid():N}@example.com";
 
         await using var context = _fixture.CreateContext();
-        var sut = new CreateOrder(context, gateway);
+        var sut = new CreateOrder(context, gateway, EnabledBankTransfer);
 
         await Assert.ThrowsAsync<DomainException>(() => sut.ExecuteAsync(
             new CreateOrderRequest(null, email, [new CreateOrderLine(variantId, quantity)])));
@@ -106,7 +112,7 @@ public sealed class CreateOrderTests
         var email = $"buyer-{Guid.NewGuid():N}@example.com";
 
         await using var context = _fixture.CreateContext();
-        var sut = new CreateOrder(context, gateway);
+        var sut = new CreateOrder(context, gateway, EnabledBankTransfer);
 
         await Assert.ThrowsAsync<DomainException>(() => sut.ExecuteAsync(
             new CreateOrderRequest(null, email, [new CreateOrderLine(inactiveVariantId, 1)])));
@@ -116,6 +122,89 @@ public sealed class CreateOrderTests
         Assert.Empty(gateway.CreatePreferenceCalls);
         await using var readContext = _fixture.CreateContext();
         Assert.Empty(await readContext.Orders.Where(order => order.BuyerEmail == email).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Bank_transfer_checkout_awaits_validation_without_calling_the_gateway()
+    {
+        var variantId = await SeedActiveVariantAsync(price: 5_000m, region: "AR", edition: "Deluxe");
+        var gateway = new FakePaymentGateway();
+
+        await using var context = _fixture.CreateContext();
+        var sut = new CreateOrder(context, gateway, EnabledBankTransfer);
+
+        var result = await sut.ExecuteAsync(new CreateOrderRequest(
+            null, "buyer@example.com", [new CreateOrderLine(variantId, 2)], PaymentMethod.BankTransfer, "+54 9 11 1234-5678"));
+
+        Assert.Null(result.InitPoint);
+        Assert.Empty(gateway.CreatePreferenceCalls);
+
+        await using var readContext = _fixture.CreateContext();
+        var order = await readContext.Orders.Include(order => order.Items).SingleAsync(order => order.Id == result.OrderId);
+        Assert.Equal(OrderStatus.AwaitingTransferValidation, order.Status);
+        Assert.Equal(PaymentMethod.BankTransfer, order.PaymentMethod);
+        Assert.Equal("+5491112345678", order.BuyerPhone);
+        Assert.Null(order.MpPreferenceId);
+        Assert.Equal(10_000m, order.TotalAmount);
+        Assert.Equal(5_000m, Assert.Single(order.Items).UnitPrice);
+
+        var outboxEvent = Assert.Single(await new OutboxEventReader(readContext).ListByOrderIdAsync(result.OrderId));
+        Assert.Equal(OutboxEventTypes.TransferSubmitted, outboxEvent.Type);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("1234")]
+    public async Task Bank_transfer_with_invalid_phone_creates_nothing(string? phone)
+    {
+        var variantId = await SeedActiveVariantAsync(price: 100m, region: null, edition: null);
+        var gateway = new FakePaymentGateway();
+        var email = $"buyer-{Guid.NewGuid():N}@example.com";
+
+        await using var context = _fixture.CreateContext();
+        var sut = new CreateOrder(context, gateway, EnabledBankTransfer);
+
+        var exception = await Assert.ThrowsAsync<DomainValidationException>(() => sut.ExecuteAsync(
+            new CreateOrderRequest(null, email, [new CreateOrderLine(variantId, 1)], PaymentMethod.BankTransfer, phone)));
+
+        Assert.Equal("phone", exception.Field);
+        Assert.Empty(gateway.CreatePreferenceCalls);
+        await using var readContext = _fixture.CreateContext();
+        Assert.Empty(await readContext.Orders.Where(order => order.BuyerEmail == email).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Bank_transfer_while_disabled_throws_unavailable_and_creates_nothing()
+    {
+        var variantId = await SeedActiveVariantAsync(price: 100m, region: null, edition: null);
+        var gateway = new FakePaymentGateway();
+        var email = $"buyer-{Guid.NewGuid():N}@example.com";
+
+        await using var context = _fixture.CreateContext();
+        var sut = new CreateOrder(context, gateway, Options.Create(new BankTransferOptions { Alias = "chekeys.mp" }));
+
+        await Assert.ThrowsAsync<BankTransferUnavailableException>(() => sut.ExecuteAsync(
+            new CreateOrderRequest(null, email, [new CreateOrderLine(variantId, 1)], PaymentMethod.BankTransfer, "1112345678")));
+
+        Assert.Empty(gateway.CreatePreferenceCalls);
+        await using var readContext = _fixture.CreateContext();
+        Assert.Empty(await readContext.Orders.Where(order => order.BuyerEmail == email).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Mercado_pago_checkout_works_while_bank_transfer_is_disabled()
+    {
+        var variantId = await SeedActiveVariantAsync(price: 100m, region: null, edition: null);
+        var gateway = new FakePaymentGateway();
+
+        await using var context = _fixture.CreateContext();
+        var sut = new CreateOrder(context, gateway, Options.Create(new BankTransferOptions()));
+
+        var result = await sut.ExecuteAsync(
+            new CreateOrderRequest(null, "buyer@example.com", [new CreateOrderLine(variantId, 1)]));
+
+        Assert.NotNull(result.InitPoint);
+        Assert.Single(gateway.CreatePreferenceCalls);
     }
 
     private async Task<Guid> SeedActiveVariantAsync(decimal price, string? region, string? edition, bool isActive = true)

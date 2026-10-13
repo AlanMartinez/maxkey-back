@@ -48,6 +48,7 @@ public static class DependencyInjection
 
         AddPaymentGateway(services, configuration);
         services.AddPaymentReconciliation(configuration);
+        services.AddOptions<BankTransferOptions>().Bind(configuration.GetSection(BankTransferOptions.SectionName));
         AddUseCases(services);
 
         return services;
@@ -86,6 +87,9 @@ public static class DependencyInjection
         services.AddScoped<ListNotifications>();
         services.AddScoped<ReadNotification>();
         services.AddScoped<ListOrdersAwaitingFulfillment>();
+        services.AddScoped<ListOrdersAwaitingTransferValidation>();
+        services.AddScoped<ApproveBankTransfer>();
+        services.AddScoped<RejectBankTransfer>();
         services.AddScoped<AttachKeyToOrderItem>();
         services.AddScoped<AssignVaultKeysToOrder>();
         services.AddScoped<DeliverOrder>();

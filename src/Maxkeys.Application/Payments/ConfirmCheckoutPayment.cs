@@ -29,7 +29,7 @@ public sealed class ConfirmCheckoutPayment
     {
         var order = await _db.Orders
             .Where(candidate => candidate.Id == orderId)
-            .Select(candidate => new { candidate.Status, candidate.MpPreferenceId })
+            .Select(candidate => new { candidate.Status, candidate.PaymentMethod, candidate.MpPreferenceId })
             .SingleOrDefaultAsync(cancellationToken);
 
         if (order is null)
@@ -37,7 +37,9 @@ public sealed class ConfirmCheckoutPayment
             return ConfirmCheckoutPaymentResult.NotFound;
         }
 
-        if (order.Status != OrderStatus.Pending)
+        // A bank-transfer order has nothing to find at Mercado Pago — only an admin moves it
+        // forward — so its current status is returned as-is (it is never Pending anyway).
+        if (order.PaymentMethod == PaymentMethod.BankTransfer || order.Status != OrderStatus.Pending)
         {
             return ConfirmCheckoutPaymentResult.AlreadyProcessed;
         }

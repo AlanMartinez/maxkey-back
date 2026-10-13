@@ -66,7 +66,9 @@ public sealed class OutboxProcessorTests
         var evt = await LoadEventAsync(eventId);
         Assert.Equal(OutboxEventStatus.Processed, evt.Status);
         Assert.NotNull(evt.ProcessedAt);
-        Assert.Single(handler.HandledEvents);
+        // Other tests in this shared-database collection leave due OrderApproved rows behind, so
+        // the batch may contain more than this one; assert this event was handled exactly once.
+        Assert.Single(handler.HandledEvents, handled => handled.Id == eventId);
     }
 
     private async Task RunOnceAsync(FakeOutboxHandler handler, int maxAttempts)

@@ -27,7 +27,8 @@ public static class DevDataSeeder
     {
         var seededBase = await SeedBaseAsync(db, keyCipher, cancellationToken);
         var seededManual = await SeedManualKeyLoadAsync(db, cancellationToken);
-        return seededBase || seededManual;
+        var seededTransfer = await SeedTransferAwaitingValidationAsync(db, cancellationToken);
+        return seededBase || seededManual || seededTransfer;
     }
 
     private static async Task<bool> SeedBaseAsync(AppDbContext db, KeyCipher keyCipher, CancellationToken cancellationToken)
@@ -175,6 +176,38 @@ public static class DevDataSeeder
         var now = DateTimeOffset.UtcNow;
         var order = CreatePaidOrder(db, null, buyerEmail, [Line(outOfStock, outOfStockVariant, 1)], now.AddHours(-1));
         order.MarkAwaitingFulfillment(now.AddHours(-1));
+
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// 12. Bank transfer awaiting validation: the state the admin "approve/reject transfer"
+    /// queue (<c>GET /admin/orders?status=awaiting-transfer</c>) works on. Gated on its own
+    /// buyer email, like <see cref="SeedManualKeyLoadAsync"/>, so existing dev databases pick it up.
+    /// </summary>
+    private static async Task<bool> SeedTransferAwaitingValidationAsync(AppDbContext db, CancellationToken cancellationToken)
+    {
+        const string buyerEmail = "transfer.buyer@dev.local";
+        if (await db.Orders.AnyAsync(o => o.BuyerEmail == buyerEmail, cancellationToken))
+        {
+            return false;
+        }
+
+        var fullStock = await db.Products.SingleAsync(p => p.Slug == MarkerSlug, cancellationToken);
+        var fullStockVariant = await db.ProductVariants
+            .Where(v => v.ProductId == fullStock.Id)
+            .OrderBy(v => v.SortOrder)
+            .FirstAsync(cancellationToken);
+
+        var order = Order.Create(
+            null,
+            buyerEmail,
+            [Line(fullStock, fullStockVariant, 1)],
+            DateTimeOffset.UtcNow.AddMinutes(-30),
+            PaymentMethod.BankTransfer,
+            "+54 9 11 5555-0000");
+        db.Orders.Add(order);
 
         await db.SaveChangesAsync(cancellationToken);
         return true;
