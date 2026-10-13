@@ -105,7 +105,8 @@ public sealed class DevPaymentEndpointsTests
         var body = await response.Content.ReadFromJsonAsync<CheckoutOrderResponse>();
         Assert.NotNull(body);
 
-        return (body.OrderId, body.InitPoint);
+        // A Mercado Pago (default) checkout always has an init point; only bank transfers return null.
+        return (body.OrderId, body.InitPoint!);
     }
 
     private async Task<Guid> SeedActiveVariant()

@@ -27,7 +27,9 @@ public sealed record AdminOrderDetailEvent(
 public sealed record AdminOrderDetail(
     Guid Id,
     string BuyerEmail,
+    string? BuyerPhone,
     string Status,
+    string PaymentMethod,
     decimal TotalAmount,
     string Currency,
     DateTimeOffset CreatedAt,

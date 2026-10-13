@@ -28,6 +28,7 @@ public sealed class GetOrderStatus
         return new CheckoutStatusResult(
             order.Id,
             order.Status,
+            order.PaymentMethod,
             MaskEmail(order.BuyerEmail),
             order.LastPaymentAttemptId,
             order.LastPaymentAttemptStatus,

@@ -27,13 +27,22 @@ public sealed class ListOrdersAwaitingFulfillment
             .OrderBy(o => o.PaidAt)
             .ToListAsync(cancellationToken);
 
-        return orders.Select(ToSummary).ToList();
+        return orders.Select(AdminOrderSummaryMapper.ToSummary).ToList();
     }
+}
 
-    private static AdminOrderSummary ToSummary(Order order) => new(
+/// <summary>Shared <see cref="Order"/> → <see cref="AdminOrderSummary"/> projection for every admin order queue and transfer action. Requires <c>Items.Keys</c> loaded.</summary>
+internal static class AdminOrderSummaryMapper
+{
+    public static AdminOrderSummary ToSummary(Order order) => new(
         order.Id,
         order.BuyerEmail,
+        order.BuyerPhone,
         order.Status,
+        order.PaymentMethod,
+        order.CreatedAt,
+        order.TotalAmount,
+        order.Currency,
         order.PaidAt,
         order.Items
             .Select(item => new AdminOrderItemSummary(

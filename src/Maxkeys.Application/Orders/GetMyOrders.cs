@@ -8,7 +8,9 @@ namespace Maxkeys.Application.Orders;
 /// Lists orders owned by the caller (orders-history spec: My Orders Listing).
 /// Excludes <see cref="OrderStatus.Pending"/> and <see cref="OrderStatus.Cancelled"/>
 /// orders: an order only belongs in "my purchases" once Mercado Pago has
-/// confirmed payment, not while checkout is still in flight.
+/// confirmed payment, not while checkout is still in flight. A bank-transfer order
+/// IS listed while <see cref="OrderStatus.AwaitingTransferValidation"/>: the buyer has
+/// already paid on their side and needs to see it pending validation.
 /// </summary>
 public sealed class GetMyOrders
 {

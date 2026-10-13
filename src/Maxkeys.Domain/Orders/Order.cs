@@ -20,6 +20,10 @@ public sealed class Order : Entity
     public Guid? UserId { get; private set; }
     public string BuyerEmail { get; private set; }
     public OrderStatus Status { get; private set; }
+    public PaymentMethod PaymentMethod { get; private set; }
+
+    /// <summary>Normalized contact phone (see <see cref="NormalizePhone"/>). Required for, and only stored on, <see cref="PaymentMethod.BankTransfer"/> orders.</summary>
+    public string? BuyerPhone { get; private set; }
     public decimal TotalAmount { get; private set; }
     public string Currency { get; private set; }
     public string? MpPreferenceId { get; private set; }
@@ -40,17 +44,33 @@ public sealed class Order : Entity
         Currency = null!;
     }
 
-    private Order(Guid? userId, string buyerEmail, DateTimeOffset now)
+    private Order(Guid? userId, string buyerEmail, PaymentMethod paymentMethod, string? buyerPhone, DateTimeOffset now)
     {
         UserId = userId;
         BuyerEmail = buyerEmail;
-        Status = OrderStatus.Pending;
+        PaymentMethod = paymentMethod;
+        BuyerPhone = buyerPhone;
+        // A bank-transfer order skips the Mercado Pago handoff entirely: the buyer has
+        // already been shown the account details, so it waits on an admin instead.
+        Status = paymentMethod == PaymentMethod.BankTransfer ? OrderStatus.AwaitingTransferValidation : OrderStatus.Pending;
         Currency = "ARS";
         CreatedAt = now;
         UpdatedAt = now;
     }
 
-    public static Order Create(Guid? userId, string buyerEmail, IReadOnlyCollection<OrderLine> lines, DateTimeOffset now)
+    /// <summary>
+    /// Creates a <see cref="OrderStatus.Pending"/> Mercado Pago order, or — for
+    /// <see cref="PaymentMethod.BankTransfer"/> — an <see cref="OrderStatus.AwaitingTransferValidation"/>
+    /// one, which requires a valid <paramref name="buyerPhone"/> so the operator can reach the
+    /// buyer about the transfer. <paramref name="buyerPhone"/> is ignored for Mercado Pago.
+    /// </summary>
+    public static Order Create(
+        Guid? userId,
+        string buyerEmail,
+        IReadOnlyCollection<OrderLine> lines,
+        DateTimeOffset now,
+        PaymentMethod paymentMethod = PaymentMethod.MercadoPago,
+        string? buyerPhone = null)
     {
         if (string.IsNullOrWhiteSpace(buyerEmail))
         {
@@ -81,12 +101,37 @@ public sealed class Order : Entity
             throw new DomainException("Order must not contain more than 20 items.");
         }
 
-        var order = new Order(userId, buyerEmail, now);
+        var phone = paymentMethod == PaymentMethod.BankTransfer ? NormalizePhone(buyerPhone) : null;
+
+        var order = new Order(userId, buyerEmail, paymentMethod, phone, now);
         order._items.AddRange(lines.Select(line =>
             new OrderItem(line.ProductVariantId, line.ProductNameSnapshot, line.VariantNameSnapshot, line.UnitPrice, line.Quantity)));
 
         order.TotalAmount = order._items.Sum(item => item.UnitPrice * item.Quantity);
         return order;
+    }
+
+    /// <summary>
+    /// Strips spaces, dashes and parentheses, keeps an optional leading <c>+</c>, and
+    /// requires 8–15 digits (E.164 upper bound) — e.g. <c>"+54 (11) 1234-5678"</c> →
+    /// <c>"+541112345678"</c>. Throws <see cref="DomainValidationException"/> on <c>phone</c>.
+    /// </summary>
+    public static string NormalizePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+        {
+            throw new DomainValidationException("phone", "Phone is required for bank transfer orders.");
+        }
+
+        var compact = new string(phone.Trim().Where(c => c is not (' ' or '-' or '(' or ')')).ToArray());
+        var digits = compact.StartsWith('+') ? compact[1..] : compact;
+
+        if (digits.Length is < 8 or > 15 || !digits.All(char.IsAsciiDigit))
+        {
+            throw new DomainValidationException("phone", "Phone must contain between 8 and 15 digits.");
+        }
+
+        return compact;
     }
 
     public void AttachPreference(string preferenceId)
@@ -145,6 +190,35 @@ public sealed class Order : Entity
         LastPaymentAttemptId = paymentId;
         LastPaymentAttemptStatus = "approved";
         LastPaymentAttemptAt = now;
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Admin confirmation that a bank transfer arrived — the transfer counterpart of
+    /// <see cref="MarkPaid"/>, without a Mercado Pago payment id. The caller raises the same
+    /// <c>OrderApproved</c> outbox event as the Mercado Pago path, so fulfillment continues identically.
+    /// </summary>
+    public void ApproveTransfer(DateTimeOffset now)
+    {
+        if (Status != OrderStatus.AwaitingTransferValidation)
+        {
+            throw new DomainConflictException("Cannot approve a transfer for an order that is not awaiting transfer validation.");
+        }
+
+        Status = OrderStatus.Paid;
+        PaidAt = now;
+        UpdatedAt = now;
+    }
+
+    /// <summary>Admin rejection of a bank transfer that never arrived (or did not match): the order is cancelled.</summary>
+    public void RejectTransfer(DateTimeOffset now)
+    {
+        if (Status != OrderStatus.AwaitingTransferValidation)
+        {
+            throw new DomainConflictException("Cannot reject a transfer for an order that is not awaiting transfer validation.");
+        }
+
+        Status = OrderStatus.Cancelled;
         UpdatedAt = now;
     }
 

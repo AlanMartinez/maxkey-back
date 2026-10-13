@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Maxkeys.Api.Auth;
 using Maxkeys.Application.Checkout;
 using Maxkeys.Application.Payments;
+using Microsoft.Extensions.Options;
 
 namespace Maxkeys.Api.Endpoints;
 
@@ -17,11 +18,30 @@ namespace Maxkeys.Api.Endpoints;
 /// present-but-invalid bearer with 401 instead of silently falling back to a
 /// guest order (design section 6e); a request with no header at all still
 /// proceeds as a guest.
+/// <para>
+/// <c>paymentMethod</c> is optional and defaults to <c>"mercadopago"</c>, so existing
+/// clients are unchanged; <c>"bank-transfer"</c> (with a <c>phone</c>) creates an order
+/// awaiting admin validation instead of a Mercado Pago handoff, using the account details
+/// served by <c>GET /checkout/bank-transfer</c>.
+/// </para>
 /// </summary>
 public static class CheckoutEndpoints
 {
     public static IEndpointRouteBuilder MapCheckoutEndpoints(this IEndpointRouteBuilder app)
     {
+        // Public on purpose: these are the details every bank-transfer buyer is shown. 404 while
+        // unconfigured so the frontend can hide the option instead of showing empty details.
+        app.MapGet("/checkout/bank-transfer", (IOptions<BankTransferOptions> options) =>
+        {
+            var bankTransfer = options.Value;
+            return bankTransfer.IsEnabled
+                ? Results.Ok(new BankTransferDetailsResponse(
+                    bankTransfer.Alias,
+                    bankTransfer.AccountHolder,
+                    string.IsNullOrWhiteSpace(bankTransfer.Cbu) ? null : bankTransfer.Cbu))
+                : Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Bank transfer not available");
+        });
+
         var group = app.MapGroup("/checkout/orders");
 
         group.MapPost(string.Empty, async (
@@ -34,8 +54,10 @@ public static class CheckoutEndpoints
                 .Select(item => new CreateOrderLine(item.VariantId, item.Quantity))
                 .ToList();
 
+            var paymentMethod = PaymentMethodNames.Parse(body.PaymentMethod);
+
             var result = await useCase.ExecuteAsync(
-                new CreateOrderRequest(ResolveUserId(httpContext.User, body.Email), body.Email, lines),
+                new CreateOrderRequest(ResolveUserId(httpContext.User, body.Email), body.Email, lines, paymentMethod, body.Phone),
                 cancellationToken);
 
             return Results.Created(
@@ -48,13 +70,7 @@ public static class CheckoutEndpoints
             var status = await useCase.ExecuteAsync(id, cancellationToken);
             return status is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
-                : Results.Ok(new CheckoutOrderStatusResponse(
-                    status.OrderId,
-                    status.Status.ToString(),
-                    status.LastPaymentAttemptStatus,
-                    status.BuyerEmail,
-                    status.TotalAmount,
-                    status.Currency));
+                : Results.Ok(ToStatusResponse(status));
         });
 
         group.MapPost("/{id:guid}/reconcile", async (
@@ -72,17 +88,20 @@ public static class CheckoutEndpoints
             var status = await getOrderStatus.ExecuteAsync(id, cancellationToken);
             return status is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Order not found")
-                : Results.Ok(new CheckoutOrderStatusResponse(
-                    status.OrderId,
-                    status.Status.ToString(),
-                    status.LastPaymentAttemptStatus,
-                    status.BuyerEmail,
-                    status.TotalAmount,
-                    status.Currency));
+                : Results.Ok(ToStatusResponse(status));
         });
 
         return app;
     }
+
+    private static CheckoutOrderStatusResponse ToStatusResponse(CheckoutStatusResult status) => new(
+        status.OrderId,
+        status.Status.ToString(),
+        PaymentMethodNames.ToWire(status.PaymentMethod),
+        status.LastPaymentAttemptStatus,
+        status.BuyerEmail,
+        status.TotalAmount,
+        status.Currency);
 
     /// <summary>
     /// Never binds <c>UserId</c> from the body (cart-checkout spec "Guest and
@@ -129,16 +148,26 @@ public sealed record CheckoutOrderItemRequest(Guid VariantId, int Quantity);
 /// <summary>
 /// Checkout request body (design section 7 <c>POST /checkout/orders</c>).
 /// Deliberately has no <c>UserId</c> member — see <see cref="CheckoutEndpoints"/>.
+/// <see cref="PaymentMethod"/> is <c>"mercadopago"</c> (default when omitted) or
+/// <c>"bank-transfer"</c>; <see cref="Phone"/> is required for the latter only.
 /// </summary>
-public sealed record CheckoutOrderRequestBody(string Email, IReadOnlyList<CheckoutOrderItemRequest> Items);
+public sealed record CheckoutOrderRequestBody(
+    string Email,
+    IReadOnlyList<CheckoutOrderItemRequest> Items,
+    string? PaymentMethod = null,
+    string? Phone = null);
 
-/// <summary>Durable order reference and the Mercado Pago handoff URL.</summary>
-public sealed record CheckoutOrderResponse(Guid OrderId, string InitPoint);
+/// <summary>Durable order reference and the Mercado Pago handoff URL — <see langword="null"/> for a bank-transfer order.</summary>
+public sealed record CheckoutOrderResponse(Guid OrderId, string? InitPoint);
+
+/// <summary>Bank account a bank-transfer buyer pays into (<c>GET /checkout/bank-transfer</c>).</summary>
+public sealed record BankTransferDetailsResponse(string Alias, string AccountHolder, string? Cbu);
 
 /// <summary>Privacy-safe checkout status for the result-page poller (design section 7).</summary>
 public sealed record CheckoutOrderStatusResponse(
     Guid OrderId,
     string Status,
+    string PaymentMethod,
     string? LastPaymentAttemptStatus,
     string BuyerEmailMasked,
     decimal TotalAmount,

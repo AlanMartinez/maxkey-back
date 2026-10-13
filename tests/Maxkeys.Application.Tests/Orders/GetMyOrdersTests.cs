@@ -65,6 +65,29 @@ public sealed class GetMyOrdersTests
     }
 
     [Fact]
+    public async Task GetMyOrders_includes_bank_transfer_orders_awaiting_validation()
+    {
+        var userId = Guid.NewGuid();
+
+        await using (var seedContext = _fixture.CreateContext())
+        {
+            seedContext.Orders.Add(Order.Create(
+                userId,
+                $"buyer-{Guid.NewGuid():N}@example.com",
+                [new OrderLine(Guid.NewGuid(), "Product", "Standard", 1_000m, 1)],
+                DateTimeOffset.UtcNow,
+                PaymentMethod.BankTransfer,
+                "1112345678"));
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using var context = _fixture.CreateContext();
+        var result = await new GetMyOrders(context).ExecuteAsync(userId, CallerEmail);
+
+        Assert.Equal(nameof(OrderStatus.AwaitingTransferValidation), Assert.Single(result).Status);
+    }
+
+    [Fact]
     public async Task GetMyOrders_claims_a_guest_order_matching_the_caller_email_case_insensitively()
     {
         var userId = Guid.NewGuid();

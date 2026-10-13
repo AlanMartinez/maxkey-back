@@ -7,6 +7,8 @@ namespace Maxkeys.Infrastructure.Persistence.Configurations;
 /// <summary>
 /// Design section 5: xmin concurrency token (ADR-05 UpdatedAt bump complements it),
 /// enum as text, INDEX(user_id)/(status), UNIQUE(mp_payment_id) WHERE NOT NULL.
+/// <c>payment_method</c> is text too; rows created before bank transfers existed are
+/// backfilled to <c>MercadoPago</c> by the <c>AddOrderPaymentMethod</c> migration's column default.
 /// </summary>
 public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
 {
@@ -18,6 +20,9 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.Currency).HasMaxLength(3).IsRequired();
         builder.Property(o => o.TotalAmount).HasColumnType("numeric(12,2)");
         builder.Property(o => o.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(o => o.PaymentMethod).HasConversion<string>().HasMaxLength(32);
+        // Normalized form: optional "+" and at most 15 digits (Order.NormalizePhone).
+        builder.Property(o => o.BuyerPhone).HasMaxLength(16);
         builder.Property(o => o.MpPreferenceId).HasMaxLength(100);
         builder.Property(o => o.MpPaymentId).HasMaxLength(100);
         builder.Property(o => o.LastPaymentAttemptId).HasMaxLength(100);

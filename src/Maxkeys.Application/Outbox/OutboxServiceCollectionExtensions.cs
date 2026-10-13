@@ -15,6 +15,7 @@ public static class OutboxServiceCollectionExtensions
         services.AddScoped<IOutboxHandler, OrderApprovedHandler>();
         services.AddScoped<IOutboxHandler, OrderDeliveryResendHandler>();
         services.AddScoped<IOutboxHandler, OrderDeliveredHandler>();
+        services.AddScoped<IOutboxHandler, TransferSubmittedHandler>();
 
         return services;
     }
