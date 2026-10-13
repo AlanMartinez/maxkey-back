@@ -3,9 +3,20 @@ namespace Maxkeys.Application.Buyers;
 /// <summary>One order item in the admin buyers view — exposes only key counts, never a key code (admin-buyers spec: Key Exposure in Buyer View; admin-key-delivery-gate spec: decision 3 adds RevealedKeys).</summary>
 public sealed record AdminBuyerOrderItem(string ProductName, string VariantName, int Quantity, int AssignedKeys, int RevealedKeys);
 
-/// <summary>One paid order for a buyer in the admin buyers view (admin-buyers spec: Buyer Listing Grouped By Email; design D4).</summary>
+/// <summary>
+/// One paid order — or bank transfer awaiting validation — for a buyer in the admin buyers view
+/// (admin-buyers spec: Buyer Listing Grouped By Email; design D4). <c>BuyerPhone</c> is only set for bank transfers.
+/// </summary>
 public sealed record AdminBuyerOrder(
-    Guid Id, string Status, DateTimeOffset? PaidAt, decimal TotalAmount, string Currency, IReadOnlyList<AdminBuyerOrderItem> Items);
+    Guid Id,
+    string Status,
+    DateTimeOffset? PaidAt,
+    DateTimeOffset CreatedAt,
+    string PaymentMethod,
+    string? BuyerPhone,
+    decimal TotalAmount,
+    string Currency,
+    IReadOnlyList<AdminBuyerOrderItem> Items);
 
 /// <summary>One buyer entry grouped by email, with every paid order nested underneath (admin-buyers spec: Buyer Listing Grouped By Email).</summary>
 public sealed record AdminBuyer(string Email, int OrderCount, DateTimeOffset? LastPaidAt, IReadOnlyList<AdminBuyerOrder> Orders);
