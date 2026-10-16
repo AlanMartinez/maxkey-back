@@ -99,4 +99,37 @@ public class KeyTests
         Assert.Equal(Now.AddMinutes(2), key.RevealedAt);
         Assert.Equal("first-sub", key.RevealedBy);
     }
+
+    [Fact]
+    public void Orphan_WhenAvailable_ClearsProductVariantId()
+    {
+        var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
+
+        key.Orphan();
+
+        Assert.Null(key.ProductVariantId);
+        Assert.Equal(KeyStatus.Available, key.Status);
+    }
+
+    [Fact]
+    public void Orphan_WhenAssigned_ThrowsAndKeepsProductVariantId()
+    {
+        var variantId = Guid.NewGuid();
+        var key = new Key(variantId, Code, 1, "admin@example.com", Now);
+        key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
+
+        Assert.Throws<DomainConflictException>(() => key.Orphan());
+
+        Assert.Equal(variantId, key.ProductVariantId);
+    }
+
+    [Fact]
+    public void Orphan_WhenRevealed_Throws()
+    {
+        var key = new Key(Guid.NewGuid(), Code, 1, "admin@example.com", Now);
+        key.AssignTo(Guid.NewGuid(), Now.AddMinutes(1));
+        key.Reveal(Now.AddMinutes(2), "buyer-sub");
+
+        Assert.Throws<DomainConflictException>(() => key.Orphan());
+    }
 }

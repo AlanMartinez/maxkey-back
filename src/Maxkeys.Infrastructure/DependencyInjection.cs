@@ -67,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<CreateProduct>();
         services.AddScoped<UpdateProduct>();
         services.AddScoped<DeleteProduct>();
+        services.AddScoped<PermanentlyDeleteProduct>();
         services.AddScoped<CreateProductVariant>();
         services.AddScoped<UpdateProductVariant>();
         services.AddScoped<DeleteProductVariant>();

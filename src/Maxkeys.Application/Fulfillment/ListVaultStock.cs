@@ -37,9 +37,9 @@ public sealed class ListVaultStock
         var variantIds = variants.Select(v => v.Id).ToList();
 
         var keyCounts = await _db.Keys
-            .Where(k => variantIds.Contains(k.ProductVariantId))
+            .Where(k => k.ProductVariantId != null && variantIds.Contains(k.ProductVariantId.Value))
             .GroupBy(k => new { k.ProductVariantId, k.Status })
-            .Select(g => new KeyCountRow(g.Key.ProductVariantId, g.Key.Status, g.Count()))
+            .Select(g => new KeyCountRow(g.Key.ProductVariantId!.Value, g.Key.Status, g.Count()))
             .ToListAsync(cancellationToken);
 
         var variantsByProduct = variants.GroupBy(v => v.ProductId).ToDictionary(g => g.Key, g => g.ToList());
