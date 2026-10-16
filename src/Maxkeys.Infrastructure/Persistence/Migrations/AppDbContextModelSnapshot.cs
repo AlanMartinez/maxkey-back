@@ -329,7 +329,7 @@ namespace Maxkeys.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("order_item_id");
 
-                    b.Property<Guid>("ProductVariantId")
+                    b.Property<Guid?>("ProductVariantId")
                         .HasColumnType("uuid")
                         .HasColumnName("product_variant_id");
 

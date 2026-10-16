@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Maxkeys.Api.Tests.Auth;
 using Maxkeys.Application.Catalog;
 using Maxkeys.Domain.Catalog;
@@ -14,7 +15,7 @@ namespace Maxkeys.Api.Tests.Admin;
 /// Covers the admin-catalog spec: Admin Product Listing Including Inactive,
 /// Admin Product Content Update, Admin Product Activation Toggle, Admin
 /// Product Soft-Delete, Admin Variant Creation, Admin Variant Activation
-/// Toggle, Admin Catalog Authorization.
+/// Toggle, Admin Product Permanent Delete, Admin Catalog Authorization.
 /// </summary>
 [Collection(Hs256ApiCollection.Name)]
 public sealed class AdminCatalogEndpointsTests
@@ -457,6 +458,53 @@ public sealed class AdminCatalogEndpointsTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    /// <summary>Permanent delete: unsold keys block the delete unless force=true; the 409 carries their count.</summary>
+    [Fact]
+    public async Task Permanent_delete_with_available_keys_returns_409_with_available_key_count()
+    {
+        var (productId, _) = await SeedProductWithAvailableKeyAsync();
+
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{productId}/permanent");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Product has available keys", body.RootElement.GetProperty("title").GetString());
+        Assert.Equal(1, body.RootElement.GetProperty("availableKeys").GetInt32());
+        await Seed(async db => Assert.NotNull(await db.Products.FindAsync(productId)));
+    }
+
+    [Fact]
+    public async Task Permanent_delete_with_force_removes_the_product_and_orphans_available_keys()
+    {
+        var (productId, keyId) = await SeedProductWithAvailableKeyAsync();
+
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{productId}/permanent?force=true");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        await Seed(async db =>
+        {
+            Assert.Null(await db.Products.FindAsync(productId));
+            var key = await db.Keys.FindAsync(keyId);
+            Assert.NotNull(key);
+            Assert.Null(key.ProductVariantId);
+        });
+    }
+
+    [Fact]
+    public async Task Permanent_delete_of_an_unknown_product_returns_404()
+    {
+        var response = await AdminClient().DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}/permanent");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Non_admin_sub_is_forbidden_from_permanently_deleting_product()
+    {
+        var response = await AdminClient(NonAdminSub).DeleteAsync($"/admin/catalog/products/{Guid.NewGuid()}/permanent");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     /// <summary>Admin Variant Creation — "Variant created".</summary>
     [Fact]
     public async Task Admin_can_create_a_variant_for_an_existing_product()
@@ -613,6 +661,23 @@ public sealed class AdminCatalogEndpointsTests
             id = product.Id;
         });
         return id;
+    }
+
+    private async Task<(Guid ProductId, Guid KeyId)> SeedProductWithAvailableKeyAsync()
+    {
+        (Guid ProductId, Guid KeyId) ids = default;
+        await Seed(async db =>
+        {
+            var product = new Product($"p-{Guid.NewGuid():N}", "Product", UniquePlatform());
+            db.Products.Add(product);
+            var variant = new ProductVariant(product.Id, 100m, "ARS", region: "AR", edition: "Standard");
+            db.ProductVariants.Add(variant);
+            var key = new Maxkeys.Domain.Keys.Key(variant.Id, [1, 2, 3], 1, "seed-admin", DateTimeOffset.UtcNow);
+            db.Keys.Add(key);
+            await db.SaveChangesAsync();
+            ids = (product.Id, key.Id);
+        });
+        return ids;
     }
 
     private async Task<Guid> SeedVariantAsync()

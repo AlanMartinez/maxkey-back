@@ -113,12 +113,12 @@ public sealed class AssignVaultKeysToOrder
         // makes that exclusion set unnecessary, since each key can only be dequeued once).
         var eligibleVariantIds = eligibleItems.Select(x => x.Item.ProductVariantId).Distinct().ToList();
         var availableKeys = await _db.Keys
-            .Where(k => eligibleVariantIds.Contains(k.ProductVariantId) && k.Status == KeyStatus.Available)
+            .Where(k => k.ProductVariantId != null && eligibleVariantIds.Contains(k.ProductVariantId.Value) && k.Status == KeyStatus.Available)
             .OrderBy(k => k.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var keyQueueByVariant = availableKeys
-            .GroupBy(k => k.ProductVariantId)
+            .GroupBy(k => k.ProductVariantId!.Value)
             .ToDictionary(g => g.Key, g => new Queue<Key>(g));
 
         foreach (var (item, remaining) in eligibleItems)

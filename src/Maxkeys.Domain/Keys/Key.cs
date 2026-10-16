@@ -7,11 +7,13 @@ namespace Maxkeys.Domain.Keys;
 /// (fulfillment spec: Key Encryption at Rest — this type only stores the
 /// encrypted bytes; encryption itself is an Application-layer concern).
 /// Assigned to exactly one order item via <see cref="AssignTo"/> when attached
-/// (design section 4.2 `AttachKey`).
+/// (design section 4.2 `AttachKey`). <see cref="ProductVariantId"/> is
+/// <see langword="null"/> only for an Available key orphaned by a permanent
+/// product delete (see <see cref="Orphan"/>).
 /// </summary>
 public sealed class Key : Entity
 {
-    public Guid ProductVariantId { get; private set; }
+    public Guid? ProductVariantId { get; private set; }
     public Guid? OrderItemId { get; private set; }
     public byte[] EncryptedCode { get; private set; }
     public short KeyVersion { get; private set; }
@@ -88,5 +90,21 @@ public sealed class Key : Entity
         Status = KeyStatus.Revealed;
         RevealedAt = now;
         RevealedBy = revealedBy;
+    }
+
+    /// <summary>
+    /// Detaches this key from its product variant ahead of a permanent product
+    /// delete, keeping the encrypted code row so unsold stock is not destroyed.
+    /// Valid only while Available: Assigned/Revealed keys keep their variant id
+    /// as order-history evidence.
+    /// </summary>
+    public void Orphan()
+    {
+        if (Status != KeyStatus.Available)
+        {
+            throw new DomainConflictException("Cannot orphan a key that is not available.");
+        }
+
+        ProductVariantId = null;
     }
 }

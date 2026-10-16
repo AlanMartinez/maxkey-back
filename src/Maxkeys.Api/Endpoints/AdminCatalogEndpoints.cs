@@ -11,8 +11,11 @@ namespace Maxkeys.Api.Endpoints;
 /// <c>POST /products</c> (<see cref="CreateProduct"/>) and
 /// <c>POST /products/{productId}/variants</c> (<see cref="CreateProductVariant"/>)
 /// are the admin insert paths outside <c>CatalogSeeder</c>. <c>DELETE /products/{id}</c>
-/// is a soft delete (<see cref="DeleteProduct"/>, returns the deactivated record),
-/// whereas <c>DELETE /variants/{id}</c> hard-deletes the row (<see cref="DeleteProductVariant"/>).
+/// is a soft delete (<see cref="DeleteProduct"/>, returns the deactivated record);
+/// <c>DELETE /products/{id}/permanent</c> hard-deletes the product and its dependents
+/// (<see cref="PermanentlyDeleteProduct"/>, 409 with <c>availableKeys</c> while unsold
+/// keys remain unless <c>?force=true</c>), whereas <c>DELETE /variants/{id}</c>
+/// hard-deletes the row (<see cref="DeleteProductVariant"/>).
 /// </summary>
 public static class AdminCatalogEndpoints
 {
@@ -92,6 +95,26 @@ public static class AdminCatalogEndpoints
             return product is null
                 ? Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found")
                 : Results.Ok(product);
+        });
+
+        group.MapDelete("/products/{id:guid}/permanent", async (
+            Guid id,
+            bool? force,
+            PermanentlyDeleteProduct useCase,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await useCase.ExecuteAsync(id, force ?? false, cancellationToken);
+            return result.Outcome switch
+            {
+                PermanentlyDeleteProductOutcome.NotFound =>
+                    Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Product not found"),
+                PermanentlyDeleteProductOutcome.Conflict => Results.Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Product has available keys",
+                    detail: "Retry with force=true to delete the product and orphan its available keys.",
+                    extensions: new Dictionary<string, object?> { ["availableKeys"] = result.AvailableKeyCount }),
+                _ => Results.NoContent(),
+            };
         });
 
         group.MapPost("/products/{productId:guid}/variants", async (
